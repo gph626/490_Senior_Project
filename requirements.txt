@@ -1,7 +1,7 @@
 flask
 requests
 beautifulsoup4
-scrapy
 sqlalchemy
+alembic
 pandas
 matplotlib

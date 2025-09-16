@@ -1,0 +1,8 @@
+# Pylint configuration: add repo root to sys.path to resolve local packages like `backend`
+[MASTER]
+# Compute repo root robustly: if Pylint runs from within a subdirectory, walk up to the repo root.
+init-hook='import sys, os; here = os.path.abspath(os.path.dirname(__file__)); repo_root = os.path.abspath(os.path.join(here, "..")); sys.path.insert(0, repo_root)'
+
+# Basic conventions
+good-names=i,j,ex,Run,_,id
+disable=missing-docstring,invalid-name

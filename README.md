@@ -29,6 +29,20 @@ Quick start (local, Windows PowerShell):
 	```powershell
 	python -c "import backend.app; print('backend.app import OK')"
 	python -c "import backend.database; print('backend.database import OK')"
+
+Database quick usage
+
+- Initialize DB (creates sqlite file if missing):
+
+	```powershell
+	python -c "from backend import database; database.init_db(); print('DB initialized')"
+	```
+
+- Print latest leaks (test helper):
+
+	```powershell
+	python scripts/print_leaks.py
+	```
 	```
 
 Devcontainer / Codespaces

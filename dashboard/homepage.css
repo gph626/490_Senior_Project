@@ -1,0 +1,55 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #f4f4f4;
+}
+header {
+    background: #222;
+    color: #fff;
+    padding: 20px 0;
+    text-align: center;
+}
+.logo img {
+    height: 80px;
+    width: auto;
+    margin-bottom: 10px;
+}
+.site-heading {
+    margin: 10px 0 20px 0;
+    font-size: 2.5em;
+    letter-spacing: 2px;
+}
+nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+}
+nav a {
+    color: #fff;
+    text-decoration: none;
+    font-weight: bold;
+    transition: color 0.2s;
+}
+nav a:hover {
+    color: #ff9800;
+}
+main {
+    display: flex;
+    justify-content: space-around;
+    margin: 40px 0;
+}
+section {
+    background: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    width: 28%;
+}
+section h2 {
+    margin-top: 0;
+    color: #222;
+}

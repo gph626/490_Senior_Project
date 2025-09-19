@@ -1,12 +1,12 @@
 body {
-    font-family: Arial, sans-serif;
-    background: #fff3e0;
+    font-family: Montserrat;
     margin: 0;
     padding: 0;
+    background: #3D4754;
 }
 header {
-    background: #f57c00;
-    color: #fff;
+    background: #430A0C;
+    color: #ECECEC;
     padding: 20px 0;
     text-align: center;
 }
@@ -17,7 +17,7 @@ header {
 }
 .site-heading {
     margin: 10px 0 20px 0;
-    font-size: 2.5em;
+    font-size: 64px;
     letter-spacing: 2px;
 }
 nav ul {
@@ -29,37 +29,40 @@ nav ul {
     gap: 30px;
 }
 nav a {
-    color: #fff;
+    color: #ECECEC;
     text-decoration: none;
     font-weight: bold;
     transition: color 0.2s;
 }
 nav a:hover {
-    color: #1976d2;
+    color: #A7001D;
 }
 main {
     display: flex;
-    justify-content: center;
+    justify-content: space-around;
     margin: 40px 0;
 }
 section {
-    background: #fff;
+    background: #D90429;
+    color: #ECECEC;
     padding: 30px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    width: 60%;
+    width: 28%;
 }
 section h2 {
     margin-top: 0;
-    color: #f57c00;
-}
-@media (max-width: 900px) {
-    main {
-        flex-direction: column;
-        align-items: center;
+    color: #ECECEC;
     }
-    section {
-        width: 90%;
-        margin-bottom: 20px;
-    }
+
+
+    @media (max-width: 900px) {
+        main {
+            flex-direction: column;
+            align-items: center;
+        }
+        section {
+            width: 80%;
+            margin-bottom: 20px;
+        }
 }

@@ -1,65 +1,62 @@
 # 490_Senior_Project
 
-This repository contains the starter code and environment configuration for the Dark Web Monitoring senior project.
+Lightweight README for developers — how to get the backend serving the static frontend and the basic API.
 
-Member A deliverable (Architecture & Environment)
+Prerequisites
 
-- Finalized tech stack and rationale in `TECH_STACK.md`.
-- Repo structure and minimal backend skeleton under `backend/`.
-- Development environment hints and a minimal Codespaces devcontainer in `.devcontainer/`.
-- Quick run instructions and smoke checks.
+- Python 3.11+ (use a virtual environment)
+- Install dependencies:
 
-Quick start (local, Windows PowerShell):
+```powershell
+python -m venv .venv; .\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
 
-1. Create and activate a virtual environment (Python 3.11+ recommended):
+Run the server
 
-	```powershell
-	python -m venv .venv; .\.venv\Scripts\Activate.ps1
-	pip install -r requirements.txt
-	```
+From the repository root (recommended):
 
-2. Run the backend app:
+```powershell
+python -m backend.app
+```
 
-	```powershell
-	python -m backend.app
-	```
+Or from the backend folder:
 
-3. Smoke import checks:
+```powershell
+cd backend
+python app.py
+```
 
-	```powershell
-	python -c "import backend.app; print('backend.app import OK')"
-	python -c "import backend.database; print('backend.database import OK')"
+What you can open in a browser
 
-Database quick usage
+- `http://127.0.0.1:5000/`  -> redirects to `/homepage/`
+- `http://127.0.0.1:5000/homepage/`
+- `http://127.0.0.1:5000/dashboard/`
+- `http://127.0.0.1:5000/resources/`
+- `http://127.0.0.1:5000/account/`
 
-- Initialize DB (creates sqlite file if missing):
+API (JSON)
 
-	```powershell
-	python -c "from backend import database; database.init_db(); print('DB initialized')"
-	```
+- `GET /api` - status
+- `GET /api/leaks?limit=n` - latest leaks (default 10)
+- `GET /api/resources` - static resources
+- `GET, POST /api/account` - mock account endpoint
 
-- Print latest leaks (test helper):
+Notes for developers
 
-	```powershell
-	python scripts/print_leaks.py
-	```
-	```
+- Frontend files are static HTML/CSS under `homepage/`, `dashboardpage/`, `resourcespage/`, and `accountpage/`.
+- The Flask app serves these with friendly URLs (no `.html`) and remaps asset requests so CSS/images load correctly. See `backend/app.py` if you need to change mappings.
+- Database helpers and models are in `backend/database.py`. `init_db()` will create the SQLite DB and the `leaks` table.
+- The `/api/account` endpoint is a mock; it does not persist users.
 
-Devcontainer / Codespaces
+Troubleshooting
 
-The included `.devcontainer/devcontainer.json` installs Python and runs `pip install -r requirements.txt` when the container is built. Use GitHub Codespaces or VS Code Remote - Containers to get a consistent environment.
+- If a page looks unstyled, make sure you opened the trailing-slash URL (e.g. `/dashboard/`).
+- If imports fail, confirm you ran from the repo root and installed dependencies in the active virtualenv.
 
-Repository layout
+Extras (optional improvements)
 
-- `backend/` - Flask backend and server code.
-- `dashboard/` - front-end (Node) dashboard.
-- `tests/` - unit and integration tests.
-- `.devcontainer/` - optional Codespaces/devcontainer configuration.
+- Add a `404.html` and serve it for missing routes.
+- Replace server-side remapping by changing frontend asset links to absolute paths (requires editing the HTML).
 
-Next steps for the team
-
-- Member D should add the production DB configuration and confirm schema.
-- Member B and C will add crawlers and use the DB helpers in `backend/database.py` to persist results.
-
-See `TECH_STACK.md` for the chosen technologies and rationale.
-# 490_Senior_Project
+If you want this README shortened further or expanded with contributor instructions, tell me what to include.

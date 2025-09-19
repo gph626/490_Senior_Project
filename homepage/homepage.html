@@ -6,7 +6,7 @@
     <meta name="description" content="Homepage with dashboard, resources, and account management for users.">
     <meta name="keywords" content="homepage, dashboard, resources, account, user, web">
     <title>Homepage</title>
-    <link rel="stylesheet" href="homepage.css">
+    <link rel="stylesheet" href="/dashboard/base.css">
 </head>
 <body>
     <header>
@@ -14,26 +14,25 @@
             <!-- Replace src with your logo file -->
             <img src="logo.png" alt="Site Logo" height="80" width="80" onerror="this.onerror=null;this.src='https://via.placeholder.com/80x80?text=Logo';">
         </div>
-        <h1 class="site-heading">Site Name</h1>
-        <nav>
-            <ul>
-                <li><a href="/dashboardpage/dashboard.html">Dashboard</a></li>
-                <li><a href="/resourcespage/resources.html">Resources</a></li>
-                <li><a href="/accountpage/account.html">Account</a></li>
-            </ul>
-        </nav>
+        <h1 class="site-heading">DarkWidow</h1>
     </header>
     <main>
         <section id="dashboard">
-            <h2>Dashboard</h2>
+            <h2>
+                <nav>
+                    <ul>
+                        <a href="/dashboardpage/dashboard.html">Dashboard</a>
+                    </ul>
+                </nav>
+            </h2>
             <p>Overview and quick stats for your account.</p>
         </section>
         <section id="resources">
-            <h2>Resources</h2>
+            <h2><nav><ul><a href="/resourcespage/resources.html">Resources</a></ul></nav></h2>
             <p>Links and materials to help you get started.</p>
         </section>
         <section id="account">
-            <h2>Account</h2>
+            <h2><nav><ul><a href="/accountpage/account.html">Account</a></ul></nav></h2>
             <p>Manage your profile and settings here.</p>
         </section>
     </main>

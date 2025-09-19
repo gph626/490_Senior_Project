@@ -5,3 +5,5 @@ sqlalchemy
 alembic
 pandas
 matplotlib
+requests[socks]
+stem

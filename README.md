@@ -59,4 +59,51 @@ Extras (optional improvements)
 - Add a `404.html` and serve it for missing routes.
 - Replace server-side remapping by changing frontend asset links to absolute paths (requires editing the HTML).
 
+
+Dark Web Crawler (Tor/I2P Skeleton)
+    The crawler is designed with modular support for multiple anonymity networks. Currently Tor is implemented via SOCKS5 on 9150/9050. A placeholder for I2P (fetch_i2p) has been included, which would use the I2P proxy port (127.0.0.1:4444). This allows future extension without major refactoring.
+
+    **Setup**
+    1. Install dependencies:
+        pip install requests beautifulsoup4 pysocks
+    2. Ensure you have SQLite (Python has it built-in).
+    3. (Tor mode only) Run Tor Browser in the background. By default, it provides a SOCKS5 proxy on 127.0.0.1:9150.
+
+    **Running the Crawler**
+    Demo Mode (no Tor required)
+    Fetches from a clearnet site (example.com) to prove functionality.
+        USE_TOR = False
+    Run:
+        python backend/crawler/tor_crawler.py
+    Expected:
+        Fetched title: Example Domain
+        Saved page to DB.
+
+    Tor Mode
+    Fetches from a known .onion site (Tor Project).
+        USE_TOR = True
+    Run:
+        python backend/crawler/tor_crawler.py
+    Expected (if Tor is running and .onion resolution works):
+        Fetched title: Tor Project: Anonymity Online
+        Saved page to DB.
+
+    **Checking Results**
+    Use the helper script to see what’s inside your DB:
+        python check_db.py
+    Example output:
+        Tables in DB: [('leaks',)]
+        --- Leaks Table Content ---
+        (1, 'Tor', 'Tor Project: Anonymity Online - http://...onion')
+        (2, 'Demo', 'Example Domain - https://example.com')
+
+    **Future Work: I2P**
+        A function stub (fetch_i2p) has been added for future I2P support.
+        I2P typically runs a proxy on 127.0.0.1:4444. Extending the crawler would involve reusing the same logic as fetch_and_store, but swapping out the proxy.
+
+
+
+
+
+
 If you want this README shortened further or expanded with contributor instructions, tell me what to include.

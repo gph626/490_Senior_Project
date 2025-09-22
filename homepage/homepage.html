@@ -11,30 +11,62 @@
 <body>
     <header>
         <div class="logo">
-            <!-- Replace src with your logo file -->
             <img src="logo.png" alt="Site Logo" height="80" width="80" onerror="this.onerror=null;this.src='https://via.placeholder.com/80x80?text=Logo';">
         </div>
         <h1 class="site-heading">DarkWidow</h1>
     </header>
-    <main>
-        <section id="dashboard">
-            <h2>
-                <nav>
-                    <ul>
-                        <a href="/dashboardpage/dashboard.html">Dashboard</a>
-                    </ul>
-                </nav>
-            </h2>
-            <p>Overview and quick stats for your account.</p>
-        </section>
-        <section id="resources">
-            <h2><nav><ul><a href="/resourcespage/resources.html">Resources</a></ul></nav></h2>
-            <p>Links and materials to help you get started.</p>
-        </section>
-        <section id="account">
-            <h2><nav><ul><a href="/accountpage/account.html">Account</a></ul></nav></h2>
-            <p>Manage your profile and settings here.</p>
-        </section>
-    </main>
+    <div class="container">
+        <aside class="sidebar">
+            <nav>
+                <ul>
+                    <li><a href="/dashboardpage/dashboard.html">Dashboard</a></li>
+                    <li><a href="/resourcespage/resources.html">Resources</a></li>
+                    <li><a href="/accountpage/account.html">Account</a></li>
+                </ul>
+            </nav>
+        </aside>
+        <main>
+            <section id="dashboard" class="dropdown-section">
+                <button class="dropdown-toggle" onclick="toggleSection('dashboard-content', this)">Dashboard <span class="arrow">▼</span></button>
+                <div id="dashboard-content" class="dropdown-content">
+                    <p>Overview and quick stats for your account.</p>
+                </div>
+            </section>
+            <section id="resources" class="dropdown-section">
+                <button class="dropdown-toggle" onclick="toggleSection('resources-content', this)">Resources <span class="arrow">▼</span></button>
+                <div id="resources-content" class="dropdown-content">
+                    <p>Links and materials to help you get started.</p>
+                </div>
+            </section>
+            <section id="account" class="dropdown-section">
+                <button class="dropdown-toggle" onclick="toggleSection('account-content', this)">Account <span class="arrow">▼</span></button>
+                <div id="account-content" class="dropdown-content">
+                    <p>Manage your profile and settings here.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script>
+    function toggleSection(id, btn) {
+        const content = document.getElementById(id);
+        const arrow = btn.querySelector('.arrow');
+        if (content.classList.contains('active')) {
+            content.classList.remove('active');
+            if (arrow) arrow.textContent = '▼';
+        } else {
+            content.classList.add('active');
+            if (arrow) arrow.textContent = '▲';
+        }
+    }
+    // Initialize all dropdowns as hidden
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.dropdown-content').forEach(function(el) {
+            el.classList.remove('active');
+        });
+        document.querySelectorAll('.dropdown-toggle .arrow').forEach(function(arrow) {
+            arrow.textContent = '▼';
+        });
+    });
+    </script>
 </body>
 </html>

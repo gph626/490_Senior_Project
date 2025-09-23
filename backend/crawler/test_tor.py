@@ -1,21 +1,15 @@
 import requests
-from config import TOR_PROXY, TEST_ONION
 
-def test_connection():
-    session = requests.Session()
-    session.proxies.update(TOR_PROXY)
+# Configure Tor SOCKS proxy
+proxies = {
+    "http": "socks5h://127.0.0.1:9050",
+    "https": "socks5h://127.0.0.1:9050"
+}
 
-    try:
-        response = session.get(TEST_ONION, timeout=120)
-        print("Status Code:", response.status_code)
-
-        if "<title>" in response.text:
-            title = response.text.split("<title>")[1].split("</title>")[0]
-            print("Page Title:", title)
-        else:
-            print("No <title> found in response.")
-    except Exception as e:
-        print("Error:", e)
+def fetch(url):
+    r = requests.get(url, proxies=proxies, timeout=30)
+    return r.status_code, r.text[:500]  # return status + first 500 chars
 
 if __name__ == "__main__":
-    test_connection()
+    print(fetch("http://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion"))
+

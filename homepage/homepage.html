@@ -26,47 +26,28 @@
             </nav>
         </aside>
         <main>
-            <section id="dashboard" class="dropdown-section">
-                <button class="dropdown-toggle" onclick="toggleSection('dashboard-content', this)">Dashboard <span class="arrow">▼</span></button>
-                <div id="dashboard-content" class="dropdown-content">
+            <section id="dashboard-section">
+                <h2>Dashboard</h2>
+                <section class="dashboard-item">
                     <p>Overview and quick stats for your account.</p>
-                </div>
+                </section>
             </section>
-            <section id="resources" class="dropdown-section">
-                <button class="dropdown-toggle" onclick="toggleSection('resources-content', this)">Resources <span class="arrow">▼</span></button>
-                <div id="resources-content" class="dropdown-content">
+            <section id="resources-section">
+                <h2>Resources</h2>
+                <section class="resource-item">
                     <p>Links and materials to help you get started.</p>
-                </div>
+                </section>
             </section>
-            <section id="account" class="dropdown-section">
-                <button class="dropdown-toggle" onclick="toggleSection('account-content', this)">Account <span class="arrow">▼</span></button>
-                <div id="account-content" class="dropdown-content">
+            <section id="account-section">
+                <h2>Account</h2>
+                <section class="account-item">
                     <p>Manage your profile and settings here.</p>
-                </div>
+                </section>
             </section>
         </main>
     </div>
     <script>
-    function toggleSection(id, btn) {
-        const content = document.getElementById(id);
-        const arrow = btn.querySelector('.arrow');
-        if (content.classList.contains('active')) {
-            content.classList.remove('active');
-            if (arrow) arrow.textContent = '▼';
-        } else {
-            content.classList.add('active');
-            if (arrow) arrow.textContent = '▲';
-        }
-    }
-    // Initialize all dropdowns as hidden
-    document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('.dropdown-content').forEach(function(el) {
-            el.classList.remove('active');
-        });
-        document.querySelectorAll('.dropdown-toggle .arrow').forEach(function(arrow) {
-            arrow.textContent = '▼';
-        });
-    });
+    // No dropdown JS needed
     </script>
 </body>
 </html>

@@ -98,57 +98,53 @@ main {
     margin: 40px 0;
 }
 section {
-    background: transparent;
-    color: #ECECEC;
-    padding: 0;
-    border-radius: 8px;
-    box-shadow: none;
-    width: 28%;
-    position: relative;
-    margin-bottom: 20px;
-}
-
-.dropdown-toggle {
-    background: #D90429;
-    color: #ECECEC;
-    border: none;
-    padding: 10px 20px;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-    font-size: 1.2em;
-    font-weight: bold;
-    cursor: pointer;
-    width: 100%;
-    margin-bottom: 0;
-    transition: background 0.2s;
-    position: relative;
-    z-index: 2;
-}
-.dropdown-toggle:hover {
-    background: #A7001D;
-}
-.dropdown-content {
-    display: none;
     background: #23272F;
     color: #ECECEC;
-    padding: 24px 20px 20px 20px;
-    border-bottom-left-radius: 8px;
-    border-bottom-right-radius: 8px;
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-    margin-top: 0;
-    transition: background 0.3s, max-height 0.3s ease;
+    padding: 32px 28px 24px 28px;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+    width: auto;
+    max-width: 600px;
+    min-width: 220px;
     position: relative;
-    z-index: 1;
+    margin-bottom: 32px;
+    transition: box-shadow 0.2s;
+    margin-left: auto;
+    margin-right: auto;
 }
-.dropdown-content.active {
-    display: block;
-    background: #A7001D;
+section:hover {
+    box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+}
+section > h2, section > h3 {
+    color: #00bfff;
+    margin-top: 0;
+    margin-bottom: 18px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+section > a.report-link {
+    margin-top: 10px;
+}
+section.resource-item,
+section.account-item,
+section.dashboard-item,
+section.alerts-table-section,
+section.risk-table-section,
+section.report-section {
+    background: #181B20;
     color: #ECECEC;
+    box-shadow: none;
+    padding: 18px 18px 12px 18px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    width: auto;
+    max-width: 540px;
+    min-width: 180px;
+    margin-left: auto;
+    margin-right: auto;
 }
+
+
 
 
 @media (max-width: 900px) {

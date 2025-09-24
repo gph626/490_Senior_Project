@@ -58,6 +58,7 @@ main {
     display: flex;
     justify-content: space-around;
     margin: 40px 0;
+    align-items: flex-start; /* Add this line */
 }
 header {
     background: #430A0C;
@@ -111,12 +112,15 @@ section {
     transition: box-shadow 0.2s;
     margin-left: auto;
     margin-right: auto;
+    height: auto;      
+    min-height: 0;
+    max-height: none; 
 }
 section:hover {
     box-shadow: 0 4px 24px rgba(0,0,0,0.18);
 }
 section > h2, section > h3 {
-    color: #00bfff;
+    color: #ffffff;
     margin-top: 0;
     margin-bottom: 18px;
     font-weight: 700;

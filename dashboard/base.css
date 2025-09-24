@@ -1,3 +1,35 @@
+/* Dashboard 3-column layout */
+
+/* Use CSS grid for true 3-column layout */
+.dashboard-columns {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+    margin-top: 32px;
+    width: 100%;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.dashboard-columns > section {
+    min-width: 0;
+    max-width: 100%;
+    margin-bottom: 0;
+}
+
+@media (max-width: 1200px) {
+    .dashboard-columns {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 24px;
+    }
+}
+@media (max-width: 900px) {
+    .dashboard-columns {
+        grid-template-columns: 1fr;
+        gap: 20px;
+        margin-top: 16px;
+    }
+}
 .arrow {
     margin-left: 8px;
     font-size: 1em;
@@ -132,6 +164,9 @@ section > a.report-link {
 section.resource-item,
 section.account-item,
 section.dashboard-item,
+section.alerts-item,
+section.risk-analysis-item,
+section.reports-item,
 section.alerts-table-section,
 section.risk-table-section,
 section.report-section {
@@ -146,6 +181,11 @@ section.report-section {
     min-width: 180px;
     margin-left: auto;
     margin-right: auto;
+}
+
+/* Add spacing between stacked dashboard sections */
+#dashboard-section, #alerts-section, #risk-analysis-section, #reports-section {
+    margin-bottom: 36px;
 }
 
 

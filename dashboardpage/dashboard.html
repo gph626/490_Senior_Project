@@ -27,16 +27,46 @@
             <nav>
                 <ul>
                     <li><a href="/homepage/homepage.html">Home</a></li>
+                    <li><a href="/dashboardpage/dashboard.html">Dashboard</a></li>
                     <li><a href="/resourcespage/resources.html">Resources</a></li>
                     <li><a href="/accountpage/account.html">Account</a></li>
                 </ul>
             </nav>
         </aside>
         <main>
-            <section id="dashboard">
-                <h2>Dashboard</h2>
-                <p>Overview and quick stats for your account.</p>
-            </section>
+            <div class="dashboard-columns">
+                <div class="dashboard-col">
+                    <section id="dashboard-section">
+                        <h2>Dashboard</h2>
+                        <section class="dashboard-item">
+                            <p>Overview and quick stats for your account.</p>
+                        </section>
+                    </section>
+
+                    <section id="alerts-section">
+                        <h2>Alerts</h2>
+                        <section class="alerts-item">
+                            <p>Alerts notify you of important security events detected by the system, such as data leaks, suspicious activity, or phishing attempts. Each alert is categorized by severity to help you prioritize your response.</p>
+                        </section>
+                    </section>
+                </div>
+                <div class="dashboard-col">
+                    <section id="risk-analysis-section">
+                        <h2>Risk Analysis</h2>
+                        <section class="risk-analysis-item">
+                            <p>Risk Analysis provides an assessment of your organization's assets, highlighting potential vulnerabilities and their associated risk levels. This helps you understand and address areas that may require additional security measures.</p>
+                        </section>
+                    </section>
+                </div>
+                <div class="dashboard-col">
+                   <section id="reports-section">
+                        <h2>Reports</h2>
+                        <section class="reports-item">
+                            <p>Reports offer detailed summaries and historical data on security incidents, alerts, and risk assessments. Use reports to track trends, review past events, and support compliance or audit requirements.</p>
+                        </section>
+                    </section>
+                </div>
+            </div>
         </main>
     </div>
     <script>

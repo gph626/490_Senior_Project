@@ -24,6 +24,9 @@ ALIASES = {
     'dashboard': 'dashboardpage/dashboard.html',
     'resources': 'resourcespage/resources.html',
     'account': 'accountpage/account.html',
+    'alerts': 'dashboardpage/alerts.html',
+    'risk_analysis': 'dashboardpage/risk_analysis.html',
+    'reports': 'dashboardpage/reports.html',
 }
 
 
@@ -103,6 +106,39 @@ def account_noext():
 def account():
     return send_from_directory(os.path.join(PROJECT_ROOT, 'accountpage'), 'account.html')
 
+# Alerts page routes
+@app.route('/alerts')
+def alerts_noext():
+    return redirect('/alerts/')
+
+
+@app.route('/alerts/')
+def alerts():
+    return send_from_directory(os.path.join(PROJECT_ROOT, 'dashboardpage'), 'alerts.html')
+
+
+# Risk Analysis page routes
+@app.route('/risk_analysis')
+def risk_analysis_noext():
+    return redirect('/risk_analysis/')
+
+
+@app.route('/risk_analysis/')
+def risk_analysis():
+    return send_from_directory(os.path.join(PROJECT_ROOT, 'dashboardpage'), 'risk_analysis.html')
+
+
+# Reports page routes
+@app.route('/reports')
+def reports_noext():
+    return redirect('/reports/')
+
+
+@app.route('/reports/')
+def reports():
+    return send_from_directory(os.path.join(PROJECT_ROOT, 'dashboardpage'), 'reports.html')
+
+
 # Handle directory-style requests with trailing slash, serving the page file inside the folder
 @app.route('/<page>/')
 def serve_page_dir(page: str):
@@ -111,6 +147,9 @@ def serve_page_dir(page: str):
         'dashboard': 'dashboardpage/dashboard.html',
         'resources': 'resourcespage/resources.html',
         'account': 'accountpage/account.html',
+        'alerts': 'dashboardpage/alerts.html',
+        'risk_analysis': 'dashboardpage/risk_analysis.html',
+        'reports': 'dashboardpage/reports.html',
         'index': 'homepage/homepage.html'
     }
 

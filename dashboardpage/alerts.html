@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Alerts for dark web monitoring dashboard.">
+    <meta name="keywords" content="alerts, dashboard, security, dark web">
+    <title>Alerts</title>
+    <link rel="stylesheet" href="/dashboard/base.css">
+    <style>
+        .alert-high { color: #e74c3c; font-weight: bold; }
+        .alert-medium { color: #f39c12; font-weight: bold; }
+        .alert-low { color: #27ae60; font-weight: bold; }
+        .container {
+            display: flex;
+            flex-direction: row;
+            min-height: 100vh;
+            width: 100vw;
+        }
+        .sidebar {
+            min-width: 220px;
+        }
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            width: 100%;
+            padding-top: 0;
+        }
+        #alerts {
+            width: 100%;
+            margin-bottom: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+        }
+        th, td {
+            padding: 12px 8px;
+            border-bottom: 1px solid #e0e0e0;
+            text-align: left;
+        }
+        th {
+            background: #000000;
+        }
+        th, td {
+            width: 25%;
+        }
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+            }
+            main, #alerts {
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-flex">
+            <div class="logo">
+                <img src="../dashboard/logo.png" alt="Site Logo" height="80" width="80" onerror="this.onerror=null;this.src='https://via.placeholder.com/80x80?text=Logo';">
+            </div>
+
+            <h1 class="site-heading">Alerts</h1>
+        </div>
+    </header>
+    <div class="container">
+        <aside class="sidebar">
+            <nav>
+                <ul>
+                    <li><a href="/homepage/homepage.html">Home</a></li>
+                    <li><a href="/dashboardpage/dashboard.html">Dashboard</a></li>
+                    <li><a href="/resourcespage/resources.html">Resources</a></li>
+                    <li><a href="/accountpage/account.html">Account</a></li>
+                </ul>
+            </nav>
+        </aside>
+        <main>
+            <section id="alerts">
+                <h2>Alerts</h2>
+                <section class="alerts-table-section">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Severity</th>
+                                <th>Time</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="alert-high">High</td>
+                                <td>09/23/2025 10:15</td>
+                                <td>Data Leak</td>
+                                <td>Potential credential leak detected on Pastebin.</td>
+                            </tr>
+                            <tr>
+                                <td class="alert-medium">Medium</td>
+                                <td>09/22/2025 18:40</td>
+                                <td>Suspicious Activity</td>
+                                <td>Unusual login attempt from TOR network.</td>
+                            </tr>
+                            <tr>
+                                <td class="alert-low">Low</td>
+                                <td>09/21/2025 09:05</td>
+                                <td>Phishing</td>
+                                <td>Phishing link detected in employee email.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

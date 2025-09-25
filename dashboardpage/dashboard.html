@@ -10,17 +10,12 @@
 </head>
 <body>
     <header>
-        <div class="logo">
-            <img src="logo.png" alt="Site Logo" height="80" width="80" onerror="this.onerror=null;this.src='https://via.placeholder.com/80x80?text=Logo';">
+        <div class="header-flex">
+            <div class="logo">
+            <img src="../dashboard/logo.png" alt="Site Logo" height="80" width="80" onerror="this.onerror=null;this.src='https://via.placeholder.com/80x80?text=Logo';">
+            </div>
+            <h1 class="site-heading">Dashboard</h1>
         </div>
-    <h1 class="site-heading">Dashboard</h1>
-        <nav class="dashboard-header-nav">
-            <ul style="display: flex; gap: 1.5em; list-style: none; margin: 0; padding: 0; justify-content: center; align-items: center;">
-                <li><a href="/alerts/">Alerts</a></li>
-                <li><a href="/risk_analysis/">Risk Analysis</a></li>
-                <li><a href="/reports/">Reports</a></li>
-            </ul>
-        </nav>
     </header>
     <div class="container">
         <aside class="sidebar">
@@ -36,31 +31,31 @@
         <main>
             <div class="columns">
                 <div class="col">
-                    <section id="dashboard-section">
-                        <h2>Dashboard</h2>
+                        <section id="dashboard-section">
+                            <h2><a href="/dashboard/" style="text-decoration:none;color:inherit;">Dashboard</a></h2>
                         <section class="dashboard-item">
                             <p>Overview and quick stats for your account.</p>
                         </section>
                     </section>
 
                     <section id="alerts-section">
-                        <h2>Alerts</h2>
+                        <h2><a href="/alerts/" style="text-decoration:none;color:inherit;">Alerts</a></h2>
                         <section class="alerts-item">
                             <p>Alerts notify you of important security events detected by the system, such as data leaks, suspicious activity, or phishing attempts. Each alert is categorized by severity to help you prioritize your response.</p>
                         </section>
                     </section>
                 </div>
                 <div class="col">
-                    <section id="risk-analysis-section">
-                        <h2>Risk Analysis</h2>
+                        <section id="risk-analysis-section">
+                            <h2><a href="/risk_analysis/" style="text-decoration:none;color:inherit;">Risk Analysis</a></h2>
                         <section class="risk-analysis-item">
                             <p>Risk Analysis provides an assessment of your organization's assets, highlighting potential vulnerabilities and their associated risk levels. This helps you understand and address areas that may require additional security measures.</p>
                         </section>
                     </section>
                 </div>
                 <div class="col">
-                   <section id="reports-section">
-                        <h2>Reports</h2>
+                    <section id="reports-section">
+                        <h2><a href="/reports/" style="text-decoration:none;color:inherit;">Reports</a></h2>
                         <section class="reports-item">
                             <p>Reports offer detailed summaries and historical data on security incidents, alerts, and risk assessments. Use reports to track trends, review past events, and support compliance or audit requirements.</p>
                         </section>

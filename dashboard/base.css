@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css?family=Montserrat:400,700&display=swap');
+
 .columns {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -8,6 +10,7 @@
     margin-left: auto;
     margin-right: auto;
 }
+
 .columns > section {
     min-width: 0;
     max-width: 100%;
@@ -20,6 +23,7 @@
         gap: 24px;
     }
 }
+
 @media (max-width: 900px) {
     .columns {
         grid-template-columns: 1fr;
@@ -27,11 +31,13 @@
         margin-top: 16px;
     }
 }
+
 .arrow {
     margin-left: 8px;
     font-size: 1em;
     transition: transform 0.2s;
 }
+
 body {
     font-family: Montserrat;
     margin: 0;
@@ -55,6 +61,7 @@ body {
     flex-direction: column;
     align-items: center;
 }
+
 .sidebar nav ul {
     list-style: none;
     padding: 0;
@@ -64,9 +71,11 @@ body {
     gap: 30px;
     width: 100%;
 }
+
 .sidebar nav ul li {
     width: 100%;
 }
+
 .sidebar nav a {
     color: #ECECEC;
     text-decoration: none;
@@ -77,6 +86,7 @@ body {
     border-radius: 6px;
     transition: background 0.2s;
 }
+
 .sidebar nav a:hover {
     background: #A7001D;
     color: #ECECEC;
@@ -89,22 +99,33 @@ main {
     margin: 40px 0;
     align-items: flex-start;
 }
+
 header {
-    background: #430A0C;
+    background: #A7001D;
     color: #ECECEC;
-    padding: 20px 0;
+    padding: 1px 0;
     text-align: center;
 }
+
+.header-flex {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 4px;
+}
+
 .logo img {
     height: 80px;
     width: auto;
     margin-bottom: 10px;
 }
 .site-heading {
-    margin: 10px 0 20px 0;
-    font-size: 64px;
-    letter-spacing: 2px;
+    margin: 0 0 0 0;
+    font-size: 36px;
+    letter-spacing: 1px;
 }
+
 nav ul {
     list-style: none;
     padding: 0;
@@ -113,20 +134,24 @@ nav ul {
     justify-content: center;
     gap: 30px;
 }
+
 nav a {
     color: #ECECEC;
     text-decoration: none;
     font-weight: bold;
     transition: color 0.2s;
 }
+
 nav a:hover {
     color: #A7001D;
 }
+
 main {
     display: flex;
     justify-content: space-around;
     margin: 40px 0;
 }
+
 section {
     background: #23272F;
     color: #ECECEC;
@@ -145,9 +170,11 @@ section {
     min-height: 0;
     max-height: none; 
 }
+
 section:hover {
     box-shadow: 0 4px 24px rgba(0,0,0,0.18);
 }
+
 section > h2, section > h3 {
     color: #ffffff;
     margin-top: 0;
@@ -155,9 +182,11 @@ section > h2, section > h3 {
     font-weight: 700;
     letter-spacing: 1px;
 }
+
 section > a.report-link {
     margin-top: 10px;
 }
+
 section.resource-item,
 section.account-item,
 section.dashboard-item,
@@ -183,9 +212,6 @@ section.report-section {
 #dashboard-section, #alerts-section, #risk-analysis-section, #reports-section {
     margin-bottom: 36px;
 }
-
-
-
 
 @media (max-width: 900px) {
     .container {

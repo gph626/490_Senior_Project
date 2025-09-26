@@ -8,6 +8,13 @@ Prerequisites
 - Install dependencies:
 
 ```powershell
+# Create and activate the recommended virtualenv (run from repo root)
+.
+# Option 1: run the helper script (recommended)
+.
+powershell -ExecutionPolicy Bypass -File .\scripts\setup_venv.ps1
+
+# Option 2: manual
 python -m venv .venv; .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
@@ -17,14 +24,14 @@ Run the server
 From the repository root (recommended):
 
 ```powershell
-python -m backend.app
+# After you activate the `.venv` you can start the app with:
+python app.py
 ```
 
-Or from the backend folder:
+Or run the module directly:
 
 ```powershell
-cd backend
-python app.py
+python -m backend.app
 ```
 
 What you can open in a browser

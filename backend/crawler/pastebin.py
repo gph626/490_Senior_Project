@@ -1,8 +1,9 @@
 import requests
 from bs4 import BeautifulSoup
-import sys
-sys.path.append("backend")
-from database import insert_leak
+from backend.database import insert_leak, init_db
+
+# Ensure DB and tables exist (consistent with other crawlers)
+init_db()
 
 def fetch_and_store():
     url = "https://pastebin.com/archive"

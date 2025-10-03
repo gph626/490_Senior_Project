@@ -1,5 +1,8 @@
 import os
 from flask import Flask, jsonify, request, send_from_directory, abort, redirect
+import socket
+import re
+import hashlib
 
 # Import the database helpers in a way that works when running from the repo root
 # (python -m backend.app) or when running directly from backend/ (python app.py).
@@ -7,12 +10,20 @@ try:
     # Preferred: running as a package from repo root
     from backend.database import get_latest_leaks, leak_to_dict, insert_leak_with_dedupe
     from backend.crawler.pastebin import fetch_and_store as pastebin_fetch
+    from backend.crawler.tor_crawler import fetch_and_store as tor_fetch
+    import backend.crawler.tor_crawler as tor_module
+    from backend.crawler.i2p_crawler import fetch_and_store as i2p_fetch
+    import backend.crawler.i2p_crawler as i2p_module
     from backend.assets_db import list_assets, upsert_asset, delete_asset
     from backend.severity import compute_severity_from_entities
 except ImportError:
     # Fallback: running directly in the backend/ directory
     from database import get_latest_leaks, leak_to_dict, insert_leak_with_dedupe
     from crawler.pastebin import fetch_and_store as pastebin_fetch
+    from crawler.tor_crawler import fetch_and_store as tor_fetch
+    import crawler.tor_crawler as tor_module
+    from crawler.i2p_crawler import fetch_and_store as i2p_fetch
+    import crawler.i2p_crawler as i2p_module
     from assets_db import list_assets, upsert_asset, delete_asset
     from severity import compute_severity_from_entities
 
@@ -246,6 +257,123 @@ def api_run_pastebin():
     except RuntimeError as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     return jsonify({"status": "ok", "inserted": inserted}), 200
+
+# Trigger Tor crawler from the web app
+@app.route("/api/crawlers/tor/run", methods=["POST"])
+def api_run_tor():
+    # Only allow a known-safe .onion endpoint; no arbitrary URL from client
+    SAFE_ONION = "http://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion"
+    body = request.get_json(silent=True) or {}
+    retries = int(body.get('retries', 3) or 3)
+    delay = int(body.get('delay', 10) or 10)
+    # Default to Tor Browser's 9150 unless overridden
+    port = body.get('port') or 9150
+    try:
+        tor_module.TOR_PORT = str(port)
+        tor_module.TOR_PROXY = {
+            "http": f"socks5h://127.0.0.1:{tor_module.TOR_PORT}",
+            "https": f"socks5h://127.0.0.1:{tor_module.TOR_PORT}",
+        }
+        ok = tor_fetch(SAFE_ONION, retries=retries, delay=delay)
+    except (TypeError, ValueError, RuntimeError) as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    return jsonify({"status": "ok", "fetched": bool(ok), "url": SAFE_ONION, "port": int(port)}), 200
+
+# ---- Proxy health checks ----
+def _tcp_check(host: str, port: int, timeout: float = 1.0) -> bool:
+    try:
+        with socket.create_connection((host, int(port)), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+@app.route("/api/proxy/tor/health", methods=["GET"])
+def api_tor_health():
+    # Default 9150; allow override via query
+    port = int(request.args.get('port', 9150))
+    ok = _tcp_check('127.0.0.1', port)
+    return jsonify({"ok": ok, "port": port}), (200 if ok else 503)
+
+@app.route("/api/proxy/i2p/health", methods=["GET"])
+def api_i2p_health():
+    # Default 4444; allow override via query
+    port = int(request.args.get('port', 4444))
+    ok = _tcp_check('127.0.0.1', port)
+    return jsonify({"ok": ok, "port": port}), (200 if ok else 503)
+
+# Trigger I2P crawler from the web app
+@app.route("/api/crawlers/i2p/run", methods=["POST"])
+def api_run_i2p():
+    if not request.is_json:
+        return jsonify({"status": "error", "message": "JSON body required"}), 400
+    body = request.get_json(silent=True) or {}
+    url = (body.get('url') or '').strip()
+    retries = int(body.get('retries', 3) or 3)
+    delay = int(body.get('delay', 10) or 10)
+    mock_flag = bool(body.get('mock'))
+    # Optional override of I2P HTTP proxy port for this process
+    port = int(body.get('port', 4444) or 4444)
+
+    # If mock explicitly requested or proxy not reachable, insert a mock leak
+    def insert_mock_leak():
+        sample_title = "I2P mock leak"
+        sample_content = (
+            "This is a mock I2P leak inserted because no I2P router proxy was available. "
+            "Contact: security@example.com. Domain: example.com. IP: 203.0.113.5. "
+            "BTC: bc1qexampleexampleexampleexamplex0j2z."
+        )
+        # Simple entity extraction
+        email_re = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+        domain_re = re.compile(r"\b(?:(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)\.)+[a-z]{2,}\b", re.I)
+        ipv4_re = re.compile(r"\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:\.|$)){4}\b")
+        btc_re = re.compile(r"\b(?:bc1|[13])[a-zA-HJ-NP-Z0-9]{25,39}\b")
+        emails = sorted(set(email_re.findall(sample_content)))
+        domains = sorted(set(domain_re.findall(sample_content)))
+        ips = sorted(set(ipv4_re.findall(sample_content)))
+        btcs = sorted(set(btc_re.findall(sample_content)))
+        entities = {
+            "emails": emails,
+            "domains": [d.lower() for d in domains],
+            "ips": ips,
+            "btc_wallets": btcs,
+        }
+        try:
+            sev = compute_severity_from_entities(entities)
+        except (TypeError, ValueError, KeyError):
+            sev = None
+        content_hash = "sha256:" + hashlib.sha256(sample_content.encode("utf-8", errors="ignore")).hexdigest()
+        leak_id, is_dup = insert_leak_with_dedupe(
+            source="I2P (mock)",
+            url=url or "mock://i2p",
+            title=sample_title,
+            content=sample_content,
+            content_hash=content_hash,
+            severity=sev,
+            entities=entities,
+        )
+        return {"status": "ok", "fetched": True, "mocked": True, "id": leak_id, "duplicate": is_dup}
+
+    # Mock if asked
+    if mock_flag:
+        return jsonify(insert_mock_leak()), 200
+
+    # Check proxy
+    if not _tcp_check('127.0.0.1', port):
+        # Fallback to mock when proxy is unavailable
+        return jsonify(insert_mock_leak()), 200
+
+    # Normal I2P fetch path
+    try:
+        i2p_module.I2P_PROXY = {
+            "http": f"http://127.0.0.1:{port}",
+            "https": f"http://127.0.0.1:{port}",
+        }
+        if not url:
+            return jsonify({"status": "error", "message": "url is required when proxy is available"}), 400
+        ok = i2p_fetch(url, retries=retries, delay=delay)
+    except (TypeError, ValueError, RuntimeError) as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    return jsonify({"status": "ok", "fetched": bool(ok), "mocked": False}), 200
 
 # ---- Assets (watchlist) API ----
 @app.route("/api/assets", methods=["GET"])  # list all assets

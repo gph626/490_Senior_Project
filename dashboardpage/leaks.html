@@ -101,11 +101,28 @@
             </tbody>
           </table>
         </div>
-        <div style="margin-top:16px; display:flex; gap:8px; align-items:center;">
-          <button id="runPastebinBtn" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Run Pastebin Crawl</button>
-          <input id="pasteLimit" type="number" min="1" max="100" value="10" style="width:80px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
-          <span class="muted">Limit</span>
-          <span id="runStatus" class="muted"></span>
+        <div style="margin-top:16px; display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <button id="runPastebinBtn" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Run Pastebin Crawl</button>
+            <input id="pasteLimit" type="number" min="1" max="100" value="10" style="width:80px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
+            <span class="muted">Limit</span>
+            <span id="runStatus" class="muted"></span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <button id="runTorBtn" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Fetch via Tor</button>
+            <input id="torPort" type="number" placeholder="9150" value="9150" style="width:100px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
+            <span class="muted">Target: DuckDuckGo’s onion (safe)</span>
+            <span id="torStatus" class="muted"></span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <button id="runI2PBtn" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Fetch via I2P</button>
+            <input id="i2pUrl" placeholder="http://zzz.i2p/" style="flex:1; min-width:280px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
+            <input id="i2pPort" type="number" placeholder="4444" style="width:100px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
+            <span id="i2pStatus" class="muted"></span>
+          </div>
+          <div class="muted" style="font-size: 12px;">
+            Note: Tor requires a local SOCKS proxy (127.0.0.1:9050 for tor.exe or 9150 for Tor Browser). I2P requires a local HTTP proxy (127.0.0.1:4444). Ensure these are running before fetching.
+          </div>
         </div>
       </section>
     </main>
@@ -216,9 +233,80 @@
       }
     }
 
+    async function runTor(){
+      const status = document.getElementById('torStatus');
+      status.textContent = 'Running…';
+      const port = (document.getElementById('torPort').value || '').trim();
+      try {
+        const h = await fetch(`/api/proxy/tor/health?port=${encodeURIComponent(port||'9150')}`);
+        const hj = await h.json();
+        if (!hj.ok){
+          status.textContent = `Tor proxy not reachable on 127.0.0.1:${hj.port}. Start Tor Browser (port 9150) or tor.exe (set port accordingly).`;
+          return;
+        }
+      } catch(e){
+        status.textContent = 'Tor health check failed: ' + e.message;
+        return;
+      }
+      try {
+        const res = await fetch('/api/crawlers/tor/run', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ port: port || undefined })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Error');
+        status.textContent = data.fetched ? `Done. (${data.url})` : 'No content fetched.';
+        await loadLeaks();
+      } catch (e){
+        status.textContent = 'Error: ' + e.message;
+      }
+    }
+
+    async function runI2P(){
+      const status = document.getElementById('i2pStatus');
+      status.textContent = 'Running…';
+      const url = (document.getElementById('i2pUrl').value || '').trim();
+      const port = (document.getElementById('i2pPort').value || '').trim();
+      try {
+        const h = await fetch(`/api/proxy/i2p/health?port=${encodeURIComponent(port||'4444')}`);
+        const hj = await h.json();
+        if (!hj.ok){
+          // Insert mock leak when proxy is not reachable
+          const res = await fetch('/api/crawlers/i2p/run', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mock: true, port: port || undefined, url: url || undefined })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Error');
+          status.textContent = data.mocked ? 'Inserted mock leak (no I2P proxy)' : 'Done.';
+          await loadLeaks();
+          return;
+        }
+      } catch(e){
+        status.textContent = 'I2P health check failed: ' + e.message;
+        return;
+      }
+      // Proxy is reachable; require a URL to fetch via I2P
+      if (!url){ status.textContent = 'URL required (proxy is available)'; return; }
+      try {
+        const res = await fetch('/api/crawlers/i2p/run', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, port: port || undefined })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Error');
+        status.textContent = data.mocked ? 'Inserted mock leak' : (data.fetched ? 'Done.' : 'No content fetched.');
+        await loadLeaks();
+      } catch (e){
+        status.textContent = 'Error: ' + e.message;
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       loadLeaks();
       document.getElementById('runPastebinBtn').addEventListener('click', runPastebin);
+      document.getElementById('runTorBtn').addEventListener('click', runTor);
+      document.getElementById('runI2PBtn').addEventListener('click', runI2P);
       document.getElementById('applyFilters').addEventListener('click', applyAndRender);
     });
 

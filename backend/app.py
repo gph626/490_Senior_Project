@@ -5,10 +5,16 @@ from flask import Flask, jsonify, request, send_from_directory, abort, redirect
 # (python -m backend.app) or when running directly from backend/ (python app.py).
 try:
     # Preferred: running as a package from repo root
-    from backend.database import get_latest_leaks, leak_to_dict
+    from backend.database import get_latest_leaks, leak_to_dict, insert_leak_with_dedupe
+    from backend.crawler.pastebin import fetch_and_store as pastebin_fetch
+    from backend.assets_db import list_assets, upsert_asset, delete_asset
+    from backend.severity import compute_severity_from_entities
 except ImportError:
     # Fallback: running directly in the backend/ directory
-    from database import get_latest_leaks, leak_to_dict
+    from database import get_latest_leaks, leak_to_dict, insert_leak_with_dedupe
+    from crawler.pastebin import fetch_and_store as pastebin_fetch
+    from assets_db import list_assets, upsert_asset, delete_asset
+    from severity import compute_severity_from_entities
 
 # Project root (one level up from backend/) where the frontend files live
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -27,6 +33,7 @@ ALIASES = {
     'alerts': 'dashboardpage/alerts.html',
     'risk_analysis': 'dashboardpage/risk_analysis.html',
     'reports': 'dashboardpage/reports.html',
+    'leaks': 'dashboardpage/leaks.html',
 }
 
 
@@ -150,6 +157,7 @@ def serve_page_dir(page: str):
         'alerts': 'dashboardpage/alerts.html',
         'risk_analysis': 'dashboardpage/risk_analysis.html',
         'reports': 'dashboardpage/reports.html',
+        'leaks': 'dashboardpage/leaks.html',
         'index': 'homepage/homepage.html'
     }
 
@@ -176,6 +184,98 @@ def api_leaks():
     limit = request.args.get("limit", default=10, type=int)
     leaks = get_latest_leaks(limit)
     return jsonify([leak_to_dict(leak) for leak in leaks])
+
+# Ingest endpoint to support crawler/mock posting leaks now; minimal validation and dedupe
+@app.route("/api/leaks", methods=["POST"])
+def api_leaks_ingest():
+    payload = request.get_json(silent=True) or {}
+    source = payload.get('source') or 'unknown'
+    url = payload.get('url')
+    title = payload.get('title')
+    content = payload.get('content') or payload.get('data')
+    content_hash = None
+    # Accept hash in top-level or inside normalized
+    if 'content_hash' in payload:
+        content_hash = payload.get('content_hash')
+    elif isinstance(payload.get('normalized'), dict):
+        content_hash = payload['normalized'].get('content_hash')
+    severity = payload.get('severity')
+    entities = payload.get('entities') or (payload.get('normalized') or {}).get('entities')
+
+    if not (content or (payload.get('attachments'))):
+        return jsonify({"code": "validation_error", "message": "content or attachments required"}), 400
+
+    # Auto-compute severity if not provided and entities exist
+    if (not severity) and entities:
+        try:
+            severity = compute_severity_from_entities(entities)
+        except (TypeError, ValueError, KeyError):
+            # keep default if any issue computing
+            pass
+
+    leak_id, is_dup = insert_leak_with_dedupe(
+        source=source,
+        url=url,
+        title=title,
+        content=content,
+        content_hash=content_hash,
+        severity=severity,
+        entities=entities,
+    )
+    status = "duplicate" if is_dup else "accepted"
+    resp = {"status": status, "id": leak_id}
+    return jsonify(resp), 202
+
+# Trigger Pastebin crawler from the web app
+@app.route("/api/crawlers/pastebin/run", methods=["POST"])
+def api_run_pastebin():
+    # Accept optional limit in JSON body
+    limit = 10
+    if request.is_json:
+        body = request.get_json(silent=True) or {}
+        try:
+            limit = int(body.get('limit', limit))
+        except (TypeError, ValueError):
+            pass
+    try:
+        # Our fetch may or may not accept limit; handle both signatures
+        try:
+            inserted = pastebin_fetch(limit=limit)
+        except TypeError:
+            inserted = pastebin_fetch() or 0
+    except RuntimeError as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    return jsonify({"status": "ok", "inserted": inserted}), 200
+
+# ---- Assets (watchlist) API ----
+@app.route("/api/assets", methods=["GET"])  # list all assets
+def api_assets_list():
+    return jsonify(list_assets())
+
+
+@app.route("/api/assets", methods=["POST"])  # add an asset
+def api_assets_add():
+    body = request.get_json(silent=True) or {}
+    t = (body.get('type') or '').strip().lower()
+    v = (body.get('value') or '').strip().lower()
+    if not t or not v:
+        return jsonify({"code": "validation_error", "message": "type and value required"}), 400
+    try:
+        asset_id = upsert_asset(t, v)
+    except ValueError as e:
+        return jsonify({"code": "validation_error", "message": str(e)}), 400
+    return jsonify({"status": "ok", "id": asset_id}), 201
+
+
+@app.route("/api/assets/<int:asset_id>", methods=["DELETE"])  # delete an asset
+def api_assets_delete(asset_id: int):
+    ok = delete_asset(asset_id)
+    if not ok:
+        return jsonify({"code": "not_found", "message": "asset not found"}), 404
+    return jsonify({"status": "ok"}), 200
+
+
+    # moved to backend/severity.py
 
 # Resources endpoint (static for now)
 @app.route("/api/resources", methods=["GET"])

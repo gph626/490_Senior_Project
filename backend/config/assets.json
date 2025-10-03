@@ -1,0 +1,10 @@
+{
+  "domains": [
+    "example.com",
+    "company.org"
+  ],
+  "emails": [
+    "ceo@example.com",
+    "it@company.org"
+  ]
+}

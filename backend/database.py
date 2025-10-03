@@ -1,7 +1,10 @@
 import os
-import datetime
+from datetime import datetime, timezone
+import hashlib
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text
-from sqlalchemy.ext.declarative import declarative_base
+#from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
+
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.types import JSON
 from sqlalchemy import text
@@ -19,10 +22,13 @@ class Leak(Base):
     id = Column(Integer, primary_key=True, index=True)
     source = Column(String(128), nullable=False)
     url = Column(String(1024), nullable=True)
-    data = Column(Text, nullable=True)
+    #data = Column(Text, nullable=True)     NOT USED ANYMORE DUE TO VAGUENESS, USE TITLE & CONTENT INSTEAD
+    title = Column(String(512), nullable=True)
+    content = Column(Text, nullable=True)
+    content_hash = Column(String(64), nullable=True, index=True)
     normalized = Column(JSON, nullable=True)
     severity = Column(String(32), nullable=True)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=datetime.utcnow)
 
 
 def init_db():
@@ -50,23 +56,67 @@ def init_db():
                     conn.execute(text("ALTER TABLE leaks ADD COLUMN normalized JSON"))
                 except Exception as e:
                     print('DB migration: failed to add normalized column:', e, file=sys.stderr)
+            if 'title' not in cols:
+                try:
+                    conn.execute(text("ALTER TABLE leaks ADD COLUMN title TEXT"))
+                except Exception as e:
+                    print('DB migration: failed to add title column:', e, file=sys.stderr)
+
+            if 'content' not in cols:
+                try:
+                    conn.execute(text("ALTER TABLE leaks ADD COLUMN content TEXT"))
+                except Exception as e:
+                    print('DB migration: failed to add content column:', e, file=sys.stderr)
+
+            if 'content_hash' not in cols:
+                try:
+                    conn.execute(text("ALTER TABLE leaks ADD COLUMN content_hash TEXT"))
+                except Exception as e:
+                    print('DB migration: failed to add content_hash column:', e, file=sys.stderr)
+
+
         except Exception as e:
             print('DB migration: pragma check failed:', e, file=sys.stderr)
 
 
-def insert_leak(source: str, url: str | None, data: str | None, severity: str | None = None, normalized: dict | None = None) -> int:
+def insert_leak(source: str, 
+                url: str | None, 
+                title: str | None, 
+                content: str | None, 
+                severity: str | None = None, 
+                normalized: dict | None = None, 
+                timestamp: datetime | None = None) -> int:
     """Insert a leak and return the assigned id.
 
     Parameters
     - source: origin label (e.g., 'pastebin', 'tor')
     - url: optional source URL
-    - data: raw text/html
+    - title: site title
+    - content: site's content
+    - content_hash: detects duplicates
     - severity: optional severity tag
     - normalized: optional dict following the project-normalized schema
     """
     session = SessionLocal()
     try:
-        leak = Leak(source=source, url=url, data=data, severity=severity, normalized=normalized)
+        content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest() if content else None
+
+        # Prevent duplicates
+        if content_hash:
+            existing = session.query(Leak).filter_by(content_hash=content_hash).first()
+            if existing:
+                return existing.id
+            
+
+        leak = Leak(source=source, 
+                    url=url, 
+                    title=title,
+                    content=content,
+                    content_hash=content_hash, 
+                    severity=severity, 
+                    normalized=normalized, 
+                    timestamp = timestamp or datetime.now(timezone.utc))
+        
         session.add(leak)
         session.commit()
         session.refresh(leak)
@@ -89,7 +139,8 @@ def leak_to_dict(leak: Leak) -> dict:
         'id': leak.id,
         'source': leak.source,
         'url': leak.url,
-        'data': leak.data,
+        'title': leak.title,
+        'content': leak.content,
         'severity': leak.severity,
         'timestamp': leak.timestamp.isoformat() if leak.timestamp else None,
         'normalized': leak.normalized if leak.normalized is not None else None,

@@ -2,7 +2,9 @@ flask
 requests
 beautifulsoup4
 sqlalchemy
+langdetect
 alembic
+schedule
 pandas
 matplotlib
 requests[socks]

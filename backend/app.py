@@ -1,5 +1,5 @@
 import os
-from flask import Flask, jsonify, request, send_from_directory, abort, redirect
+from flask import Flask, jsonify, request, send_from_directory, abort, redirect, session
 import socket
 import re
 import hashlib
@@ -34,7 +34,6 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 # serve frontend files and keep API routes under /api.
 app = Flask(__name__)
 
-
 # Aliases used across routing logic
 ALIASES = {
     'homepage': 'homepage/homepage.html',
@@ -46,6 +45,25 @@ ALIASES = {
     'reports': 'dashboardpage/reports.html',
     'leaks': 'dashboardpage/leaks.html',
 }
+# Secret key for session management
+app.secret_key = 'supersecretkey'  # Change this in production
+
+PUBLIC_ROUTES = [
+    '/login', '/register', '/auth/login.html', '/auth/register.html', '/static/', '/favicon.ico'
+]
+
+@app.before_request
+def require_login():
+    path = request.path
+    # Allow public routes without login
+    if path in PUBLIC_ROUTES or any(path.startswith(r) for r in PUBLIC_ROUTES):
+        return None
+    # Allow /auth/login.html and /auth/register.html without login
+    if path in ['/auth/login.html', '/auth/register.html']:
+        return None
+    if not session.get('logged_in'):
+        return redirect('/auth/login.html')
+    return None
 
 
 @app.before_request
@@ -75,7 +93,9 @@ def redirect_html_to_clean():
 # Root endpoint -- redirect to the homepage HTML so visiting / loads the styled page
 @app.route("/")
 def home():
-    return redirect('/homepage/')
+    if not session.get('logged_in'):
+        return send_from_directory(os.path.join(PROJECT_ROOT, 'auth'), 'register.html')
+    return redirect('/dashboard/')
 
 
 # Small API status endpoint (keeps API root JSON-friendly)
@@ -488,6 +508,39 @@ def redirect_pagefile(folder: str, file: str):
         return redirect(f'/{base}/')
     # Otherwise attempt to serve as static
     return serve_static(f"{folder}/{file}")
+
+
+# Login route
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.form or request.json or {}
+    username = data.get("username")
+    password = data.get("password")
+    if username and password:
+        session['logged_in'] = True
+        session['username'] = username
+        return redirect('/dashboard/')
+    return redirect('/accountpage/login.html')
+
+# Logout route
+@app.route("/logout", methods=["GET", "POST"])
+def logout():
+    session.clear()
+    return redirect('/auth/login.html')
+
+# Register route
+@app.route("/register", methods=["POST"])
+def register():
+    data = request.form or request.json or {}
+    username = data.get("username")
+    email = data.get("email")
+    password = data.get("password")
+    if username and email and password:
+        # In real app, insert user into DB
+        session['logged_in'] = True
+        session['username'] = username
+        return redirect('/dashboard/')
+    return redirect('/accountpage/register.html')
 
 if __name__ == "__main__":
     app.run(debug=True)

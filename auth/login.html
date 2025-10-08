@@ -4,19 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login</title>
-    <link rel="stylesheet" href="../dashboard/base.css">
+    <link rel="stylesheet" href="/dashboard/base.css">
 </head>
 <body>
-    <div class="container">
-        <h2>Login</h2>
-        <form action="/login" method="post">
-            <label for="username">Username or Email:</label>
-            <input type="text" id="username" name="username" required>
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
-            <button type="submit">Login</button>
-        </form>
-    <p>Don't have an account? <a href="/auth/register.html">Register here</a></p>
+    <div class="modern-auth-bg">
+        <div class="modern-auth-card">
+            <h2 class="modern-auth-title">Login</h2>
+            <form action="/login" method="post" class="modern-auth-form">
+                <label for="username">Username or Email</label>
+                <input type="text" id="username" name="username" required>
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+                <button type="submit">Login</button>
+            </form>
+            <p class="modern-auth-link">Don't have an account? <a href="/auth/register.html">Register here</a></p>
+        </div>
     </div>
 </body>
 </html>

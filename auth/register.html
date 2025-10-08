@@ -4,21 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register</title>
-    <link rel="stylesheet" href="../dashboard/base.css">
+    <link rel="stylesheet" href="/dashboard/base.css">
 </head>
 <body>
-    <div class="container">
-        <h2>Register</h2>
-        <form action="/register" method="post">
-            <label for="username">Username:</label>
-            <input type="text" id="username" name="username" required>
-            <label for="email">Email:</label>
-            <input type="email" id="email" name="email" required>
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
-            <button type="submit">Register</button>
-        </form>
-    <p>Already have an account? <a href="/auth/login.html">Login here</a></p>
+    <div class="modern-auth-bg">
+        <div class="modern-auth-card">
+            <h2 class="modern-auth-title">Register</h2>
+            <form action="/register" method="post" class="modern-auth-form">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required>
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required>
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+                <button type="submit">Register</button>
+            </form>
+            <p class="modern-auth-link">Already have an account? <a href="/auth/login.html">Login here</a></p>
+        </div>
     </div>
 </body>
 </html>

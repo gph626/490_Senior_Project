@@ -44,12 +44,14 @@ ALIASES = {
     'risk_analysis': 'dashboardpage/risk_analysis.html',
     'reports': 'dashboardpage/reports.html',
     'leaks': 'dashboardpage/leaks.html',
+    'login': 'auth/login.html',
+    'register': 'auth/register.html',
 }
 # Secret key for session management
 app.secret_key = 'supersecretkey'  # Change this in production
 
 PUBLIC_ROUTES = [
-    '/login', '/register', '/auth/login.html', '/auth/register.html', '/static/', '/favicon.ico'
+    '/login', '/register', '/auth/login.html', '/auth/register.html', '/static/', '/favicon.ico', '/dashboard/base.css'
 ]
 
 @app.before_request
@@ -189,7 +191,9 @@ def serve_page_dir(page: str):
         'risk_analysis': 'dashboardpage/risk_analysis.html',
         'reports': 'dashboardpage/reports.html',
         'leaks': 'dashboardpage/leaks.html',
-        'index': 'homepage/homepage.html'
+        'index': 'homepage/homepage.html',  
+        'login': 'auth/login.html',
+        'register': 'auth/register.html',
     }
 
     if page in aliases:
@@ -520,7 +524,7 @@ def login():
         session['logged_in'] = True
         session['username'] = username
         return redirect('/dashboard/')
-    return redirect('/accountpage/login.html')
+    return redirect('/auth/login.html')
 
 # Logout route
 @app.route("/logout", methods=["GET", "POST"])
@@ -540,7 +544,7 @@ def register():
         session['logged_in'] = True
         session['username'] = username
         return redirect('/dashboard/')
-    return redirect('/accountpage/register.html')
+    return redirect('/auth/register.html')
 
 if __name__ == "__main__":
     app.run(debug=True)

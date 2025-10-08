@@ -1,3 +1,26 @@
+@import url('https://fonts.googleapis.com/css?family=Montserrat:400,700&display=swap');
+
+/* Modern Logout Button Styles */
+.logout-btn {
+    width: 80%;
+    margin: 0 auto 24px auto;
+    display: block;
+    background: linear-gradient(90deg, #A7001D 0%, #C80024 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    transition: background 0.2s, box-shadow 0.2s;
+    letter-spacing: 1px;
+}
+.logout-btn:hover {
+    background: linear-gradient(90deg, #C80024 0%, #A7001D 100%);
+    box-shadow: 0 4px 16px rgba(167,0,29,0.18);
+}
 /* Modern Auth Page Styles */
 .modern-auth-bg {
     min-height: 100vh;
@@ -83,7 +106,6 @@
 .modern-auth-link a:hover {
     color: #C80024;
 }
-@import url('https://fonts.googleapis.com/css?family=Montserrat:400,700&display=swap');
 
 .columns {
     display: grid;

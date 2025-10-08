@@ -10,11 +10,13 @@
     <div class="modern-auth-bg">
         <div class="modern-auth-card">
             <h2 class="modern-auth-title">Login</h2>
-            <form action="/login" method="post" class="modern-auth-form">
-                <label for="username">Username or Email</label>
-                <input type="text" id="username" name="username" required>
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" required>
+            <form action="/login" method="post" class="modern-auth-form" autocomplete="off">
+                <!-- Dummy hidden field to trick autofill -->
+                <input type="text" name="fakeusernameremembered" style="display:none">
+                <label for="user_login">Username or Email</label>
+                <input type="text" id="user_login" name="user_login" required autocomplete="off">
+                <label for="user_password">Password</label>
+                <input type="password" id="user_password" name="user_password" required autocomplete="new-password">
                 <button type="submit">Login</button>
             </form>
             <p class="modern-auth-link">Don't have an account? <a href="/auth/register.html">Register here</a></p>

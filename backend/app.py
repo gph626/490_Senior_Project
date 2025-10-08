@@ -518,8 +518,8 @@ def redirect_pagefile(folder: str, file: str):
 @app.route("/login", methods=["POST"])
 def login():
     data = request.form or request.json or {}
-    username = data.get("username")
-    password = data.get("password")
+    username = data.get("user_login")
+    password = data.get("user_password")
     if username and password:
         session['logged_in'] = True
         session['username'] = username

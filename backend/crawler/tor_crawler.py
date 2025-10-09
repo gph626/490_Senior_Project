@@ -22,15 +22,39 @@ logger = logging.getLogger("tor_crawler")
 logger.setLevel(logging.INFO)
 init_db()
 
-# --- CONFIG ---
-ORG_ID = 123  # You can make this dynamic later
+# --- CONFIG & PROXY ---
+ORG_ID = int(os.getenv("ORG_ID", "123"))  # Overridable via environment
 
 USE_TOR = True
-TOR_PORT = int(os.getenv("TOR_PORT", "9050"))
+# Default to 9150 to match Tor Browser; the web app overrides this via /api/crawlers/tor/run
+TOR_PORT = os.getenv("TOR_PORT", "9150")
 TOR_PROXY = {
     "http": f"socks5h://127.0.0.1:{TOR_PORT}",
     "https": f"socks5h://127.0.0.1:{TOR_PORT}",
 }
+
+# Cached org configuration (lazy-loaded). Empty on failure; crawler continues.
+_CONFIG_CACHE: dict = {}
+
+def load_org_config(force: bool = False) -> dict:
+    """Load org config once and cache it; non-fatal on backend errors.
+
+    Returns a dict (possibly empty). Set force=True to refresh the cache.
+    """
+    global _CONFIG_CACHE
+    if _CONFIG_CACHE and not force:
+        return _CONFIG_CACHE
+    url = f"http://127.0.0.1:5000/v1/config/org/{ORG_ID}"
+    try:
+        cfg = load_config(url) or {}
+        if not isinstance(cfg, dict):
+            logger.warning("Org config is not a dict; using empty config")
+            cfg = {}
+        _CONFIG_CACHE = cfg
+    except Exception as e:
+        logger.warning(f"Org config load failed: {e}")
+        _CONFIG_CACHE = {}
+    return _CONFIG_CACHE
 
 
 # --- REGEXES ---
@@ -56,9 +80,11 @@ def health_check():
         return False
 
 # --- FETCH & PROCESS ---
-def fetch_and_store(url: str, retries: int = 3, delay: int = 10) -> bool:
+def fetch_and_store(url: str, retries: int = 3, delay: int = 10, config: dict | None = None) -> bool:
     retries = int(retries)
     delay = int(delay)
+    if config is None:
+        config = load_org_config()
     session = requests.Session()
     if USE_TOR:
         session.proxies = TOR_PROXY
@@ -96,7 +122,7 @@ def fetch_and_store(url: str, retries: int = 3, delay: int = 10) -> bool:
 
             # --- Tagging & Matching ---
             lang = detect_language(content)
-            matched_assets = match_assets(entities, CONFIG.get("watchlist", {}))
+            matched_assets = match_assets(entities, (config or {}).get("watchlist", {}))
             tags = guess_tags(entities, matched_assets)
 
             # --- Redact ---
@@ -151,7 +177,8 @@ def fetch_and_store(url: str, retries: int = 3, delay: int = 10) -> bool:
 
 # --- MAIN ---
 if __name__ == "__main__":
-    CONFIG = load_config(f"http://127.0.0.1:5000/v1/config/org/{ORG_ID}")
+    # Optional preload; failures are non-fatal because fetch_and_store lazy-loads.
+    load_org_config()
 
     if not health_check():
         logger.warning("Tor not reachable. Exiting.")

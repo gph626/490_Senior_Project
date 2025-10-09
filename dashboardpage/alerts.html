@@ -85,39 +85,67 @@
             <section id="alerts">
                 <h2>Alerts</h2>
                 <section class="alerts-table-section">
-                    <table>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:8px;">
+                        <button id="refreshAlerts" style="padding:6px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Refresh</button>
+                        <span id="alertsStatus" class="muted"></span>
+                    </div>
+                    <table id="alertsTable" class="data">
                         <thead>
                             <tr>
                                 <th>Severity</th>
                                 <th>Time</th>
-                                <th>Type</th>
-                                <th>Description</th>
+                                <th>Source</th>
+                                <th>Title / Entities</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td class="alert-high">High</td>
-                                <td>09/23/2025 10:15</td>
-                                <td>Data Leak</td>
-                                <td>Potential credential leak detected on Pastebin.</td>
-                            </tr>
-                            <tr>
-                                <td class="alert-medium">Medium</td>
-                                <td>09/22/2025 18:40</td>
-                                <td>Suspicious Activity</td>
-                                <td>Unusual login attempt from TOR network.</td>
-                            </tr>
-                            <tr>
-                                <td class="alert-low">Low</td>
-                                <td>09/21/2025 09:05</td>
-                                <td>Phishing</td>
-                                <td>Phishing link detected in employee email.</td>
-                            </tr>
+                            <tr><td colspan="4" class="muted">Loading…</td></tr>
                         </tbody>
                     </table>
                 </section>
             </section>
         </main>
     </div>
+    <script>
+        async function loadAlerts(){
+            const status = document.getElementById('alertsStatus');
+            status.textContent = 'Loading…';
+            try {
+                const res = await fetch('/api/alerts?limit=100');
+                const data = await res.json();
+                renderAlerts(Array.isArray(data)? data: []);
+                status.textContent = data.length ? data.length + ' critical alerts' : 'No critical alerts';
+            } catch(e){
+                status.textContent = 'Error: ' + e.message;
+            }
+        }
+
+        function renderAlerts(items){
+            const tbody = document.querySelector('#alertsTable tbody');
+            if(!items.length){
+                tbody.innerHTML = '<tr><td colspan="4" class="muted">No critical alerts yet.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = items.map(a => {
+                const sev = (a.severity || 'unknown').toLowerCase();
+                const sevClass = sev === 'critical' ? 'critical' : '';
+                const ts = a.timestamp ? new Date(a.timestamp).toLocaleString() : '';
+                const ents = a.entities || {};
+                const show = (arr, label) => Array.isArray(arr) && arr.length ? `<span style="margin-right:4px;" class="badge">${label}: ${arr.slice(0,3).join(', ')}${arr.length>3?'…':''}</span>`: '';
+                const entHtml = show(ents.emails, 'emails') + show(ents.domains, 'domains') + show(ents.ips, 'ips');
+                return `<tr>
+                    <td><span class="badge ${sevClass}">${a.severity}</span></td>
+                    <td class="nowrap">${ts}</td>
+                    <td>${a.source || ''}</td>
+                    <td><div style="font-weight:600;">${(a.title||'(no title)')}</div><div class="muted" style="font-size:12px;">${entHtml || '—'}</div></td>
+                </tr>`;
+            }).join('');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('refreshAlerts').addEventListener('click', loadAlerts);
+            loadAlerts();
+        });
+    </script>
 </body>
 </html>

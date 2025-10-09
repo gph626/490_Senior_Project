@@ -16,6 +16,7 @@ try:
     import backend.crawler.i2p_crawler as i2p_module
     from backend.assets_db import list_assets, upsert_asset, delete_asset
     from backend.severity import compute_severity_from_entities
+    from backend.analytics import get_critical_leaks, risk_summary
 except ImportError:
     # Fallback: running directly in the backend/ directory
     from database import get_latest_leaks, leak_to_dict, insert_leak_with_dedupe
@@ -26,6 +27,7 @@ except ImportError:
     import crawler.i2p_crawler as i2p_module
     from assets_db import list_assets, upsert_asset, delete_asset
     from severity import compute_severity_from_entities
+    from analytics import get_critical_leaks, risk_summary
 
 # Project root (one level up from backend/) where the frontend files live
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -219,6 +221,18 @@ def api_leaks():
     limit = request.args.get("limit", default=10, type=int)
     leaks = get_latest_leaks(limit)
     return jsonify([leak_to_dict(leak) for leak in leaks])
+
+# Alerts (critical leaks only)
+@app.route("/api/alerts", methods=["GET"])
+def api_alerts():
+    limit = request.args.get('limit', default=50, type=int)
+    crits = get_critical_leaks(limit=limit)
+    return jsonify(crits)
+
+# Risk summary aggregation
+@app.route("/api/risk/summary", methods=["GET"])
+def api_risk_summary():
+    return jsonify(risk_summary())
 
 # Ingest endpoint to support crawler/mock posting leaks now; minimal validation and dedupe
 @app.route("/api/leaks", methods=["POST"])

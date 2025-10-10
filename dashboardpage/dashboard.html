@@ -49,12 +49,12 @@
                     <section id="leaks-bar-section" class="chart-section">
                         <h3>Leaks per Crawler</h3>
                         <canvas id="leaksChart" width="300" height="120"></canvas>
-                        <div id="leaksChartMsg" style="color: #888; font-size: 0.9em;"></div>
+                        <div id="leaksChartMsg" style="color: #ffffff; font-size: 0.9em;"></div>
                     </section>
                     <section id="severity-pie-section" class="chart-section">
                         <h3>Leak Severity Types (Pie)</h3>
                         <canvas id="severityPieChart" width="200" height="200"></canvas>
-                        <div id="severityPieChartMsg" style="color: #888; font-size: 0.9em;"></div>
+                        <div id="severityPieChartMsg" style="color: #ffffff; font-size: 0.9em;"></div>
                     </section>
                 </div>
                 <div class="col">
@@ -67,7 +67,7 @@
                     <section id="alerts-line-section" class="chart-section">
                         <h3>Critical Alerts Over Time</h3>
                         <canvas id="alertsChart" width="300" height="120"></canvas>
-                        <div id="alertsChartMsg" style="color: #888; font-size: 0.9em;"></div>
+                        <div id="alertsChartMsg" style="color: #ffffff; font-size: 0.9em;"></div>
                     </section>
                     <section id="reports-section">
                         <h2><a href="/reports/" style="text-decoration:none;color:inherit;">Reports</a></h2>
@@ -86,7 +86,7 @@
                     <section id="risk-pie-section" class="chart-section">
                         <h3>Risk Severity Breakdown</h3>
                         <canvas id="riskChart" width="300" height="120"></canvas>
-                        <div id="riskChartMsg" style="color: #888; font-size: 0.9em;"></div>
+                        <div id="riskChartMsg" style="color: #ffffff; font-size: 0.9em;"></div>
                     </section>
             </div>
         </main>
@@ -96,6 +96,16 @@
     const chartJsScript = document.createElement('script');
     chartJsScript.src = 'https://cdn.jsdelivr.net/npm/chart.js';
     chartJsScript.onload = function() {
+        // Global defaults for white text on dark background
+        if (window.Chart) {
+            Chart.defaults.color = '#FFFFFF';
+            Chart.defaults.font.family = 'Montserrat, Arial, sans-serif';
+            Chart.defaults.plugins.legend.labels.color = '#FFFFFF';
+            Chart.defaults.plugins.tooltip.titleColor = '#FFFFFF';
+            Chart.defaults.plugins.tooltip.bodyColor = '#FFFFFF';
+            Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(0,0,0,0.75)';
+            Chart.defaults.borderColor = 'rgba(255,255,255,0.15)';
+        }
         initCharts();
     };
     document.head.appendChild(chartJsScript);
@@ -138,15 +148,23 @@
                         label: 'Leak Severity Types',
                         data: Object.values(severityTypes),
                         backgroundColor: [
-                            'rgba(255, 99, 132, 0.5)', // critical
-                            'rgba(255, 206, 86, 0.5)', // high
-                            'rgba(54, 162, 235, 0.5)', // medium
-                            'rgba(75, 192, 192, 0.5)', // low
-                            'rgba(160, 160, 160, 0.5)'  // unknown
-                        ]
+                            'rgba(255, 99, 132, 0.55)', // critical
+                            'rgba(255, 206, 86, 0.55)', // high
+                            'rgba(54, 162, 235, 0.55)', // medium
+                            'rgba(75, 192, 192, 0.55)', // low
+                            'rgba(160, 160, 160, 0.55)'  // unknown
+                        ],
+                        borderColor: 'rgba(0,0,0,0.4)',
+                        borderWidth: 1
                     }]
                 },
-                options: {responsive: true}
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#FFFFFF' } },
+                        tooltip: { titleColor: '#FFFFFF', bodyColor: '#FFFFFF' }
+                    }
+                }
             });
         } catch (e) {
             msg.textContent = 'Error loading severity data.';
@@ -179,10 +197,21 @@
                     datasets: [{
                         label: 'Leaks per Crawler',
                         data: Object.values(sources),
-                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.55)',
+                        borderRadius: 4
                     }]
                 },
-                options: {responsive: true}
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { ticks: { color: '#FFFFFF' }, grid: { color: 'rgba(255,255,255,0.08)' } },
+                        y: { ticks: { color: '#FFFFFF' }, grid: { color: 'rgba(255,255,255,0.12)' } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#FFFFFF' } },
+                        tooltip: { titleColor: '#FFFFFF', bodyColor: '#FFFFFF' }
+                    }
+                }
             });
         } catch (e) {
             msg.textContent = 'Error loading leaks data.';
@@ -215,11 +244,26 @@
                     datasets: [{
                         label: 'Critical Alerts Over Time',
                         data: Object.values(dateCounts),
-                        borderColor: 'rgba(255, 99, 132, 0.7)',
-                        fill: false
+                        borderColor: 'rgba(255, 99, 132, 0.85)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.25)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#FFFFFF',
+                        pointBorderColor: '#FFFFFF'
                     }]
                 },
-                options: {responsive: true}
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { ticks: { color: '#FFFFFF' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { ticks: { color: '#FFFFFF' }, grid: { color: 'rgba(255,255,255,0.10)' } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#FFFFFF' } },
+                        tooltip: { titleColor: '#FFFFFF', bodyColor: '#FFFFFF' }
+                    }
+                }
             });
         } catch (e) {
             msg.textContent = 'Error loading alerts data.';
@@ -249,14 +293,22 @@
                         label: 'Risk Severity',
                         data,
                         backgroundColor: [
-                            'rgba(75, 192, 192, 0.5)',
-                            'rgba(255, 206, 86, 0.5)',
-                            'rgba(255, 99, 132, 0.5)',
-                            'rgba(153, 102, 255, 0.5)'
-                        ]
+                            'rgba(75, 192, 192, 0.55)',
+                            'rgba(255, 206, 86, 0.55)',
+                            'rgba(255, 99, 132, 0.55)',
+                            'rgba(153, 102, 255, 0.55)'
+                        ],
+                        borderColor: 'rgba(0,0,0,0.4)',
+                        borderWidth: 1
                     }]
                 },
-                options: {responsive: true}
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#FFFFFF' } },
+                        tooltip: { titleColor: '#FFFFFF', bodyColor: '#FFFFFF' }
+                    }
+                }
             });
         } catch (e) {
             msg.textContent = 'Error loading risk summary.';

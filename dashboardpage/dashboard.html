@@ -19,42 +19,56 @@
     </header>
     <div class="container">
         <aside class="sidebar">
+            <button class="logout-btn" onclick="window.location.href='/logout'">Logout</button>
             <nav>
                 <ul>
                     <li><a href="/homepage/homepage.html">Home</a></li>
-                    <li><a href="/dashboardpage/dashboard.html">Dashboard</a></li>
+                    <li class="dropdown">
+                        <a href="/dashboardpage/dashboard.html" class="dropbtn">Dashboard ▼</a>
+                        <div class="dropdown-content">
+                            <a href="/alerts/">Alerts</a>
+                            <a href="/leaks/">Leaks</a>
+                            <a href="/reports/">Reports</a>
+                            <a href="/risk_analysis/">Risk Analysis</a>
+                        </div>
+                    </li>
                     <li><a href="/resourcespage/resources.html">Resources</a></li>
                     <li><a href="/accountpage/account.html">Account</a></li>
-                    <li><a href="/leaks/">Leaks</a></li>
                 </ul>
             </nav>
         </aside>
         <main>
             <div class="columns">
                 <div class="col">
-                        <section id="dashboard-section">
-                            <h2><a href="/dashboard/" style="text-decoration:none;color:inherit;">Dashboard</a></h2>
+                    <section id="dashboard-section">
+                        <h2><a href="/dashboard/" style="text-decoration:none;color:inherit;">Dashboard</a></h2>
                         <section class="dashboard-item">
                             <p>Overview and quick stats for your account.</p>
                         </section>
                     </section>
-
+                    <section id="leaks-bar-section" class="chart-section">
+                        <h3>Leaks per Crawler</h3>
+                        <canvas id="leaksChart" width="300" height="120"></canvas>
+                        <div id="leaksChartMsg" style="color: #ffffff; font-size: 0.9em;"></div>
+                    </section>
+                    <section id="severity-pie-section" class="chart-section">
+                        <h3>Leak Severity Types (Pie)</h3>
+                        <canvas id="severityPieChart" width="200" height="200"></canvas>
+                        <div id="severityPieChartMsg" style="color: #ffffff; font-size: 0.9em;"></div>
+                    </section>
+                </div>
+                <div class="col">
                     <section id="alerts-section">
                         <h2><a href="/alerts/" style="text-decoration:none;color:inherit;">Alerts</a></h2>
                         <section class="alerts-item">
                             <p>Alerts notify you of important security events detected by the system, such as data leaks, suspicious activity, or phishing attempts. Each alert is categorized by severity to help you prioritize your response.</p>
                         </section>
                     </section>
-                </div>
-                <div class="col">
-                        <section id="risk-analysis-section">
-                            <h2><a href="/risk_analysis/" style="text-decoration:none;color:inherit;">Risk Analysis</a></h2>
-                        <section class="risk-analysis-item">
-                            <p>Risk Analysis provides an assessment of your organization's assets, highlighting potential vulnerabilities and their associated risk levels. This helps you understand and address areas that may require additional security measures.</p>
-                        </section>
+                    <section id="alerts-line-section" class="chart-section">
+                        <h3>Critical Alerts Over Time</h3>
+                        <canvas id="alertsChart" width="300" height="120"></canvas>
+                        <div id="alertsChartMsg" style="color: #ffffff; font-size: 0.9em;"></div>
                     </section>
-                </div>
-                <div class="col">
                     <section id="reports-section">
                         <h2><a href="/reports/" style="text-decoration:none;color:inherit;">Reports</a></h2>
                         <section class="reports-item">
@@ -62,31 +76,244 @@
                         </section>
                     </section>
                 </div>
+                <div class="col">
+                    <section id="risk-analysis-section">
+                        <h2><a href="/risk_analysis/" style="text-decoration:none;color:inherit;">Risk Analysis</a></h2>
+                        <section class="risk-analysis-item">
+                            <p>Risk Analysis provides an assessment of your organization's assets, highlighting potential vulnerabilities and their associated risk levels. This helps you understand and address areas that may require additional security measures.</p>
+                        </section>
+                    </section>
+                    <section id="risk-pie-section" class="chart-section">
+                        <h3>Risk Severity Breakdown</h3>
+                        <canvas id="riskChart" width="300" height="120"></canvas>
+                        <div id="riskChartMsg" style="color: #ffffff; font-size: 0.9em;"></div>
+                    </section>
             </div>
         </main>
     </div>
         <script>
-    function toggleSection(id, btn) {
-        const content = document.getElementById(id);
-        const arrow = btn.querySelector('.arrow');
-        if (content.classList.contains('active')) {
-            content.classList.remove('active');
-            if (arrow) arrow.textContent = '▼';
-        } else {
-            content.classList.add('active');
-            if (arrow) arrow.textContent = '▲';
+    // Chart.js loader
+    const chartJsScript = document.createElement('script');
+    chartJsScript.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+    chartJsScript.onload = function() {
+        // Global defaults for white text on dark background
+        if (window.Chart) {
+            Chart.defaults.color = '#FFFFFF';
+            Chart.defaults.font.family = 'Montserrat, Arial, sans-serif';
+            Chart.defaults.plugins.legend.labels.color = '#FFFFFF';
+            Chart.defaults.plugins.tooltip.titleColor = '#FFFFFF';
+            Chart.defaults.plugins.tooltip.bodyColor = '#FFFFFF';
+            Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(0,0,0,0.75)';
+            Chart.defaults.borderColor = 'rgba(255,255,255,0.15)';
+        }
+        initCharts();
+    };
+    document.head.appendChild(chartJsScript);
+
+    function initCharts() {
+        leaksChart();
+        severityPieChart();
+        alertsChart();
+        riskChart();
+    }
+
+    async function severityPieChart() {
+        const msg = document.getElementById('severityPieChartMsg');
+        msg.textContent = 'Loading severity data...';
+        try {
+            const res = await fetch('/api/leaks?limit=100');
+            if (!res.ok) throw new Error('API error');
+            const leaks = await res.json();
+            if (!leaks.length) {
+                msg.textContent = 'No leaks data available.';
+                return;
+            }
+            // Group by severity type
+            const severityTypes = {critical: 0, high: 0, medium: 0, low: 0, unknown: 0};
+            leaks.forEach(leak => {
+                const sev = (leak.severity || '').toLowerCase();
+                if (severityTypes.hasOwnProperty(sev)) {
+                    severityTypes[sev]++;
+                } else {
+                    severityTypes.unknown++;
+                }
+            });
+            msg.textContent = '';
+            const ctx = document.getElementById('severityPieChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(severityTypes),
+                    datasets: [{
+                        label: 'Leak Severity Types',
+                        data: Object.values(severityTypes),
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.55)', // critical
+                            'rgba(255, 206, 86, 0.55)', // high
+                            'rgba(54, 162, 235, 0.55)', // medium
+                            'rgba(75, 192, 192, 0.55)', // low
+                            'rgba(160, 160, 160, 0.55)'  // unknown
+                        ],
+                        borderColor: 'rgba(0,0,0,0.4)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#FFFFFF' } },
+                        tooltip: { titleColor: '#FFFFFF', bodyColor: '#FFFFFF' }
+                    }
+                }
+            });
+        } catch (e) {
+            msg.textContent = 'Error loading severity data.';
         }
     }
-    // Initialize all dropdowns as hidden
-    document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('.dropdown-content').forEach(function(el) {
-            el.classList.remove('active');
-        });
-        document.querySelectorAll('.dropdown-toggle .arrow').forEach(function(arrow) {
-            arrow.textContent = '▼';
-        });
 
-    });
+    async function leaksChart() {
+        const msg = document.getElementById('leaksChartMsg');
+        msg.textContent = 'Loading leaks data...';
+        try {
+            const res = await fetch('/api/leaks?limit=100');
+            if (!res.ok) throw new Error('API error');
+            const leaks = await res.json();
+            if (!leaks.length) {
+                msg.textContent = 'No leaks data available.';
+                return;
+            }
+            // Group by crawler/source if available
+            const sources = {};
+            leaks.forEach(leak => {
+                const src = leak.source || leak.crawler || 'Unknown';
+                sources[src] = (sources[src] || 0) + 1;
+            });
+            msg.textContent = '';
+            const ctx = document.getElementById('leaksChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(sources),
+                    datasets: [{
+                        label: 'Leaks per Crawler',
+                        data: Object.values(sources),
+                        backgroundColor: 'rgba(54, 162, 235, 0.55)',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { ticks: { color: '#FFFFFF' }, grid: { color: 'rgba(255,255,255,0.08)' } },
+                        y: { ticks: { color: '#FFFFFF' }, grid: { color: 'rgba(255,255,255,0.12)' } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#FFFFFF' } },
+                        tooltip: { titleColor: '#FFFFFF', bodyColor: '#FFFFFF' }
+                    }
+                }
+            });
+        } catch (e) {
+            msg.textContent = 'Error loading leaks data.';
+        }
+    }
+
+    async function alertsChart() {
+        const msg = document.getElementById('alertsChartMsg');
+        msg.textContent = 'Loading alerts data...';
+        try {
+            const res = await fetch('/api/alerts?limit=100');
+            if (!res.ok) throw new Error('API error');
+            const alerts = await res.json();
+            if (!alerts.length) {
+                msg.textContent = 'No alerts data available.';
+                return;
+            }
+            // Group by date
+            const dateCounts = {};
+            alerts.forEach(alert => {
+                const date = (alert.date || alert.timestamp || '').slice(0, 10);
+                dateCounts[date] = (dateCounts[date] || 0) + 1;
+            });
+            msg.textContent = '';
+            const ctx = document.getElementById('alertsChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Object.keys(dateCounts),
+                    datasets: [{
+                        label: 'Critical Alerts Over Time',
+                        data: Object.values(dateCounts),
+                        borderColor: 'rgba(255, 99, 132, 0.85)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.25)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#FFFFFF',
+                        pointBorderColor: '#FFFFFF'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { ticks: { color: '#FFFFFF' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { ticks: { color: '#FFFFFF' }, grid: { color: 'rgba(255,255,255,0.10)' } }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#FFFFFF' } },
+                        tooltip: { titleColor: '#FFFFFF', bodyColor: '#FFFFFF' }
+                    }
+                }
+            });
+        } catch (e) {
+            msg.textContent = 'Error loading alerts data.';
+        }
+    }
+
+    async function riskChart() {
+        const msg = document.getElementById('riskChartMsg');
+        msg.textContent = 'Loading risk summary...';
+        try {
+            const res = await fetch('/api/risk/summary');
+            if (!res.ok) throw new Error('API error');
+            const summary = await res.json();
+            const labels = Object.keys(summary);
+            const data = Object.values(summary);
+            if (!labels.length || !data.length) {
+                msg.textContent = 'No risk summary data available.';
+                return;
+            }
+            msg.textContent = '';
+            const ctx = document.getElementById('riskChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Risk Severity',
+                        data,
+                        backgroundColor: [
+                            'rgba(75, 192, 192, 0.55)',
+                            'rgba(255, 206, 86, 0.55)',
+                            'rgba(255, 99, 132, 0.55)',
+                            'rgba(153, 102, 255, 0.55)'
+                        ],
+                        borderColor: 'rgba(0,0,0,0.4)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#FFFFFF' } },
+                        tooltip: { titleColor: '#FFFFFF', bodyColor: '#FFFFFF' }
+                    }
+                }
+            });
+        } catch (e) {
+            msg.textContent = 'Error loading risk summary.';
+        }
+    }
     </script>
 </body>
 </html>

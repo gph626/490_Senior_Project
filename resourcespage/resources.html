@@ -19,13 +19,21 @@
     </header>
     <div class="container">
         <aside class="sidebar">
+            <button class="logout-btn" onclick="window.location.href='/logout'">Logout</button>
             <nav>
                 <ul>
                     <li><a href="/homepage/homepage.html">Home</a></li>
-                    <li><a href="/dashboardpage/dashboard.html">Dashboard</a></li>
+                    <li class="dropdown">
+                        <a href="/dashboardpage/dashboard.html" class="dropbtn">Dashboard ▼</a>
+                        <div class="dropdown-content">
+                            <a href="/alerts/">Alerts</a>
+                            <a href="/leaks/">Leaks</a>
+                            <a href="/reports/">Reports</a>
+                            <a href="/risk_analysis/">Risk Analysis</a>
+                        </div>
+                    </li>
                     <li><a href="/resourcespage/resources.html">Resources</a></li>
                     <li><a href="/accountpage/account.html">Account</a></li>
-                    
                 </ul>
             </nav>
         </aside>

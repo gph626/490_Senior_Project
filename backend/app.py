@@ -577,14 +577,16 @@ def logout():
 @app.route("/register", methods=["POST"])
 def register():
     data = request.form or request.json or {}
-    username = data.get("username")
-    email = data.get("email")
-    password = data.get("password")
+    # Support both form field names used in HTML (reg_*) and potential JSON keys
+    username = data.get("username") or data.get("reg_user")
+    email = data.get("email") or data.get("reg_email")
+    password = data.get("password") or data.get("reg_password")
     if username and email and password:
-        # In real app, insert user into DB
+        # TODO: Persist new user record to database (not implemented yet)
         session['logged_in'] = True
         session['username'] = username
-        return redirect('/dashboard/')
+        # After successful registration, take user to homepage rather than dashboard
+        return redirect('/homepage/')
     return redirect('/auth/register.html')
 
 if __name__ == "__main__":

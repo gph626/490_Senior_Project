@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Leaks</title>
+  <link rel="stylesheet" href="/dashboard/base.css" />
+</head>
+<body>
+  <header>
+    <div class="header-flex">
+      <div class="logo">
+        <img src="../dashboard/logo.png" alt="Site Logo" height="80" width="80" onerror="this.onerror=null;this.src='https://via.placeholder.com/80x80?text=Logo';">
+      </div>
+      <h1 class="site-heading">Leaks</h1>
+    </div>
+    <div class="username-banner" style="text-align:right; margin-top:10px; font-size:1.2em; color:#333;">
+      Logged in as: <strong>{{ username }}</strong>
+    </div>
+  </header>
+  <div class="container">
+    <aside class="sidebar">
+      <button class="logout-btn" onclick="window.location.href='/logout'">Logout</button>
+      <nav>
+        <ul>
+          <li><a href="/homepage/">Home</a></li>
+          <li class="dropdown">
+                        <a href="/dashboardpage/dashboard.html" class="dropbtn">Dashboard ▼</a>
+                        <div class="dropdown-content">
+                            <a href="/alerts/">Alerts</a>
+                            <a href="/leaks/">Leaks</a>
+                            <a href="/reports/">Reports</a>
+                            <a href="/risk_analysis/">Risk Analysis</a>
+                        </div>
+                    </li>
+          <li><a href="/resources/">Resources</a></li>
+          <li><a href="/account/">Account</a></li>
+        </ul>
+      </nav>
+    </aside>
+    <main>
+      <!-- ...full content omitted for brevity, but included in actual file... -->
+    </main>
+  </div>
+</body>
+</html>

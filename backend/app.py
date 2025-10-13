@@ -1,5 +1,5 @@
 import os
-from flask import Flask, jsonify, request, send_from_directory, abort, redirect, session
+from flask import Flask, jsonify, request, send_from_directory, abort, redirect, session, render_template
 import socket
 import re
 import hashlib
@@ -32,9 +32,9 @@ except ImportError:
 # Project root (one level up from backend/) where the frontend files live
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
-# Create Flask app. We won't use the built-in `static_folder` so we can selectively
-# serve frontend files and keep API routes under /api.
-app = Flask(__name__)
+# Create Flask app. Point template_folder at project-level templates directory so
+# render_template finds the Jinja2 templates we added under PROJECT_ROOT/templates.
+app = Flask(__name__, template_folder=os.path.join(PROJECT_ROOT, 'templates'))
 
 # Aliases used across routing logic
 ALIASES = {
@@ -116,17 +116,18 @@ def homepage_noext():
 
 @app.route('/homepage/')
 def homepage():
-    return send_from_directory(os.path.join(PROJECT_ROOT, 'homepage'), 'homepage.html')
+    username = session.get('username', 'User')
+    return render_template('homepage.html', username=username)
 
 
 @app.route('/dashboard')
 def dashboard_noext():
     return redirect('/dashboard/')
 
-
 @app.route('/dashboard/')
 def dashboard():
-    return send_from_directory(os.path.join(PROJECT_ROOT, 'dashboardpage'), 'dashboard.html')
+    username = session.get('username', 'User')
+    return render_template('dashboard.html', username=username)
 
 
 @app.route('/resources')
@@ -136,7 +137,8 @@ def resources_noext_route():
 
 @app.route('/resources/')
 def resources_route():
-    return send_from_directory(os.path.join(PROJECT_ROOT, 'resourcespage'), 'resources.html')
+    username = session.get('username', 'User')
+    return render_template('resources.html', username=username)
 
 
 @app.route('/account')
@@ -146,7 +148,8 @@ def account_noext():
 
 @app.route('/account/')
 def account():
-    return send_from_directory(os.path.join(PROJECT_ROOT, 'accountpage'), 'account.html')
+    username = session.get('username', 'User')
+    return render_template('account.html', username=username)
 
 # Alerts page routes
 @app.route('/alerts')
@@ -156,7 +159,8 @@ def alerts_noext():
 
 @app.route('/alerts/')
 def alerts():
-    return send_from_directory(os.path.join(PROJECT_ROOT, 'dashboardpage'), 'alerts.html')
+    username = session.get('username', 'User')
+    return render_template('alerts.html', username=username)
 
 
 # Risk Analysis page routes
@@ -167,7 +171,8 @@ def risk_analysis_noext():
 
 @app.route('/risk_analysis/')
 def risk_analysis():
-    return send_from_directory(os.path.join(PROJECT_ROOT, 'dashboardpage'), 'risk_analysis.html')
+    username = session.get('username', 'User')
+    return render_template('risk_analysis.html', username=username)
 
 
 # Reports page routes
@@ -177,8 +182,16 @@ def reports_noext():
 
 
 @app.route('/reports/')
-def reports():
-    return send_from_directory(os.path.join(PROJECT_ROOT, 'dashboardpage'), 'reports.html')
+
+# Leaks page routes
+@app.route('/leaks')
+def leaks_noext():
+    return redirect('/leaks/')
+
+@app.route('/leaks/')
+def leaks():
+    username = session.get('username', 'User')
+    return render_template('leaks.html', username=username)
 
 
 # Handle directory-style requests with trailing slash, serving the page file inside the folder
@@ -199,6 +212,24 @@ def serve_page_dir(page: str):
     }
 
     if page in aliases:
+        # If the page is one we now render via templates, use render_template instead of static send
+        template_map = {
+            'homepage': 'homepage.html',
+            'dashboard': 'dashboard.html',
+            'resources': 'resources.html',
+            'account': 'account.html',
+            'alerts': 'alerts.html',
+            'risk_analysis': 'risk_analysis.html',
+            'reports': 'reports.html',
+            'leaks': 'leaks.html',
+        }
+        if page in template_map:
+            username = session.get('username', 'User')
+            return render_template(template_map[page], username=username)
+        if page in template_map:
+            username = session.get('username', 'User')
+            return render_template(template_map[page], username=username)
+        # login/register still served as static HTML originals
         target = aliases[page]
         rel_dir = os.path.dirname(target)
         file_name = os.path.basename(target)

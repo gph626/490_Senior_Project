@@ -25,11 +25,11 @@
             <button class="logout-btn" onclick="window.location.href='/logout'">Logout</button>
             <nav>
                 <ul>
-                    <li><a href="/homepage/homepage.html">Home</a></li>
-                    <li><a href="/dashboardpage/dashboard.html">Dashboard</a></li>
-                    <li><a href="/resourcespage/resources.html">Resources</a></li>
-                    <li><a href="/accountpage/account.html">Account</a></li>
-                    <li><a href="/leaks/">Leaks</a></li>
+                    <li><a href="{{ url_for('homepage') }}">Home</a></li>
+                    <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                    <li><a href="{{ url_for('resources_route') }}">Resources</a></li>
+                    <li><a href="{{ url_for('account') }}">Account</a></li>
+                    <li><a href="{{ url_for('leaks') }}">Leaks</a></li>
                 </ul>
             </nav>
         </aside>

@@ -73,24 +73,60 @@
             <button class="logout-btn" onclick="window.location.href='/logout'">Logout</button>
             <nav>
                 <ul>
-                    <li><a href="/homepage/homepage.html">Home</a></li>
+                    <li><a href="{{ url_for('homepage') }}">Home</a></li>
                     <li class="dropdown">
-                        <a href="/dashboardpage/dashboard.html" class="dropbtn">Dashboard ▼</a>
+                        <a href="{{ url_for('dashboard') }}" class="dropbtn">Dashboard ▼</a>
                         <div class="dropdown-content">
-                            <a href="/alerts/">Alerts</a>
-                            <a href="/leaks/">Leaks</a>
-                            <a href="/reports/">Reports</a>
-                            <a href="/risk_analysis/">Risk Analysis</a>
+                            <a href="{{ url_for('alerts') }}">Alerts</a>
+                            <a href="{{ url_for('leaks') }}">Leaks</a>
+                            <a href="{{ url_for('reports') }}">Reports</a>
+                            <a href="{{ url_for('risk_analysis') }}">Risk Analysis</a>
                         </div>
                     </li>
-                    <li><a href="/resourcespage/resources.html">Resources</a></li>
-                    <li><a href="/accountpage/account.html">Account</a></li>
+                    <li><a href="{{ url_for('resources_route') }}">Resources</a></li>
+                    <li><a href="{{ url_for('account') }}">Account</a></li>
                 </ul>
             </nav>
         </aside>
         <main>
-            <!-- ...full content omitted for brevity, but included in actual file... -->
+            <section id="risk-analysis">
+                <h2>Risk Analysis</h2>
+                <section class="risk-table-section" style="display:flex; flex-direction:column; gap:24px;">
+                    <div>
+                        <h3 style="margin:4px 0 8px 0;">Severity Distribution</h3>
+                        <table id="sevDist" class="data">
+                            <thead>
+                                <tr>
+                                    <th>Severity</th>
+                                    <th>Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="2" class="muted">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <h3 style="margin:4px 0 8px 0;">Watchlist Asset Risk</h3>
+                        <table id="assetRisk" class="data">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Asset</th>
+                                    <th>Risk</th>
+                                    <th>Leak Count</th>
+                                </tr>
+                            </thead>
+                            <tbody id="asset-risk-body"><tr><td colspan="4" class="muted">Loading…</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="muted" style="font-size:12px;">Heuristic: High = appears in any critical leak; Medium = appears in ≥5 leaks; Low = appears in ≥1 leak; None = no leaks yet.</div>
+                    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                        <button id="refreshRisk" style="padding:6px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Refresh</button>
+                        <span id="riskStatus" class="muted"></span>
+                    </div>
+                </section>
+            </section>
         </main>
     </div>
-</body>
-</html>
+    <script src="{{ url_for('static', filename='js/risk_analysis.js') }}"></script>

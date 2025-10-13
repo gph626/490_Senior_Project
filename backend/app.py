@@ -34,7 +34,11 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 # Create Flask app. Point template_folder at project-level templates directory so
 # render_template finds the Jinja2 templates we added under PROJECT_ROOT/templates.
-app = Flask(__name__, template_folder=os.path.join(PROJECT_ROOT, 'templates'))
+app = Flask(
+    __name__,
+    template_folder=os.path.join(PROJECT_ROOT, 'templates'),
+    static_folder=os.path.join(PROJECT_ROOT, 'static')  # serve project-level static assets
+)
 
 # Aliases used across routing logic
 ALIASES = {
@@ -182,6 +186,9 @@ def reports_noext():
 
 
 @app.route('/reports/')
+def reports():
+    username = session.get('username', 'User')
+    return render_template('reports.html', username=username)
 
 # Leaks page routes
 @app.route('/leaks')

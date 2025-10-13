@@ -23,24 +23,121 @@
       <button class="logout-btn" onclick="window.location.href='/logout'">Logout</button>
       <nav>
         <ul>
-          <li><a href="/homepage/">Home</a></li>
-          <li class="dropdown">
-                        <a href="/dashboardpage/dashboard.html" class="dropbtn">Dashboard ▼</a>
-                        <div class="dropdown-content">
-                            <a href="/alerts/">Alerts</a>
-                            <a href="/leaks/">Leaks</a>
-                            <a href="/reports/">Reports</a>
-                            <a href="/risk_analysis/">Risk Analysis</a>
-                        </div>
-                    </li>
-          <li><a href="/resources/">Resources</a></li>
-          <li><a href="/account/">Account</a></li>
+      <li><a href="{{ url_for('homepage') }}">Home</a></li>
+      <li class="dropdown">
+            <a href="{{ url_for('dashboard') }}" class="dropbtn">Dashboard ▼</a>
+            <div class="dropdown-content">
+              <a href="{{ url_for('alerts') }}">Alerts</a>
+              <a href="{{ url_for('leaks') }}">Leaks</a>
+              <a href="{{ url_for('reports') }}">Reports</a>
+              <a href="{{ url_for('risk_analysis') }}">Risk Analysis</a>
+            </div>
+          </li>
+      <li><a href="{{ url_for('resources_route') }}">Resources</a></li>
+      <li><a href="{{ url_for('account') }}">Account</a></li>
         </ul>
       </nav>
     </aside>
     <main>
-      <!-- ...full content omitted for brevity, but included in actual file... -->
+      <section style="width:100%; max-width:1100px;">
+        <h2>Latest Leaks</h2>
+        <section class="dashboard-item" style="margin-bottom:16px;">
+          <h3 style="margin-top:0">Watchlist (affects severity)</h3>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
+            <select id="assetType" style="padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;">
+              <option value="email">email</option>
+              <option value="domain">domain</option>
+              <option value="ip">ip</option>
+              <option value="btc">btc</option>
+            </select>
+            <input id="assetValue" placeholder="value (e.g., user@acme.com or acme.com)" style="flex:1; min-width:240px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
+            <button id="addAsset" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Add</button>
+            <span id="assetStatus" class="muted"></span>
+          </div>
+          <div class="table-wrap">
+            <table class="data" id="assets-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Value</th>
+                  <th>Added</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td colspan="4" class="muted">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0 16px 0;">
+          <input id="incKeys" placeholder="Include keywords (comma-separated)" style="flex:1; min-width:220px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
+          <input id="excKeys" placeholder="Exclude keywords (comma-separated)" style="flex:1; min-width:220px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
+          <select id="sevFilter" title="Severity" style="padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;">
+            <option value="">any severity</option>
+            <option value="critical">critical</option>
+            <option value="high">high</option>
+            <option value="medium">medium</option>
+            <option value="low">low</option>
+            <option value="zero severity">zero severity</option>
+            <option value="unknown">unknown</option>
+          </select>
+          <label class="muted" style="display:flex; gap:6px; align-items:center;">
+            <input type="checkbox" id="entEmails" checked /> emails
+          </label>
+          <label class="muted" style="display:flex; gap:6px; align-items:center;">
+            <input type="checkbox" id="entDomains" checked /> domains
+          </label>
+          <label class="muted" style="display:flex; gap:6px; align-items:center;">
+            <input type="checkbox" id="entIPs" checked /> IPs
+          </label>
+          <label class="muted" style="display:flex; gap:6px; align-items:center;">
+            <input type="checkbox" id="entBTC" checked /> BTC
+          </label>
+          <button id="applyFilters" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Apply</button>
+        </div>
+        <div class="table-wrap">
+          <table class="data" id="leaks-table">
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Title</th>
+                <th>Entities</th>
+                <th>Severity</th>
+                <th class="nowrap">Timestamp</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td colspan="5" class="muted">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:16px; display:flex; flex-direction:column; gap:10px;">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <button id="runPastebinBtn" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Run Pastebin Crawl</button>
+            <input id="pasteLimit" type="number" min="1" max="100" value="10" style="width:80px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
+            <span class="muted">Limit</span>
+            <span id="runStatus" class="muted"></span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <button id="runTorBtn" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Fetch via Tor</button>
+            <input id="torPort" type="number" placeholder="9150" value="9150" style="width:100px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
+            <span class="muted">Target: DuckDuckGo’s onion (safe)</span>
+            <span id="torStatus" class="muted"></span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <button id="runI2PBtn" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Fetch via I2P</button>
+            <input id="i2pUrl" placeholder="http://zzz.i2p/" style="flex:1; min-width:280px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
+            <input id="i2pPort" type="number" placeholder="4444" style="width:100px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
+            <span id="i2pStatus" class="muted"></span>
+          </div>
+          <div class="muted" style="font-size: 12px;">
+            Note: Tor requires a local SOCKS proxy (127.0.0.1:9050 for tor.exe or 9150 for Tor Browser). I2P requires a local HTTP proxy (127.0.0.1:4444). Ensure these are running before fetching.
+          </div>
+        </div>
+      </section>
     </main>
   </div>
+  <script src="{{ url_for('static', filename='js/leaks.js') }}"></script>
 </body>
 </html>

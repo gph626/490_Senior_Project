@@ -25,18 +25,18 @@
             <button class="logout-btn" onclick="window.location.href='/logout'">Logout</button>
             <nav>
                 <ul>
-                    <li><a href="/homepage/homepage.html">Home</a></li>
+                    <li><a href="{{ url_for('homepage') }}">Home</a></li>
                     <li class="dropdown">
-                        <a href="/dashboardpage/dashboard.html" class="dropbtn">Dashboard ▼</a>
+                        <a href="{{ url_for('dashboard') }}" class="dropbtn">Dashboard ▼</a>
                         <div class="dropdown-content">
-                            <a href="/alerts/">Alerts</a>
-                            <a href="/leaks/">Leaks</a>
-                            <a href="/reports/">Reports</a>
-                            <a href="/risk_analysis/">Risk Analysis</a>
+                            <a href="{{ url_for('alerts') }}">Alerts</a>
+                            <a href="{{ url_for('leaks') }}">Leaks</a>
+                            <a href="{{ url_for('reports') }}">Reports</a>
+                            <a href="{{ url_for('risk_analysis') }}">Risk Analysis</a>
                         </div>
                     </li>
-                    <li><a href="/resourcespage/resources.html">Resources</a></li>
-                    <li><a href="/accountpage/account.html">Account</a></li>
+                    <li><a href="{{ url_for('resources_route') }}">Resources</a></li>
+                    <li><a href="{{ url_for('account') }}">Account</a></li>
                 </ul>
             </nav>
         </aside>
@@ -54,10 +54,11 @@
                         <canvas id="leaksChart" width="300" height="120"></canvas>
                         <div id="leaksChartMsg" style="color: #ffffff; font-size: 0.9em;"></div>
                     </section>
-                    <section id="severity-pie-section" class="chart-section">
-                        <h3>Leak Severity Types (Pie)</h3>
-                        <canvas id="severityPieChart" width="200" height="200"></canvas>
-                        <div id="severityPieChartMsg" style="color: #ffffff; font-size: 0.9em;"></div>
+                     <section id="reports-section">
+                        <h2><a href="/reports/" style="text-decoration:none;color:inherit;">Reports</a></h2>
+                        <section class="reports-item">
+                            <p>Reports offer detailed summaries and historical data on security incidents, alerts, and risk assessments. Use reports to track trends, review past events, and support compliance or audit requirements.</p>
+                        </section>
                     </section>
                 </div>
                 <div class="col">
@@ -71,12 +72,6 @@
                         <h3>Critical Alerts Over Time</h3>
                         <canvas id="alertsChart" width="300" height="120"></canvas>
                         <div id="alertsChartMsg" style="color: #ffffff; font-size: 0.9em;"></div>
-                    </section>
-                    <section id="reports-section">
-                        <h2><a href="/reports/" style="text-decoration:none;color:inherit;">Reports</a></h2>
-                        <section class="reports-item">
-                            <p>Reports offer detailed summaries and historical data on security incidents, alerts, and risk assessments. Use reports to track trends, review past events, and support compliance or audit requirements.</p>
-                        </section>
                     </section>
                 </div>
                 <div class="col">
@@ -94,8 +89,6 @@
             </div>
         </main>
     </div>
-    <script>
-    // (Scripts omitted for brevity in template; consider refactoring to static JS file.)
-    </script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </body>
 </html>

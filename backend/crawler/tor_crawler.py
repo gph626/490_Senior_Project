@@ -1,95 +1,188 @@
-import requests
-from bs4 import BeautifulSoup
-import time
 import os
 import re
+import time
 import hashlib
+import logging
+import requests
+from bs4 import BeautifulSoup
+
 from backend.database import insert_leak_with_dedupe, init_db
 from backend.severity import compute_severity_from_entities
+from backend.crawler.config import load_config
+from backend.utils import (
+    match_assets,
+    detect_language,
+    redact_sensitive_data,
+    send_event_to_api,
+    guess_tags,
+)
 
-# --- INIT DB ---
+# --- INIT ---
+logger = logging.getLogger("tor_crawler")
+logger.setLevel(logging.INFO)
 init_db()
 
-# --- CONFIG ---
+# --- CONFIG & PROXY ---
+ORG_ID = int(os.getenv("ORG_ID", "123"))  # Overridable via environment
+
 USE_TOR = True
-# Default to Tor Browser's SOCKS port 9150; allow override via TOR_PORT env
+# Default to 9150 to match Tor Browser; the web app overrides this via /api/crawlers/tor/run
 TOR_PORT = os.getenv("TOR_PORT", "9150")
 TOR_PROXY = {
     "http": f"socks5h://127.0.0.1:{TOR_PORT}",
-    "https": f"socks5h://127.0.0.1:{TOR_PORT}"
+    "https": f"socks5h://127.0.0.1:{TOR_PORT}",
 }
 
-# --- FETCH & STORE ---
+# Cached org configuration (lazy-loaded). Empty on failure; crawler continues.
+_CONFIG_CACHE: dict = {}
+
+def load_org_config(force: bool = False) -> dict:
+    """Load org config once and cache it; non-fatal on backend errors.
+
+    Returns a dict (possibly empty). Set force=True to refresh the cache.
+    """
+    global _CONFIG_CACHE
+    if _CONFIG_CACHE and not force:
+        return _CONFIG_CACHE
+    url = f"http://127.0.0.1:5000/v1/config/org/{ORG_ID}"
+    try:
+        cfg = load_config(url) or {}
+        if not isinstance(cfg, dict):
+            logger.warning("Org config is not a dict; using empty config")
+            cfg = {}
+        _CONFIG_CACHE = cfg
+    except Exception as e:
+        logger.warning(f"Org config load failed: {e}")
+        _CONFIG_CACHE = {}
+    return _CONFIG_CACHE
+
+
+# --- REGEXES ---
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 DOMAIN_RE = re.compile(r"\b(?:(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)\.)+[a-z]{2,}\b", re.I)
 IPV4_RE = re.compile(r"\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:\.|$)){4}\b")
 BTC_RE = re.compile(r"\b(?:bc1|[13])[a-zA-HJ-NP-Z0-9]{25,39}\b")
 
+# --- HEALTH CHECK ---
+def health_check():
+    try:
+        s = requests.Session()
+        s.proxies = TOR_PROXY
+        r = s.get("http://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion", timeout=10)
+        if r.status_code == 200:
+            logger.info("Tor health check OK")
+            return True
+        else:
+            logger.warning(f"Tor health check failed: {r.status_code}")
+            return False
+    except Exception as e:
+        logger.warning(f"Tor health check exception: {e}")
+        return False
 
-def fetch_and_store(url, retries=3, delay=10):
+# --- FETCH & PROCESS ---
+def fetch_and_store(url: str, retries: int = 3, delay: int = 10, config: dict | None = None) -> bool:
+    retries = int(retries)
+    delay = int(delay)
+    if config is None:
+        config = load_org_config()
     session = requests.Session()
     if USE_TOR:
         session.proxies = TOR_PROXY
 
     for attempt in range(retries):
         try:
-            response = session.get(url, timeout=30)
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, "html.parser")
-                title = soup.title.string.strip() if soup.title and soup.title.string else "No title"
-                # For content, prefer text to avoid HTML noise
-                content = soup.get_text("\n").strip()
-                content_hash = None
-                if content:
-                    content_hash = "sha256:" + hashlib.sha256(content.encode("utf-8", errors="ignore")).hexdigest()
+            r = session.get(url, timeout=30)
 
-                # Extract simple entities
-                entities = {}
-                if content:
-                    emails = sorted(set(EMAIL_RE.findall(content)))
-                    domains = sorted(set(DOMAIN_RE.findall(content)))
-                    ips = sorted(set(IPV4_RE.findall(content)))
-                    btcs = sorted(set(BTC_RE.findall(content)))
-                    entities = {
-                        "emails": emails,
-                        "domains": [d.lower() for d in domains],
-                        "ips": ips,
-                        "btc_wallets": btcs,
-                    }
+            if r.status_code != 200:
+                logger.warning(f"[TorCrawler] Non-200 status {r.status_code} for {url}")
+                continue
 
-                sev = None
-                try:
-                    if entities:
-                        sev = compute_severity_from_entities(entities)
-                except (TypeError, ValueError, KeyError):
-                    sev = None
+            soup = BeautifulSoup(r.text, "html.parser")
+            title = soup.title.string.strip() if soup.title and soup.title.string else "No title"
+            content = soup.get_text("\n").strip() if soup else ""
 
-                _, is_dup = insert_leak_with_dedupe(
-                    source="Tor" if USE_TOR else "Demo",
-                    url=url,
-                    title=title,
-                    content=content,
-                    content_hash=content_hash,
-                    severity=sev,
-                    entities=entities,
-                )
-                print(f"Fetched via Tor: {title} | duplicate={is_dup}")
-                return True
-            else:
-                print(f"Non-200 status: {response.status_code}")
-        except (requests.RequestException, RuntimeError) as e:
-            print(f"Attempt {attempt+1}/{retries} failed: {e}")
-            time.sleep(delay)
+            if not content:
+                logger.warning(f"[TorCrawler] Empty content for {url}")
+                continue
+
+            # --- Fingerprint ---
+            content_hash = "sha256:" + hashlib.sha256(content.encode("utf-8", errors="ignore")).hexdigest()
+
+            # --- Entities ---
+            emails = sorted(set(EMAIL_RE.findall(content)))
+            domains = sorted(set(DOMAIN_RE.findall(content)))
+            ips = sorted(set(IPV4_RE.findall(content)))
+            btcs = sorted(set(BTC_RE.findall(content)))
+            entities = {
+                "emails": emails,
+                "domains": [d.lower() for d in domains],
+                "ips": ips,
+                "btc_wallets": btcs,
+            }
+
+            # --- Tagging & Matching ---
+            lang = detect_language(content)
+            matched_assets = match_assets(entities, (config or {}).get("watchlist", {}))
+            tags = guess_tags(entities, matched_assets)
+
+            # --- Redact ---
+            redacted_text = redact_sensitive_data(content)
+
+            # --- Severity ---
+            severity = None
+            try:
+                if entities:
+                    severity = compute_severity_from_entities(entities)
+            except (TypeError, ValueError, KeyError):
+                severity = None
+
+            # --- Insert locally ---
+            leak_id, is_dup = insert_leak_with_dedupe(
+                source="Tor",
+                url=url,
+                title=title,
+                content=content,
+                content_hash=content_hash,
+                severity=severity,
+                entities=entities,
+            )
+
+            # --- Prepare Event Payload ---
+            event_uid = hashlib.sha256((url + content_hash).encode()).hexdigest()
+            event = {
+                "uid": event_uid,
+                "source": "Tor",
+                "url": url,
+                "title": title,
+                "content": redacted_text,
+                "content_hash": content_hash,
+                "entities": entities,
+                "language": lang,
+                "tags": tags,
+                "severity": severity,
+                "matched_assets": matched_assets,
+                "timestamp": time.time(),
+            }
+
+            # --- Send to API ---
+            send_event_to_api(event)
+            logger.info(f"[TorCrawler] Stored & sent: {title} | dup={is_dup}")
+            return True
+
+        except Exception as e:
+            logger.warning(f"[TorCrawler] Attempt {attempt+1}/{retries} failed: {e}")
+            time.sleep(int(delay))
+
     return False
 
 # --- MAIN ---
 if __name__ == "__main__":
-    if USE_TOR:
-        test_url = "http://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion"
-    else:
-        test_url = "https://example.com"
+    # Optional preload; failures are non-fatal because fetch_and_store lazy-loads.
+    load_org_config()
 
-    if fetch_and_store(test_url):
-        print("Saved page to DB.")
+    if not health_check():
+        logger.warning("Tor not reachable. Exiting.")
     else:
-        print("Failed to fetch page after retries.")
+        # SAFE onion URL for testing
+        test_url = "http://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion"
+        fetch_and_store(test_url)

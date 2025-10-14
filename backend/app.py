@@ -470,6 +470,33 @@ def api_account():
         return jsonify({"status": "updated", "profile": user_profile})
     return jsonify(user_profile)
 
+# v1/events endpoint for crawler ingestion (for compatibility with crawler utils)
+@app.route("/v1/events", methods=["POST"])
+def v1_events_ingest():
+    return api_leaks_ingest()
+
+
+# Config route to backend
+@app.route("/v1/config/org/<int:org_id>")
+def get_config(org_id):
+    # TODO: Replace with real org-specific logic later
+    return jsonify({
+        "api": {
+            "events_url": "http://127.0.0.1:5000/v1/events"
+        },
+        "watchlist": {
+            "domains": ["example.com", "test.org"],
+            "emails": ["admin@example.com"],
+            "keywords": ["password", "login", "shadow"]
+        },
+        "sources": {
+            "pastebin": {
+                "limit": 5,
+                "rate_limit_ms": 500,
+                "timeout_sec": 15
+            }
+        }
+    })
 
 # Serve frontend static files (HTML/CSS/JS/images) from project root.
 # Only handle paths that map to existing files under the project root and do not

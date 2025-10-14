@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="/dashboard/base.css">
+</head>
+<body>
+    <div class="modern-auth-bg">
+        <div class="modern-auth-card">
+                        <h2 class="modern-auth-title">Login</h2>
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                <div class="flash-messages" style="margin-bottom:1em;">
+                                    {% for category, msg in messages %}
+                                        <div class="flash flash-{{ category }}" data-category="{{ category }}">{{ msg }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% endwith %}
+            <form action="/login" method="post" class="modern-auth-form" autocomplete="off">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <!-- Dummy hidden field to trick autofill -->
+                <input type="text" name="fakeusernameremembered" style="display:none">
+                <label for="user_login">Username or Email</label>
+                <input type="text" id="user_login" name="user_login" value="{{ login_val|default('') }}" required autocomplete="off">
+                <label for="user_password">Password</label>
+                <input type="password" id="user_password" name="user_password" required autocomplete="new-password">
+                <button type="submit">Login</button>
+            </form>
+            <p class="modern-auth-link">Don't have an account? <a href="/register">Register here</a></p>
+            <script>
+            document.querySelectorAll('.flash').forEach(el => {
+                const cat = el.getAttribute('data-category');
+                if(cat === 'error') el.style.color = 'red';
+                else if(cat === 'success') el.style.color = 'green';
+            });
+            </script>
+        </div>
+    </div>
+</body>
+</html>

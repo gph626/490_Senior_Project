@@ -49,11 +49,19 @@ API (JSON)
 - `GET /api/resources` - static resources
 - `GET, POST /api/account` - mock account endpoint
 
+
+User Authentication & Password Hashing
+
+- User registration and login now use secure password hashing via `bcrypt` (see `backend/database.py`).
+- Passwords are never stored in plain text; only bcrypt hashes are saved in the database.
+- Registration and login routes (`/register`, `/login`) use these helpers for safe authentication.
+- The `users` table is created automatically; see `create_user`, `authenticate_user`, and related helpers in `backend/database.py`.
+
 Notes for developers
 
 - Frontend files are static HTML/CSS under `homepage/`, `dashboardpage/`, `resourcespage/`, and `accountpage/`.
 - The Flask app serves these with friendly URLs (no `.html`) and remaps asset requests so CSS/images load correctly. See `backend/app.py` if you need to change mappings.
-- Database helpers and models are in `backend/database.py`. `init_db()` will create the SQLite DB and the `leaks` table.
+- Database helpers and models are in `backend/database.py`. `init_db()` will create the SQLite DB and the `leaks` and `users` tables.
 - The `/api/account` endpoint is a mock; it does not persist users.
 
 Troubleshooting

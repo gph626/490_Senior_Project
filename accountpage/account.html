@@ -19,12 +19,14 @@
     </header>
     <div class="container">
         <aside class="sidebar">
+            <button class="logout-btn" onclick="window.location.href='/logout'">Logout</button>
             <nav>
                 <ul>
                     <li><a href="/homepage/homepage.html">Home</a></li>
                     <li><a href="/dashboardpage/dashboard.html">Dashboard</a></li>
                     <li><a href="/resourcespage/resources.html">Resources</a></li>
                     <li><a href="/accountpage/account.html">Account</a></li>
+                    <li><a href="/leaks/">Leaks</a></li>
                 </ul>
             </nav>
         </aside>
@@ -33,6 +35,9 @@
                 <h2>Account</h2>
                 <section class="account-item">
                     <p>Manage your profile and settings here.</p>
+                    <form action="/logout" method="get" style="margin-top: 20px;">
+                        <button type="submit" class="logout-btn">Logout</button>
+                    </form>
                 </section>
             </section>
         </main>

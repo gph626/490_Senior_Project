@@ -1,5 +1,5 @@
 import os
-from flask import Flask, jsonify, request, send_from_directory, abort, redirect
+from flask import Flask, jsonify, request, send_from_directory, abort, redirect, session
 import socket
 import re
 import hashlib
@@ -16,6 +16,7 @@ try:
     import backend.crawler.i2p_crawler as i2p_module
     from backend.assets_db import list_assets, upsert_asset, delete_asset
     from backend.severity import compute_severity_from_entities
+    from backend.analytics import get_critical_leaks, risk_summary
 except ImportError:
     # Fallback: running directly in the backend/ directory
     from database import get_latest_leaks, leak_to_dict, insert_leak_with_dedupe
@@ -26,6 +27,7 @@ except ImportError:
     import crawler.i2p_crawler as i2p_module
     from assets_db import list_assets, upsert_asset, delete_asset
     from severity import compute_severity_from_entities
+    from analytics import get_critical_leaks, risk_summary
 
 # Project root (one level up from backend/) where the frontend files live
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -33,7 +35,6 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 # Create Flask app. We won't use the built-in `static_folder` so we can selectively
 # serve frontend files and keep API routes under /api.
 app = Flask(__name__)
-
 
 # Aliases used across routing logic
 ALIASES = {
@@ -45,7 +46,28 @@ ALIASES = {
     'risk_analysis': 'dashboardpage/risk_analysis.html',
     'reports': 'dashboardpage/reports.html',
     'leaks': 'dashboardpage/leaks.html',
+    'login': 'auth/login.html',
+    'register': 'auth/register.html',
 }
+# Secret key for session management
+app.secret_key = 'supersecretkey'  # Change this in production
+
+PUBLIC_ROUTES = [
+    '/login', '/register', '/auth/login.html', '/auth/register.html', '/static/', '/favicon.ico', '/dashboard/base.css'
+]
+
+@app.before_request
+def require_login():
+    path = request.path
+    # Allow public routes without login
+    if path in PUBLIC_ROUTES or any(path.startswith(r) for r in PUBLIC_ROUTES):
+        return None
+    # Allow /auth/login.html and /auth/register.html without login
+    if path in ['/auth/login.html', '/auth/register.html']:
+        return None
+    if not session.get('logged_in'):
+        return redirect('/auth/login.html')
+    return None
 
 
 @app.before_request
@@ -75,7 +97,9 @@ def redirect_html_to_clean():
 # Root endpoint -- redirect to the homepage HTML so visiting / loads the styled page
 @app.route("/")
 def home():
-    return redirect('/homepage/')
+    if not session.get('logged_in'):
+        return send_from_directory(os.path.join(PROJECT_ROOT, 'auth'), 'register.html')
+    return redirect('/dashboard/')
 
 
 # Small API status endpoint (keeps API root JSON-friendly)
@@ -169,7 +193,9 @@ def serve_page_dir(page: str):
         'risk_analysis': 'dashboardpage/risk_analysis.html',
         'reports': 'dashboardpage/reports.html',
         'leaks': 'dashboardpage/leaks.html',
-        'index': 'homepage/homepage.html'
+        'index': 'homepage/homepage.html',  
+        'login': 'auth/login.html',
+        'register': 'auth/register.html',
     }
 
     if page in aliases:
@@ -195,6 +221,18 @@ def api_leaks():
     limit = request.args.get("limit", default=10, type=int)
     leaks = get_latest_leaks(limit)
     return jsonify([leak_to_dict(leak) for leak in leaks])
+
+# Alerts (critical leaks only)
+@app.route("/api/alerts", methods=["GET"])
+def api_alerts():
+    limit = request.args.get('limit', default=50, type=int)
+    crits = get_critical_leaks(limit=limit)
+    return jsonify(crits)
+
+# Risk summary aggregation
+@app.route("/api/risk/summary", methods=["GET"])
+def api_risk_summary():
+    return jsonify(risk_summary())
 
 # Ingest endpoint to support crawler/mock posting leaks now; minimal validation and dedupe
 @app.route("/api/leaks", methods=["POST"])
@@ -515,6 +553,39 @@ def redirect_pagefile(folder: str, file: str):
         return redirect(f'/{base}/')
     # Otherwise attempt to serve as static
     return serve_static(f"{folder}/{file}")
+
+
+# Login route
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.form or request.json or {}
+    username = data.get("user_login")
+    password = data.get("user_password")
+    if username and password:
+        session['logged_in'] = True
+        session['username'] = username
+        return redirect('/dashboard/')
+    return redirect('/auth/login.html')
+
+# Logout route
+@app.route("/logout", methods=["GET", "POST"])
+def logout():
+    session.clear()
+    return redirect('/auth/login.html')
+
+# Register route
+@app.route("/register", methods=["POST"])
+def register():
+    data = request.form or request.json or {}
+    username = data.get("username")
+    email = data.get("email")
+    password = data.get("password")
+    if username and email and password:
+        # In real app, insert user into DB
+        session['logged_in'] = True
+        session['username'] = username
+        return redirect('/dashboard/')
+    return redirect('/auth/register.html')
 
 if __name__ == "__main__":
     app.run(debug=True)

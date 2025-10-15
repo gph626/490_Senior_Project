@@ -70,10 +70,12 @@
             <div class="sidebar-user">
                 <div class="user-info user-dropdown">
                     <span class="user-label">Logged in as</span>
-                    <button class="user-name user-dropdown-btn" onclick="document.getElementById('userDropdownMenu').classList.toggle('show')">{{ username }} ▼</button>
-                    <div id="userDropdownMenu" class="user-dropdown-content">
-                        <a href="{{ url_for('account') }}">Account</a>
-                        <a href="/logout">Logout</a>
+                    <div class="dropdown">
+                        <a href="#" class="dropbtn user-name user-dropdown-btn">{{ username }} ▼</a>
+                        <div class="dropdown-content user-dropdown-content">
+                            <a href="{{ url_for('account') }}">Account</a>
+                            <a href="/logout">Logout</a>
+                        </div>
                     </div>
                 </div>
             </div>

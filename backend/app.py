@@ -789,5 +789,47 @@ def api_account_delete():
     else:
         return jsonify({"status": "error", "message": "User not found"}), 404
 
+
+# Password reset endpoint
+@app.route("/api/reset_password", methods=["POST"])
+def api_reset_password():
+
+    from backend.database import SessionLocal, User, hash_password
+    if not session.get('logged_in') or not session.get('user_id'):
+        return jsonify({"status": "error", "message": "Not authenticated."}), 401
+    data = request.get_json(silent=True) or {}
+    new_password = data.get("new_password")
+    if not new_password:
+        return jsonify({"status": "error", "message": "New password required."}), 400
+    # Basic password validation (reuse registration rules)
+    def password_errors(pw: str):
+        errs = []
+        if len(pw) < 10:
+            errs.append('Password must be at least 10 characters.')
+        if not re.search(r'[A-Z]', pw):
+            errs.append('Add an uppercase letter.')
+        if not re.search(r'[a-z]', pw):
+            errs.append('Add a lowercase letter.')
+        if not re.search(r'\d', pw):
+            errs.append('Add a digit.')
+        if not re.search(r'[^A-Za-z0-9]', pw):
+            errs.append('Add a special character.')
+        return errs
+    pw_errs = password_errors(new_password)
+    if pw_errs:
+        return jsonify({"status": "error", "message": ' '.join(pw_errs)}), 400
+    session_db = SessionLocal()
+    try:
+        user = session_db.query(User).filter(User.id == session['user_id']).first()
+        if not user:
+            return jsonify({"status": "error", "message": "User not found."}), 404
+        user.password_hash = hash_password(new_password)
+        session_db.commit()
+        return jsonify({"status": "ok", "message": "Password changed successfully."}), 200
+    except Exception as e:
+        session_db.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        session_db.close()
 if __name__ == "__main__":
     app.run(debug=True)

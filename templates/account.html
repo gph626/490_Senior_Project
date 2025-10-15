@@ -22,10 +22,12 @@
             <div class="sidebar-user">
                 <div class="user-info user-dropdown">
                     <span class="user-label">Logged in as</span>
-                    <button class="user-name user-dropdown-btn" onclick="document.getElementById('userDropdownMenu').classList.toggle('show')">{{ username }} ▼</button>
-                    <div id="userDropdownMenu" class="user-dropdown-content">
-                        <a href="{{ url_for('account') }}">Account</a>
-                        <a href="/logout">Logout</a>
+                    <div class="dropdown">
+                        <a href="#" class="dropbtn user-name user-dropdown-btn">{{ username }} ▼</a>
+                        <div class="dropdown-content user-dropdown-content">
+                            <a href="{{ url_for('account') }}">Account</a>
+                            <a href="/logout">Logout</a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -72,6 +74,43 @@
                             }
                         })
                         .catch(() => alert('Network error. Please try again.'));
+                    };
+                    </script>
+
+                    <!-- Reset Password Section -->
+                    <hr style="margin: 2em 0;">
+                    <h3>Change Password</h3>
+                    <form id="reset-password-form" style="margin-top: 1em;">
+                        <label for="reset-new-password">New Password</label>
+                        <input type="password" id="reset-new-password" name="new_password" required placeholder="Enter new password" style="margin-bottom: 1em;">
+                        <button type="submit" class="logout-btn" style="background:#007bff; color:#fff;">Change Password</button>
+                    </form>
+                    <div id="reset-password-message" style="margin-top:1em;color:#c00;"></div>
+                    <script>
+                    document.getElementById('reset-password-form').onsubmit = function(e) {
+                        e.preventDefault();
+                        const newPassword = document.getElementById('reset-new-password').value;
+                        const msgDiv = document.getElementById('reset-password-message');
+                        msgDiv.textContent = '';
+                        fetch('/api/reset_password', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ new_password: newPassword })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.status === 'ok') {
+                                msgDiv.style.color = '#080';
+                                msgDiv.textContent = 'Password changed successfully.';
+                            } else {
+                                msgDiv.style.color = '#c00';
+                                msgDiv.textContent = data.message || 'Password change failed.';
+                            }
+                        })
+                        .catch(() => {
+                            msgDiv.style.color = '#c00';
+                            msgDiv.textContent = 'Network error. Please try again.';
+                        });
                     };
                     </script>
                 </section>

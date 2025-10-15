@@ -246,6 +246,7 @@ body {
     margin: 0;
     outline: none;
     transition: color 0.2s;
+    text-decoration: none;
 }
 .user-dropdown-btn:hover {
     color: #430A0C;

@@ -218,6 +218,87 @@ body {
     align-items: center;
 }
 
+.sidebar-user {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #A7001D;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    padding: 18px 0 12px 0;
+    margin-bottom: 24px;
+    width: 80%;
+}
+.user-info {
+    text-align: center;
+    position: relative;
+}
+
+.user-dropdown-btn {
+    background: none;
+    border: none;
+    color: #ECECEC;
+    font-size: 1.15em;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    padding: 0;
+    margin: 0;
+    outline: none;
+    transition: color 0.2s;
+}
+.user-dropdown-btn:hover {
+    color: #430A0C;
+}
+.user-dropdown-content {
+    display: none;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 110%;
+    background: #23272F;
+    min-width: 120px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    border-radius: 8px;
+    z-index: 10;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 8px 0;
+}
+.user-dropdown-content a {
+    color: #ECECEC;
+    padding: 10px 18px;
+    text-decoration: none;
+    display: block;
+    font-size: 1em;
+    border-bottom: 1px solid #3D4754;
+    transition: background 0.2s;
+}
+.user-dropdown-content a:last-child {
+    border-bottom: none;
+}
+.user-dropdown-content a:hover {
+    background: #3D4754;
+    color: #A7001D;
+}
+.show {
+    display: flex !important;
+}
+.user-label {
+    color: #ECECEC;
+    font-size: 0.95em;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    display: block;
+    margin-bottom: 2px;
+}
+.user-name {
+    color: #ECECEC;
+    font-size: 1.15em;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
 .sidebar nav ul {
     list-style: none;
     padding: 0;
@@ -381,9 +462,10 @@ section.report-section {
         box-shadow: none;
     }
     .sidebar nav ul {
-        flex-direction: row;
-        gap: 10px;
-        justify-content: center;
+        flex-direction: column !important;
+        gap: 30px !important;
+        justify-content: flex-start !important;
+        align-items: stretch !important;
     }
     main {
         flex-direction: column;

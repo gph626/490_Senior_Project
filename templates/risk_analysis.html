@@ -58,9 +58,6 @@
 </head>
 <body>
     <header>
-        <div class="username-banner" style="text-align:right; margin-top:10px; font-size:1.2em; color:#333;">
-            Logged in as: <strong>{{ username }}</strong>
-        </div>
         <div class="header-flex">
             <div class="logo">
                 <img src="../dashboard/logo.png" alt="Site Logo" height="80" width="80" onerror="this.onerror=null;this.src='https://via.placeholder.com/80x80?text=Logo';">
@@ -70,7 +67,16 @@
     </header>
     <div class="container">
         <aside class="sidebar">
-            <button class="logout-btn" onclick="window.location.href='/logout'">Logout</button>
+            <div class="sidebar-user">
+                <div class="user-info user-dropdown">
+                    <span class="user-label">Logged in as</span>
+                    <button class="user-name user-dropdown-btn" onclick="document.getElementById('userDropdownMenu').classList.toggle('show')">{{ username }} ▼</button>
+                    <div id="userDropdownMenu" class="user-dropdown-content">
+                        <a href="{{ url_for('account') }}">Account</a>
+                        <a href="/logout">Logout</a>
+                    </div>
+                </div>
+            </div>
             <nav>
                 <ul>
                     <li><a href="{{ url_for('homepage') }}">Home</a></li>
@@ -84,7 +90,6 @@
                         </div>
                     </li>
                     <li><a href="{{ url_for('resources_route') }}">Resources</a></li>
-                    <li><a href="{{ url_for('account') }}">Account</a></li>
                 </ul>
             </nav>
         </aside>

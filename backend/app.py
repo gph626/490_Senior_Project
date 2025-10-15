@@ -3,6 +3,7 @@ from flask import Flask, jsonify, request, send_from_directory, abort, redirect,
 import socket
 import re
 import hashlib
+import json
 
 # Import the database helpers in a way that works when running from the repo root
 # (python -m backend.app) or when running directly from backend/ (python app.py).
@@ -243,11 +244,13 @@ def api_leaks_ingest():
     title = payload.get('title')
     content = payload.get('content') or payload.get('data')
     content_hash = None
+
     # Accept hash in top-level or inside normalized
     if 'content_hash' in payload:
         content_hash = payload.get('content_hash')
     elif isinstance(payload.get('normalized'), dict):
         content_hash = payload['normalized'].get('content_hash')
+
     severity = payload.get('severity')
     entities = payload.get('entities') or (payload.get('normalized') or {}).get('entities')
 
@@ -262,6 +265,13 @@ def api_leaks_ingest():
             # keep default if any issue computing
             pass
 
+    # Extract fields from payload
+    passwords = payload.get('passwords')
+    ssn = payload.get('ssn')
+    names = payload.get('names')
+    phone_numbers = payload.get('phone_numbers')
+    physical_addresses = payload.get('physical_addresses')
+
     leak_id, is_dup = insert_leak_with_dedupe(
         source=source,
         url=url,
@@ -270,10 +280,17 @@ def api_leaks_ingest():
         content_hash=content_hash,
         severity=severity,
         entities=entities,
+        passwords=json.dumps(passwords) if passwords else None,
+        ssn=ssn,
+        names=json.dumps(names) if names else None,
+        phone_numbers=json.dumps(phone_numbers) if phone_numbers else None,
+        physical_addresses=json.dumps(physical_addresses) if physical_addresses else None,
     )
+
     status = "duplicate" if is_dup else "accepted"
     resp = {"status": status, "id": leak_id}
     return jsonify(resp), 202
+
 
 # Trigger Pastebin crawler from the web app
 @app.route("/api/crawlers/pastebin/run", methods=["POST"])
@@ -469,6 +486,7 @@ def api_account():
         user_profile.update(data)
         return jsonify({"status": "updated", "profile": user_profile})
     return jsonify(user_profile)
+
 
 # v1/events endpoint for crawler ingestion (for compatibility with crawler utils)
 @app.route("/v1/events", methods=["POST"])

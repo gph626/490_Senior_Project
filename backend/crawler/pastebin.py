@@ -16,6 +16,7 @@ from backend.utils import (
     detect_language,
     redact_sensitive_data,
     send_event_to_api,
+    extract_entities,
 )
 
 # ---------- Setup ----------
@@ -25,11 +26,7 @@ logger = logging.getLogger("pastebin_crawler")
 # Ensure DB and tables exist (consistent with other crawlers)
 init_db()
 
-# Regexes
-EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
-DOMAIN_RE = re.compile(r"\b(?:(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)\.)+[a-z]{2,}\b", re.I)
-IPV4_RE = re.compile(r"\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:\.|$)){4}\b")
-BTC_RE = re.compile(r"\b(?:bc1|[13])[a-zA-HJ-NP-Z0-9]{25,39}\b")
+
 
 ORG_ID = int(os.environ.get("DARKWEB_ORG_ID", "123"))
 _CONFIG_CACHE: Dict[str, Any] = {}
@@ -64,17 +61,8 @@ def stable_uid(paste_id: str, url: str, content_hash: Optional[str]) -> str:
     material = f"pastebin|{paste_id or ''}|{content_hash or url}"
     return "evt:" + hashlib.sha256(material.encode("utf-8")).hexdigest()
 
-def extract_entities(text: str) -> Dict[str, Any]:
-    emails = sorted(set(EMAIL_RE.findall(text)))
-    domains = sorted(set(DOMAIN_RE.findall(text)))
-    ips = sorted(set(IPV4_RE.findall(text)))
-    btcs = sorted(set(BTC_RE.findall(text)))
-    return {
-        "emails": emails,
-        "domains": [d.lower() for d in domains],
-        "ips": ips,
-        "btc_wallets": btcs,
-    }
+
+
 
 def guess_tags(text: str, asset_hit_count: int) -> Dict[str, Any]:
     t = text.lower()
@@ -212,11 +200,17 @@ def fetch_and_store(limit: int = 10, rate_limit_ms: int = 500) -> int:
             source="pastebin",
             url=link,
             title=title,
-            content=content,               # raw stored locally
+            content=content,
             content_hash=content_hash,
             severity=sev,
             entities=entities,
+            ssn=entities.get("ssns"),
+            names=entities.get("names"),
+            phone_numbers=entities.get("phone_numbers"),
+            physical_addresses=entities.get("physical_addresses"),
+            passwords=entities.get("passwords"),
         )
+
         if not is_dup:
             inserted += 1
 
@@ -241,6 +235,14 @@ def fetch_and_store(limit: int = 10, rate_limit_ms: int = 500) -> int:
             "content": redacted or content or "",
             "content_preview": (redacted or "")[:2000] if redacted else None,
         }
+        event.update({
+            "ssn": entities.get("ssns"),
+            "names": entities.get("names"),
+            "phone_numbers": entities.get("phone_numbers"),
+            "physical_addresses": entities.get("physical_addresses"),
+            "passwords": entities.get("passwords"),
+        })
+
 
         # Send to API with small retry/backoff (idempotent via uid)
         for attempt in range(3):

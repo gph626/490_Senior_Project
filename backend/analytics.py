@@ -40,6 +40,11 @@ def get_critical_leaks(limit: int = 50) -> List[Dict[str, Any]]:
                 'severity': leak.severity,
                 'timestamp': leak.timestamp.isoformat() if leak.timestamp else None,
                 'entities': (norm or {}).get('entities') or {},
+                'ssn': leak.ssn,
+                'names': leak.names,
+                'phone_numbers': leak.phone_numbers,
+                'physical_addresses': leak.physical_addresses,
+                'passwords': leak.passwords,
             })
             if len(out) >= limit:
                 break
@@ -67,16 +72,58 @@ def asset_risk(limit: int | None = None) -> List[Dict[str, Any]]:
     # Build reverse index from entity value -> list of (severity, leak_id)
     appearances: Dict[str, list[str]] = {}
     crit_hits: set[str] = set()
+
     for leak in _iter_recent_leaks(limit=limit or 1000):
         norm = leak.normalized or {}
         ents = (norm or {}).get('entities') or {}
         values = []
+
         for key in ('emails', 'domains', 'ips', 'btc_wallets'):
             for v in ents.get(key, []) or []:
                 if not isinstance(v, str):
                     continue
                 vv = v.lower().strip()
                 values.append(vv)
+        if leak.ssn:
+            values.append(str(leak.ssn).strip().lower())
+
+        if leak.names:
+            try:
+                import json
+                parsed = json.loads(leak.names) if isinstance(leak.names, str) else leak.names
+                for n in parsed:
+                    values.append(str(n).strip().lower())
+            except Exception:
+                values.append(str(leak.names).strip().lower())
+
+        if leak.phone_numbers:
+            try:
+                import json
+                parsed = json.loads(leak.phone_numbers) if isinstance(leak.phone_numbers, str) else leak.phone_numbers
+                for p in parsed:
+                    values.append(str(p).strip().lower())
+            except Exception:
+                values.append(str(leak.phone_numbers).strip().lower())
+
+        if leak.physical_addresses:
+            try:
+                import json
+                parsed = json.loads(leak.physical_addresses) if isinstance(leak.physical_addresses, str) else leak.physical_addresses
+                for addr in parsed:
+                    values.append(str(addr).strip().lower())
+            except Exception:
+                values.append(str(leak.physical_addresses).strip().lower())
+
+        if leak.passwords:
+            try:
+                import json
+                parsed = json.loads(leak.passwords) if isinstance(leak.passwords, str) else leak.passwords
+                for pwd in parsed:
+                    values.append(str(pwd).strip().lower())
+            except Exception:
+                values.append(str(leak.passwords).strip().lower())
+
+
         for v in set(values):  # de-dup for this leak
             appearances.setdefault(v, []).append((leak.severity or 'unknown').lower())
             if (leak.severity or '').lower() == 'critical':

@@ -19,21 +19,31 @@
     </header>
     <div class="container">
         <aside class="sidebar">
-            <button class="logout-btn" onclick="window.location.href='/logout'">Logout</button>
+            <div class="sidebar-user">
+                <div class="user-info user-dropdown">
+                    <span class="user-label">Logged in as</span>
+                    <div class="dropdown">
+                        <a href="#" class="dropbtn user-name user-dropdown-btn">{{ username }} ▼</a>
+                        <div class="dropdown-content user-dropdown-content">
+                            <a href="{{ url_for('account') }}">Account</a>
+                            <a href="/logout">Logout</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <nav>
                 <ul>
-                    <li><a href="/homepage/homepage.html">Home</a></li>
+                    <li><a href="{{ url_for('homepage') }}">Home</a></li>
                     <li class="dropdown">
-                        <a href="/dashboardpage/dashboard.html" class="dropbtn">Dashboard ▼</a>
+                        <a href="{{ url_for('dashboard') }}" class="dropbtn">Dashboard ▼</a>
                         <div class="dropdown-content">
-                            <a href="/alerts/">Alerts</a>
-                            <a href="/leaks/">Leaks</a>
-                            <a href="/reports/">Reports</a>
-                            <a href="/risk_analysis/">Risk Analysis</a>
+                            <a href="{{ url_for('alerts') }}">Alerts</a>
+                            <a href="{{ url_for('leaks') }}">Leaks</a>
+                            <a href="{{ url_for('reports') }}">Reports</a>
+                            <a href="{{ url_for('risk_analysis') }}">Risk Analysis</a>
                         </div>
                     </li>
-                    <li><a href="/resourcespage/resources.html">Resources</a></li>
-                    <li><a href="/accountpage/account.html">Account</a></li>
+                    <li><a href="{{ url_for('resources_route') }}">Resources</a></li>
                 </ul>
             </nav>
         </aside>
@@ -72,8 +82,5 @@
             </div>
         </main>
     </div>
-    <script>
-    // No dropdown JS needed
-    </script>
 </body>
 </html>

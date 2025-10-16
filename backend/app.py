@@ -1,15 +1,19 @@
 import os
-from flask import Flask, jsonify, request, send_from_directory, abort, redirect, session
+from flask import Flask, jsonify, request, send_from_directory, abort, redirect, session, render_template, flash
 import socket
 import re
 import hashlib
+import time
+from collections import defaultdict, deque
 import json
 
 # Import the database helpers in a way that works when running from the repo root
 # (python -m backend.app) or when running directly from backend/ (python app.py).
 try:
     # Preferred: running as a package from repo root
-    from backend.database import get_latest_leaks, leak_to_dict, insert_leak_with_dedupe, insert_crawl_run, get_crawl_runs_for_user, update_crawl_run_status
+    from backend.database import (get_latest_leaks, leak_to_dict, insert_leak_with_dedupe, 
+                                  create_user, authenticate_user, init_db, insert_crawl_run, 
+                                  get_crawl_runs_for_user, update_crawl_run_status)
     from backend.crawler.pastebin import fetch_and_store as pastebin_fetch
     from backend.crawler.tor_crawler import fetch_and_store as tor_fetch
     import backend.crawler.tor_crawler as tor_module
@@ -20,7 +24,11 @@ try:
     from backend.analytics import get_critical_leaks, risk_summary
 except ImportError:
     # Fallback: running directly in the backend/ directory
-    from database import get_latest_leaks, leak_to_dict, insert_leak_with_dedupe, insert_crawl_run, get_crawl_runs_for_user, update_crawl_run_status
+    from database import (
+        get_latest_leaks, leak_to_dict, insert_leak_with_dedupe,
+        create_user, authenticate_user, init_db
+    )
+    from database import insert_crawl_run, get_crawl_runs_for_user, update_crawl_run_status
     from crawler.pastebin import fetch_and_store as pastebin_fetch
     from crawler.tor_crawler import fetch_and_store as tor_fetch
     import crawler.tor_crawler as tor_module
@@ -33,9 +41,51 @@ except ImportError:
 # Project root (one level up from backend/) where the frontend files live
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
-# Create Flask app. We won't use the built-in `static_folder` so we can selectively
-# serve frontend files and keep API routes under /api.
-app = Flask(__name__)
+# Create Flask app. Point template_folder at project-level templates directory so
+# render_template finds the Jinja2 templates we added under PROJECT_ROOT/templates.
+app = Flask(
+    __name__,
+    template_folder=os.path.join(PROJECT_ROOT, 'templates'),
+    static_folder=os.path.join(PROJECT_ROOT, 'static')  # serve project-level static assets
+)
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
+
+# --- Simple in-memory rate limiting (IP based) ---
+RATE_LIMIT_WINDOW = 60  # seconds
+RATE_LIMIT_MAX = 15     # max attempts per window
+_rate_limit_store: dict[str, deque] = defaultdict(deque)
+
+def rate_limited(key: str) -> bool:
+    now = time.time()
+    dq = _rate_limit_store[key]
+    # purge old timestamps
+    while dq and now - dq[0] > RATE_LIMIT_WINDOW:
+        dq.popleft()
+    if len(dq) >= RATE_LIMIT_MAX:
+        return True
+    dq.append(now)
+    return False
+
+# --- CSRF token helpers ---
+import secrets
+
+def get_csrf_token() -> str:
+    token = session.get('_csrf_token')
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session['_csrf_token'] = token
+    return token
+
+def validate_csrf(token: str | None) -> bool:
+    return token and token == session.get('_csrf_token')
+
+app.jinja_env.globals['csrf_token'] = get_csrf_token
+
+# Ensure database tables exist (idempotent)
+try:
+    init_db()
+except Exception as e:
+    print(f"[startup] Failed to initialize database: {e}")
 
 # Aliases used across routing logic
 ALIASES = {
@@ -54,7 +104,7 @@ ALIASES = {
 app.secret_key = 'supersecretkey'  # Change this in production
 
 PUBLIC_ROUTES = [
-    '/login', '/register', '/auth/login.html', '/auth/register.html', '/static/', '/favicon.ico', '/dashboard/base.css'
+    '/login', '/register', '/auth/login.html', '/auth/register.html', '/static/', '/favicon.ico', '/dashboard/base.css', '/api/check_email'
 ]
 
 def get_current_user_id():
@@ -122,17 +172,18 @@ def homepage_noext():
 
 @app.route('/homepage/')
 def homepage():
-    return send_from_directory(os.path.join(PROJECT_ROOT, 'homepage'), 'homepage.html')
+    username = session.get('username', 'User')
+    return render_template('homepage.html', username=username)
 
 
 @app.route('/dashboard')
 def dashboard_noext():
     return redirect('/dashboard/')
 
-
 @app.route('/dashboard/')
 def dashboard():
-    return send_from_directory(os.path.join(PROJECT_ROOT, 'dashboardpage'), 'dashboard.html')
+    username = session.get('username', 'User')
+    return render_template('dashboard.html', username=username)
 
 
 @app.route('/resources')
@@ -142,7 +193,8 @@ def resources_noext_route():
 
 @app.route('/resources/')
 def resources_route():
-    return send_from_directory(os.path.join(PROJECT_ROOT, 'resourcespage'), 'resources.html')
+    username = session.get('username', 'User')
+    return render_template('resources.html', username=username)
 
 
 @app.route('/account')
@@ -152,7 +204,8 @@ def account_noext():
 
 @app.route('/account/')
 def account():
-    return send_from_directory(os.path.join(PROJECT_ROOT, 'accountpage'), 'account.html')
+    username = session.get('username', 'User')
+    return render_template('account.html', username=username)
 
 # Alerts page routes
 @app.route('/alerts')
@@ -162,7 +215,8 @@ def alerts_noext():
 
 @app.route('/alerts/')
 def alerts():
-    return send_from_directory(os.path.join(PROJECT_ROOT, 'dashboardpage'), 'alerts.html')
+    username = session.get('username', 'User')
+    return render_template('alerts.html', username=username)
 
 
 # Risk Analysis page routes
@@ -173,7 +227,8 @@ def risk_analysis_noext():
 
 @app.route('/risk_analysis/')
 def risk_analysis():
-    return send_from_directory(os.path.join(PROJECT_ROOT, 'dashboardpage'), 'risk_analysis.html')
+    username = session.get('username', 'User')
+    return render_template('risk_analysis.html', username=username)
 
 
 # Reports page routes
@@ -184,7 +239,18 @@ def reports_noext():
 
 @app.route('/reports/')
 def reports():
-    return send_from_directory(os.path.join(PROJECT_ROOT, 'dashboardpage'), 'reports.html')
+    username = session.get('username', 'User')
+    return render_template('reports.html', username=username)
+
+# Leaks page routes
+@app.route('/leaks')
+def leaks_noext():
+    return redirect('/leaks/')
+
+@app.route('/leaks/')
+def leaks():
+    username = session.get('username', 'User')
+    return render_template('leaks.html', username=username)
 
 
 # Handle directory-style requests with trailing slash, serving the page file inside the folder
@@ -205,6 +271,24 @@ def serve_page_dir(page: str):
     }
 
     if page in aliases:
+        # If the page is one we now render via templates, use render_template instead of static send
+        template_map = {
+            'homepage': 'homepage.html',
+            'dashboard': 'dashboard.html',
+            'resources': 'resources.html',
+            'account': 'account.html',
+            'alerts': 'alerts.html',
+            'risk_analysis': 'risk_analysis.html',
+            'reports': 'reports.html',
+            'leaks': 'leaks.html',
+        }
+        if page in template_map:
+            username = session.get('username', 'User')
+            return render_template(template_map[page], username=username)
+        if page in template_map:
+            username = session.get('username', 'User')
+            return render_template(template_map[page], username=username)
+        # login/register still served as static HTML originals
         target = aliases[page]
         rel_dir = os.path.dirname(target)
         file_name = os.path.basename(target)
@@ -638,17 +722,34 @@ def redirect_pagefile(folder: str, file: str):
 
 
 # Login route
-@app.route("/login", methods=["POST"])
+@app.route("/login", methods=["GET", "POST"])
 def login():
+    if request.method == "GET":
+        return render_template('login.html')
     data = request.form or request.json or {}
-    username = data.get("user_login")
+    # CSRF check
+    if not validate_csrf(data.get('csrf_token')):
+        flash('Invalid CSRF token. Refresh and try again.', 'error')
+        return render_template('login.html')
+    # Rate limit by IP
+    ip = request.remote_addr or 'unknown'
+    if rate_limited(f'login:{ip}'):
+        flash('Too many login attempts. Please wait a minute.', 'error')
+        return render_template('login.html')
+    username_or_email = (data.get("user_login") or '').strip()
     password = data.get("user_password")
-    if username and password:
-        session['logged_in'] = True
-        session['user_id'] = 1  # placeholder until user accounts are real
-        session['username'] = username
-        return redirect('/dashboard/')
-    return redirect('/auth/login.html')
+    if not (username_or_email and password):
+        flash("Both fields are required.", "error")
+        return render_template('login.html', login_val=username_or_email)
+    user = authenticate_user(username_or_email, password)
+    if not user:
+        flash("Invalid credentials.", "error")
+        return render_template('login.html', login_val=username_or_email)
+    session['logged_in'] = True
+    session['username'] = user.username
+    session['user_id'] = user.id
+    flash("Welcome back, {}!".format(user.username), "success")
+    return redirect('/dashboard/')
 
 # Logout route
 @app.route("/logout", methods=["GET", "POST"])
@@ -656,19 +757,161 @@ def logout():
     session.clear()
     return redirect('/auth/login.html')
 
-# Register route
-@app.route("/register", methods=["POST"])
+# Register route (GET = show form, POST = process)
+@app.route("/register", methods=["GET", "POST"])
 def register():
+    if request.method == "GET":
+        return render_template('register.html')
     data = request.form or request.json or {}
-    username = data.get("username")
-    email = data.get("email")
-    password = data.get("password")
-    if username and email and password:
-        # In real app, insert user into DB
-        session['logged_in'] = True
-        session['username'] = username
-        return redirect('/dashboard/')
-    return redirect('/auth/register.html')
+    # CSRF check
+    if not validate_csrf(data.get('csrf_token')):
+        flash('Invalid CSRF token. Refresh and try again.', 'error')
+        return render_template('register.html')
+    # Rate limit by IP
+    ip = request.remote_addr or 'unknown'
+    if rate_limited(f'register:{ip}'):
+        flash('Too many registration attempts. Please wait a minute.', 'error')
+        return render_template('register.html')
+    username = (data.get("username") or data.get("reg_user") or "").strip()
+    email = (data.get("email") or data.get("reg_email") or "").strip().lower()
+    password = data.get("password") or data.get("reg_password")
+    if not (username and email and password):
+        flash("All fields are required.", "error")
+        return render_template('register.html', username_val=username, email_val=email, error="All fields are required.")
+    # Server-side password validation
+    def password_errors(pw: str):
+        errs = []
+        if len(pw) < 10:
+            errs.append('Password must be at least 10 characters.')
+        if not re.search(r'[A-Z]', pw):
+            errs.append('Add an uppercase letter.')
+        if not re.search(r'[a-z]', pw):
+            errs.append('Add a lowercase letter.')
+        if not re.search(r'\d', pw):
+            errs.append('Add a digit.')
+        if not re.search(r'[^A-Za-z0-9]', pw):
+            errs.append('Add a special character.')
+        return errs
+    pw_errs = password_errors(password or '')
+    if pw_errs:
+        msg = ' '.join(pw_errs)
+        flash(msg, 'error')
+        return render_template('register.html', username_val=username, email_val=email, error=msg)
+    try:
+        user_id = create_user(username, email, password)
+    except ValueError as e:
+        error_msg = str(e)
+        lowered = error_msg.lower()
+        if "email" in lowered:
+            error_msg = "This email is already linked to another account."
+        elif "username" in lowered:
+            error_msg = "This username is already taken."
+        else:
+            error_msg = "Registration failed. Please try again."
+        flash(error_msg, "error")
+        return render_template('register.html', username_val=username, email_val=email, error=error_msg)
+    session['logged_in'] = True
+    session['username'] = username
+    session['user_id'] = user_id
+    flash("Registration successful!", "success")
+    return redirect('/homepage/')
 
+@app.route('/api/check_email')
+def api_check_email():
+    # lightweight availability check
+    from backend.database import SessionLocal, User  # local import to avoid circular
+    email = (request.args.get('email') or '').strip().lower()
+    if not email:
+        return jsonify({"available": False, "error": "email required"}), 400
+    session_db = SessionLocal()
+    try:
+        exists = session_db.query(User.id).filter(User.email == email).first() is not None
+    finally:
+        session_db.close()
+    return jsonify({"available": not exists})
+
+# Legacy path served as static file previously; redirect to dynamic template route
+@app.route('/auth/register.html', methods=['GET'])
+def legacy_register_static():
+    return redirect('/register')
+
+@app.route('/auth/login.html', methods=['GET'])
+def legacy_login_static():
+    return redirect('/login')
+
+# Additional legacy/SEO-friendly aliases
+@app.route('/login.html', methods=['GET'])
+def login_html_alias():
+    return redirect('/login')
+
+@app.route('/register.html', methods=['GET'])
+def register_html_alias():
+    return redirect('/register')
+
+@app.route('/login/', methods=['GET'])
+def login_trailing():
+    return redirect('/login')
+
+@app.route('/register/', methods=['GET'])
+def register_trailing():
+    return redirect('/register')
+
+
+# Delete account endpoint
+@app.route("/api/account/delete", methods=["POST"])
+def api_account_delete():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"status": "error", "message": "Not authenticated"}), 401
+    from backend.database import delete_user
+    ok = delete_user(user_id)
+    if ok:
+        session.clear()
+        return jsonify({"status": "deleted"}), 200
+    else:
+        return jsonify({"status": "error", "message": "User not found"}), 404
+
+
+# Password reset endpoint
+@app.route("/api/reset_password", methods=["POST"])
+def api_reset_password():
+
+    from backend.database import SessionLocal, User, hash_password
+    if not session.get('logged_in') or not session.get('user_id'):
+        return jsonify({"status": "error", "message": "Not authenticated."}), 401
+    data = request.get_json(silent=True) or {}
+    new_password = data.get("new_password")
+    if not new_password:
+        return jsonify({"status": "error", "message": "New password required."}), 400
+    # Basic password validation (reuse registration rules)
+    def password_errors(pw: str):
+        errs = []
+        if len(pw) < 10:
+            errs.append('Password must be at least 10 characters.')
+        if not re.search(r'[A-Z]', pw):
+            errs.append('Add an uppercase letter.')
+        if not re.search(r'[a-z]', pw):
+            errs.append('Add a lowercase letter.')
+        if not re.search(r'\d', pw):
+            errs.append('Add a digit.')
+        if not re.search(r'[^A-Za-z0-9]', pw):
+            errs.append('Add a special character.')
+        return errs
+    pw_errs = password_errors(new_password)
+    if pw_errs:
+        return jsonify({"status": "error", "message": ' '.join(pw_errs)}), 400
+    session_db = SessionLocal()
+    try:
+        user = session_db.query(User).filter(User.id == session['user_id']).first()
+        if not user:
+            return jsonify({"status": "error", "message": "User not found."}), 404
+        user.password_hash = hash_password(new_password)
+        session_db.commit()
+        return jsonify({"status": "ok", "message": "Password changed successfully."}), 200
+    except Exception as e:
+        session_db.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        session_db.close()
 if __name__ == "__main__":
     app.run(debug=True)

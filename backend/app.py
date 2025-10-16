@@ -9,7 +9,7 @@ import json
 # (python -m backend.app) or when running directly from backend/ (python app.py).
 try:
     # Preferred: running as a package from repo root
-    from backend.database import get_latest_leaks, leak_to_dict, insert_leak_with_dedupe
+    from backend.database import get_latest_leaks, leak_to_dict, insert_leak_with_dedupe, insert_crawl_run, get_crawl_runs_for_user, update_crawl_run_status
     from backend.crawler.pastebin import fetch_and_store as pastebin_fetch
     from backend.crawler.tor_crawler import fetch_and_store as tor_fetch
     import backend.crawler.tor_crawler as tor_module
@@ -20,7 +20,7 @@ try:
     from backend.analytics import get_critical_leaks, risk_summary
 except ImportError:
     # Fallback: running directly in the backend/ directory
-    from database import get_latest_leaks, leak_to_dict, insert_leak_with_dedupe
+    from database import get_latest_leaks, leak_to_dict, insert_leak_with_dedupe, insert_crawl_run, get_crawl_runs_for_user, update_crawl_run_status
     from crawler.pastebin import fetch_and_store as pastebin_fetch
     from crawler.tor_crawler import fetch_and_store as tor_fetch
     import crawler.tor_crawler as tor_module
@@ -56,6 +56,11 @@ app.secret_key = 'supersecretkey'  # Change this in production
 PUBLIC_ROUTES = [
     '/login', '/register', '/auth/login.html', '/auth/register.html', '/static/', '/favicon.ico', '/dashboard/base.css'
 ]
+
+def get_current_user_id():
+    return session.get('user_id')
+
+
 
 @app.before_request
 def require_login():
@@ -295,6 +300,13 @@ def api_leaks_ingest():
 # Trigger Pastebin crawler from the web app
 @app.route("/api/crawlers/pastebin/run", methods=["POST"])
 def api_run_pastebin():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    # Create a crawl run record at start
+    run_id = insert_crawl_run(source="pastebin", user_id=current_user_id, status="running")
+
     # Accept optional limit in JSON body
     limit = 10
     if request.is_json:
@@ -309,14 +321,26 @@ def api_run_pastebin():
             inserted = pastebin_fetch(limit=limit)
         except TypeError:
             inserted = pastebin_fetch() or 0
+        # Update run status to completed
+        
+        update_crawl_run_status(run_id, "completed")
+
     except RuntimeError as e:
+        update_crawl_run_status(run_id, "failed")
         return jsonify({"status": "error", "message": str(e)}), 500
     return jsonify({"status": "ok", "inserted": inserted}), 200
+
 
 # Trigger Tor crawler from the web app
 @app.route("/api/crawlers/tor/run", methods=["POST"])
 def api_run_tor():
-    # Only allow a known-safe .onion endpoint; no arbitrary URL from client
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    # Create a crawl run record at start
+    run_id = insert_crawl_run(source="tor", user_id=current_user_id, status="running")
+
     SAFE_ONION = "http://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion"
     body = request.get_json(silent=True) or {}
     retries = int(body.get('retries', 3) or 3)
@@ -331,6 +355,7 @@ def api_run_tor():
         }
         ok = tor_fetch(SAFE_ONION, retries=retries, delay=delay)
     except (TypeError, ValueError, RuntimeError) as e:
+        update_crawl_run_status(run_id, "failed")
         return jsonify({"status": "error", "message": str(e)}), 500
     return jsonify({"status": "ok", "fetched": bool(ok), "url": SAFE_ONION, "port": int(port)}), 200
 
@@ -359,6 +384,12 @@ def api_i2p_health():
 # Trigger I2P crawler from the web app
 @app.route("/api/crawlers/i2p/run", methods=["POST"])
 def api_run_i2p():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    run_id = insert_crawl_run(source="i2p", user_id=current_user_id, status="running")
+
     if not request.is_json:
         return jsonify({"status": "error", "message": "JSON body required"}), 400
     body = request.get_json(silent=True) or {}
@@ -406,6 +437,7 @@ def api_run_i2p():
             severity=sev,
             entities=entities,
         )
+        update_crawl_run_status(run_id, "completed")
         return {"status": "ok", "fetched": True, "mocked": True, "id": leak_id, "duplicate": is_dup}
 
     # Mock if asked
@@ -424,11 +456,43 @@ def api_run_i2p():
             "https": f"http://127.0.0.1:{port}",
         }
         if not url:
+            update_crawl_run_status(run_id, "failed")
             return jsonify({"status": "error", "message": "url is required when proxy is available"}), 400
         ok = i2p_fetch(url, retries=retries, delay=delay)
+        update_crawl_run_status(run_id, "completed")
     except (TypeError, ValueError, RuntimeError) as e:
+        update_crawl_run_status(run_id, "failed")
         return jsonify({"status": "error", "message": str(e)}), 500
     return jsonify({"status": "ok", "fetched": bool(ok), "mocked": False}), 200
+
+
+@app.route("/api/crawl_runs", methods=["GET"])
+def api_crawl_runs():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    # Defensive: ensure it's int
+    try:
+        current_user_id = int(current_user_id)
+    except (TypeError, ValueError):
+        return jsonify({"error": "invalid user id"}), 400
+
+    runs = get_crawl_runs_for_user(current_user_id)
+    return jsonify([
+        {
+            "id": r.id,
+            "source": r.source,
+            "started_at": r.started_at.isoformat() if r.started_at else None,
+            "finished_at": r.finished_at.isoformat() if r.finished_at else None,
+            "status": r.status,
+            "user_id": r.user_id,
+        }
+        for r in runs
+    ])
+
+
+
 
 # ---- Assets (watchlist) API ----
 @app.route("/api/assets", methods=["GET"])  # list all assets
@@ -581,6 +645,7 @@ def login():
     password = data.get("user_password")
     if username and password:
         session['logged_in'] = True
+        session['user_id'] = 1  # placeholder until user accounts are real
         session['username'] = username
         return redirect('/dashboard/')
     return redirect('/auth/login.html')

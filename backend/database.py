@@ -31,12 +31,21 @@ class Leak(Base):
     normalized = Column(JSON, nullable=True)
     severity = Column(String(32), nullable=True)
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
-    
+    user_id = Column(Integer, nullable=True)
     passwords = Column(Text, nullable=True)
     ssn = Column(String(11), nullable=True)
     names = Column(Text, nullable=True)
     phone_numbers = Column(Text, nullable=True)
     physical_addresses = Column(Text, nullable=True)
+
+class CrawlRun(Base):
+    __tablename__ = "crawl_runs"
+    id = Column(Integer, primary_key=True)
+    source = Column(String(128), nullable=False) 
+    started_at = Column(DateTime, default=datetime.datetime.utcnow)
+    finished_at = Column(DateTime, nullable=True)
+    status = Column(String(32), nullable=True)
+    user_id = Column(Integer, nullable=False)
 
 
 def init_db():
@@ -52,9 +61,7 @@ def init_db():
     # SQLAlchemy won't auto-add new columns for existing tables, so check and ALTER if needed.
     with ENGINE.connect() as conn:
         try:
-            res = conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
-            # table_names = [r[0] for r in res.fetchall()]
-
+            # --- LEAKS table migration ---
             res = conn.execute(text("PRAGMA table_info('leaks')"))
             rows = res.fetchall()
             cols = [r[1] for r in rows]
@@ -69,6 +76,7 @@ def init_db():
 
             # Ensure new columns exist
             new_columns = {
+                'user_id': 'INTEGER',
                 'passwords': 'TEXT',
                 'ssn': 'TEXT',
                 'names': 'TEXT',
@@ -83,8 +91,67 @@ def init_db():
                     except Exception as e:
                         print(f'DB migration: failed to add {col_name} column:', e, file=sys.stderr)
 
+            # --- CRAWL_RUNS table migration ---
+            # (only if the table exists — this won't throw if it doesn't)
+            crawl_rows = conn.execute(text("PRAGMA table_info('crawl_runs')")).fetchall()
+            crawl_cols = [r[1] for r in crawl_rows]
+
+            if crawl_cols:  # only do migration if crawl_runs table exists
+                if 'user_id' not in crawl_cols:
+                    try:
+                        conn.execute(text("ALTER TABLE crawl_runs ADD COLUMN user_id INTEGER"))
+                    except Exception as e:
+                        print('DB migration: failed to add user_id column to crawl_runs:', e, file=sys.stderr)
+
+
         except Exception as e:
             print('DB migration: pragma check failed:', e, file=sys.stderr)
+
+
+def insert_crawl_run(source: str, user_id: int | None, status: str = "started") -> int:
+    """Insert a new crawl run row and return its ID."""
+    session = SessionLocal()
+    try:
+        run = CrawlRun(
+            source=source,
+            status=status,
+            user_id=user_id if user_id is not None else 0  # fallback for anonymous runs
+        )
+        session.add(run)
+        session.commit()
+        session.refresh(run)
+        return run.id
+    finally:
+        session.close()
+
+
+def get_crawl_runs_for_user(user_id: int, limit: int = 50):
+    """Return the most recent crawl runs for the given user ID."""
+    session = SessionLocal()
+    try:
+        return (
+            session.query(CrawlRun)
+            .filter(CrawlRun.user_id == user_id)
+            .order_by(CrawlRun.started_at.desc())
+            .limit(limit)
+            .all()
+        )
+    finally:
+        session.close()
+
+
+def update_crawl_run_status(run_id: int, status: str):
+    session = SessionLocal()
+    try:
+        run = session.query(CrawlRun).get(run_id)
+        if run:
+            run.status = status
+            run.finished_at = datetime.datetime.utcnow()
+            session.commit()
+    finally:
+        session.close()
+
+
 
 
 def insert_leak(

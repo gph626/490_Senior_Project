@@ -12,6 +12,7 @@
     leaksChart();
     alertsChart();
     riskChart();
+    loadCrawlRuns();
   }
 
   async function fetchJson(url){
@@ -73,6 +74,44 @@
       new Chart(document.getElementById('riskChart'), { type:'pie', data:{ labels, datasets:[{ data, backgroundColor }] }, options:{ responsive:true, plugins:{ legend:{ position:'bottom' }}} });
     } catch(e){ msg.textContent='Error loading risk summary.'; }
   }
+
+  async function loadCrawlRuns() {
+    const msg = document.getElementById('crawlRunsMsg');
+    const tableBody = document.querySelector('#crawlRunsTable tbody');
+    if (!msg || !tableBody) return; // Section not on this page
+
+    msg.textContent = 'Loading crawl runs...';
+    tableBody.innerHTML = '';
+
+    try {
+      const runs = await fetchJson('/api/crawl_runs');
+      if (!runs.length) {
+        msg.textContent = 'No crawl runs yet.';
+        return;
+      }
+
+      msg.textContent = '';
+      runs.forEach(run => {
+        const tr = document.createElement('tr');
+
+        const finished = run.finished_at
+          ? new Date(run.finished_at).toLocaleString()
+          : '-';
+
+        tr.innerHTML = `
+          <td>${run.id}</td>
+          <td>${run.source}</td>
+          <td>${run.status}</td>
+          <td>${new Date(run.started_at).toLocaleString()}</td>
+          <td>${finished}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    } catch (e) {
+      msg.textContent = 'Error loading crawl runs.';
+    }
+  }
+
 
   document.addEventListener('DOMContentLoaded',()=>{
     loadChartJs(()=>{

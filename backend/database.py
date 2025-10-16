@@ -1,11 +1,12 @@
 import os
 import datetime
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.types import JSON
 from sqlalchemy import text
 import sys
+import bcrypt
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get('DARKWEB_DB_PATH', os.path.join(BASE_DIR, 'data.sqlite'))
@@ -23,6 +24,19 @@ class Leak(Base):
     normalized = Column(JSON, nullable=True)
     severity = Column(String(32), nullable=True)
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class User(Base):
+    __tablename__ = 'users'
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String(150), unique=True, nullable=False, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    __table_args__ = (
+        UniqueConstraint('username', name='uq_users_username'),
+        UniqueConstraint('email', name='uq_users_email'),
+    )
 
 
 def init_db():
@@ -54,6 +68,72 @@ def init_db():
             print('DB migration: pragma check failed:', e, file=sys.stderr)
 
 
+# ------------------ User / Auth Helpers ------------------
+def hash_password(plain_password: str) -> str:
+    if not isinstance(plain_password, str) or not plain_password:
+        raise ValueError("Password must be a non-empty string")
+    pw_bytes = plain_password.encode('utf-8')
+    salt = bcrypt.gensalt(rounds=12)  # cost factor 12 (adjust if needed for perf)
+    return bcrypt.hashpw(pw_bytes, salt).decode('utf-8')
+
+
+def verify_password(plain_password: str, stored_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(plain_password.encode('utf-8'), stored_hash.encode('utf-8'))
+    except Exception:
+        return False
+
+
+def create_user(username: str, email: str, password: str) -> int:
+    """Create a user with a hashed password. Returns new user id.
+
+    Raises ValueError if username/email already exist or invalid input.
+    """
+    username_clean = (username or '').strip()
+    email_clean = (email or '').strip().lower()
+    if not username_clean or not email_clean or not password:
+        raise ValueError("username, email, password required")
+    session = SessionLocal()
+    try:
+        # Uniqueness checks
+        existing = session.query(User).filter((User.username == username_clean) | (User.email == email_clean)).first()
+        if existing:
+            raise ValueError("username or email already exists")
+        pw_hash = hash_password(password)
+        user = User(username=username_clean, email=email_clean, password_hash=pw_hash)
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        return user.id
+    finally:
+        session.close()
+
+
+def get_user_by_username_or_email(login: str) -> User | None:
+    if not login:
+        return None
+    login_norm = login.strip().lower()
+    session = SessionLocal()
+    try:
+        user = (
+            session.query(User)
+            .filter((User.username == login_norm) | (User.email == login_norm))
+            .first()
+        )
+        return user
+    finally:
+        session.close()
+
+
+def authenticate_user(login: str, password: str) -> User | None:
+    user = get_user_by_username_or_email(login)
+    if not user:
+        return None
+    if not verify_password(password, user.password_hash):
+        return None
+    return user
+
+
 def insert_leak(source: str, url: str | None, data: str | None, severity: str | None = None, normalized: dict | None = None) -> int:
     """Insert a leak and return the assigned id.
 
@@ -74,6 +154,19 @@ def insert_leak(source: str, url: str | None, data: str | None, severity: str | 
     finally:
         session.close()
 
+
+def delete_user(user_id: int) -> bool:
+    """Delete a user by their ID. Returns True if deleted, False if not found."""
+    session = SessionLocal()
+    try:
+        user = session.query(User).filter(User.id == user_id).first()
+        if not user:
+            return False
+        session.delete(user)
+        session.commit()
+        return True
+    finally:
+        session.close()
 
 def find_leak_by_content_hash(content_hash: str) -> Leak | None:
     """Return the most recent leak whose normalized dict has the given content_hash.

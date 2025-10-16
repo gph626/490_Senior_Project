@@ -67,21 +67,31 @@
     </header>
     <div class="container">
         <aside class="sidebar">
-            <button class="logout-btn" onclick="window.location.href='/logout'">Logout</button>
+            <div class="sidebar-user">
+                <div class="user-info user-dropdown">
+                    <span class="user-label">Logged in as</span>
+                    <div class="dropdown">
+                        <a href="#" class="dropbtn user-name user-dropdown-btn">{{ username }} ▼</a>
+                        <div class="dropdown-content user-dropdown-content">
+                            <a href="{{ url_for('account') }}">Account</a>
+                            <a href="/logout">Logout</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <nav>
                 <ul>
-                    <li><a href="/homepage/homepage.html">Home</a></li>
+                    <li><a href="{{ url_for('homepage') }}">Home</a></li>
                     <li class="dropdown">
-                        <a href="/dashboardpage/dashboard.html" class="dropbtn">Dashboard ▼</a>
+                        <a href="{{ url_for('dashboard') }}" class="dropbtn">Dashboard ▼</a>
                         <div class="dropdown-content">
-                            <a href="/alerts/">Alerts</a>
-                            <a href="/leaks/">Leaks</a>
-                            <a href="/reports/">Reports</a>
-                            <a href="/risk_analysis/">Risk Analysis</a>
+                            <a href="{{ url_for('alerts') }}">Alerts</a>
+                            <a href="{{ url_for('leaks') }}">Leaks</a>
+                            <a href="{{ url_for('reports') }}">Reports</a>
+                            <a href="{{ url_for('risk_analysis') }}">Risk Analysis</a>
                         </div>
                     </li>
-                    <li><a href="/resourcespage/resources.html">Resources</a></li>
-                    <li><a href="/accountpage/account.html">Account</a></li>
+                    <li><a href="{{ url_for('resources_route') }}">Resources</a></li>
                 </ul>
             </nav>
         </aside>
@@ -98,7 +108,9 @@
                                     <th>Count</th>
                                 </tr>
                             </thead>
-                            <tbody><tr><td colspan="2" class="muted">Loading…</td></tr></tbody>
+                            <tbody>
+                                <tr><td colspan="2" class="muted">Loading…</td></tr>
+                            </tbody>
                         </table>
                     </div>
                     <div>
@@ -124,51 +136,4 @@
             </section>
         </main>
     </div>
-    <script>
-        async function loadRisk(){
-            const status = document.getElementById('riskStatus');
-            status.textContent = 'Loading…';
-            try {
-                const res = await fetch('/api/risk/summary');
-                const data = await res.json();
-                renderSeverityDist(data.severity_counts || {});
-                renderAssetRisk(data.assets || []);
-                status.textContent = 'Indexed leaks: ' + (data.total_leaks_indexed || 0);
-            } catch(e){
-                status.textContent = 'Error: ' + e.message;
-            }
-        }
-
-        function renderSeverityDist(counts){
-            const tbody = document.querySelector('#sevDist tbody');
-            const order = ['critical','high','medium','low','zero severity','unknown'];
-            const rows = order.filter(s => counts[s] !== undefined).map(sev => {
-                return `<tr><td>${sev}</td><td>${counts[sev]}</td></tr>`;
-            }).join('');
-            tbody.innerHTML = rows || '<tr><td colspan="2" class="muted">No data</td></tr>';
-        }
-
-        function renderAssetRisk(list){
-            const tbody = document.getElementById('asset-risk-body');
-            if(!list.length){
-                tbody.innerHTML = '<tr><td colspan="4" class="muted">No watchlist assets yet.</td></tr>';
-                return;
-            }
-            tbody.innerHTML = list.map(a => {
-                const riskClass = a.risk === 'high' ? 'critical' : (a.risk === 'medium' ? 'high' : (a.risk === 'low' ? 'medium' : ''));
-                return `<tr>
-                    <td>${a.type}</td>
-                    <td><span class="truncate" title="${a.value}">${a.value}</span></td>
-                    <td><span class="badge ${riskClass}">${a.risk}</span></td>
-                    <td>${a.leak_count}</td>
-                </tr>`;
-            }).join('');
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('refreshRisk').addEventListener('click', loadRisk);
-            loadRisk();
-        });
-    </script>
-</body>
-</html>
+    <script src="{{ url_for('static', filename='js/risk_analysis.js') }}"></script>

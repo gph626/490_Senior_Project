@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+    <link rel="stylesheet" href="/dashboard/base.css">
+</head>
+<body>
+    <div class="modern-auth-bg">
+        <div class="modern-auth-card">
+            <h2 class="modern-auth-title">Register</h2>
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                <div class="flash-messages" style="margin-bottom:1em;">
+                                                        {% for category, msg in messages %}
+                                                            <div class="flash flash-{{ category }}" data-category="{{ category }}">{{ msg }}</div>
+                                                        {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% endwith %}
+                        {% if error %}
+                            <div class="auth-error" style="color: red; margin-bottom: 1em;">{{ error }}</div>
+                        {% endif %}
+            <form action="/register" method="post" class="modern-auth-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <!-- Dummy hidden field to trick autofill -->
+                <input type="text" name="fakeusernameremembered" style="display:none">
+                <label for="reg_user">Username</label>
+                                <input type="text" id="reg_user" name="reg_user" value="{{ username_val|default('') }}" required autocomplete="off">
+                <label for="reg_email">Email</label>
+                                <input type="email" id="reg_email" name="reg_email" value="{{ email_val|default('') }}" required autocomplete="off" onblur="checkEmailAvailability()">
+                                <div id="email-status" style="font-size:0.85em; margin-top:4px;"></div>
+                <label for="reg_password">Password</label>
+                <input type="password" id="reg_password" name="reg_password" required autocomplete="new-password" oninput="pwStrength()">
+                <div id="pw-strength" style="font-size:0.85em; margin-top:4px;"></div>
+                <button type="submit">Register</button>
+            </form>
+            <p class="modern-auth-link">Already have an account? <a href="/login">Login here</a></p>
+                        <script>
+                        // Style flash messages via JS to avoid template logic in style attribute
+                        document.querySelectorAll('.flash').forEach(el => {
+                            const cat = el.getAttribute('data-category');
+                            if(cat === 'error') el.style.color = 'red';
+                            else if(cat === 'success') el.style.color = 'green';
+                        });
+                        function pwStrength(){
+                            const pw = document.getElementById('reg_password').value;
+                            const out = document.getElementById('pw-strength');
+                            if(!pw){ out.textContent=''; return; }
+                            let score = 0;
+                            if(pw.length >= 10) score++;
+                            if(/[A-Z]/.test(pw)) score++;
+                            if(/[a-z]/.test(pw)) score++;
+                            if(/[0-9]/.test(pw)) score++;
+                            if(/[^A-Za-z0-9]/.test(pw)) score++;
+                            const labels = ['Very Weak','Weak','Fair','Good','Strong','Very Strong'];
+                            out.textContent = labels[score];
+                            out.style.color = score >=4 ? 'green' : (score>=2 ? '#e69500' : 'red');
+                        }
+                        async function checkEmailAvailability(){
+                                const emailInput = document.getElementById('reg_email');
+                                const statusDiv = document.getElementById('email-status');
+                                const email = emailInput.value.trim();
+                                if(!email){ statusDiv.textContent=''; return; }
+                                statusDiv.style.color = '#666';
+                                statusDiv.textContent = 'Checking availability...';
+                                try {
+                                        const resp = await fetch(`/api/check_email?email=${encodeURIComponent(email)}`);
+                                        const data = await resp.json();
+                                        if(data.available){
+                                                statusDiv.style.color = 'green';
+                                                statusDiv.textContent = 'Email is available';
+                                        } else {
+                                                statusDiv.style.color = 'red';
+                                                statusDiv.textContent = 'Email is already in use';
+                                        }
+                                } catch(e){
+                                        statusDiv.style.color = 'red';
+                                        statusDiv.textContent = 'Error checking email';
+                                }
+                        }
+                        </script>
+        </div>
+    </div>
+</body>
+</html>

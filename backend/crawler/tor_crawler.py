@@ -80,7 +80,7 @@ def health_check():
 
 
 # --- FETCH & PROCESS ---
-def fetch_and_store(url: str, retries: int = 3, delay: int = 10, config: dict | None = None) -> bool:
+def fetch_and_store(url: str, retries: int = 3, delay: int = 10, config: dict | None = None, user_id: int | None = None) -> bool:
     retries = int(retries)
     delay = int(delay)
     if config is None:
@@ -141,6 +141,7 @@ def fetch_and_store(url: str, retries: int = 3, delay: int = 10, config: dict | 
                 phone_numbers=entities.get("phone_numbers"),
                 physical_addresses=entities.get("physical_addresses"),
                 passwords=entities.get("passwords"),
+                user_id=user_id,
             )
 
 

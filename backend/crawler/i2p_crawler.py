@@ -53,7 +53,7 @@ def health_check():
 
 
 # --- FETCH & PROCESS ---
-def fetch_and_store(url: str, retries: int = 3, delay: int = 10) -> bool:
+def fetch_and_store(url: str, retries: int = 3, delay: int = 10, user_id: int | None = None) -> bool:
     session = requests.Session()
     if USE_I2P:
         session.proxies = I2P_PROXY
@@ -109,6 +109,7 @@ def fetch_and_store(url: str, retries: int = 3, delay: int = 10) -> bool:
                 phone_numbers=entities.get("phone_numbers"),
                 physical_addresses=entities.get("physical_addresses"),
                 passwords=entities.get("passwords"),
+                user_id=user_id,
             )
 
 

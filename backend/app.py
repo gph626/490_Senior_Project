@@ -13,7 +13,8 @@ try:
     # Preferred: running as a package from repo root
     from backend.database import (get_latest_leaks, leak_to_dict, insert_leak_with_dedupe, 
                                   create_user, authenticate_user, init_db, insert_crawl_run, 
-                                  get_crawl_runs_for_user, update_crawl_run_status)
+                                  get_crawl_runs_for_user, update_crawl_run_status, 
+                                  get_leaks_for_user, leak_to_dict)
     from backend.crawler.pastebin import fetch_and_store as pastebin_fetch
     from backend.crawler.tor_crawler import fetch_and_store as tor_fetch
     import backend.crawler.tor_crawler as tor_module
@@ -26,7 +27,7 @@ except ImportError:
     # Fallback: running directly in the backend/ directory
     from database import (
         get_latest_leaks, leak_to_dict, insert_leak_with_dedupe,
-        create_user, authenticate_user, init_db
+        create_user, authenticate_user, init_db, get_leaks_for_user, leak_to_dict
     )
     from database import insert_crawl_run, get_crawl_runs_for_user, update_crawl_run_status
     from crawler.pastebin import fetch_and_store as pastebin_fetch
@@ -121,6 +122,8 @@ def require_login():
     # Allow /auth/login.html and /auth/register.html without login
     if path in ['/auth/login.html', '/auth/register.html']:
         return None
+    if path.startswith("/api") and not session.get("logged_in"):
+        return redirect("/login")
     if not session.get('logged_in'):
         return redirect('/auth/login.html')
     return None
@@ -308,21 +311,36 @@ def serve_page_dir(page: str):
 # Dashboard leaks endpoint
 @app.route("/api/leaks", methods=["GET"])
 def api_leaks():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    leaks = get_leaks_for_user(user_id)
     limit = request.args.get("limit", default=10, type=int)
-    leaks = get_latest_leaks(limit)
+    leaks = leaks[:limit]  # trim to requested limit
+
     return jsonify([leak_to_dict(leak) for leak in leaks])
+
 
 # Alerts (critical leaks only)
 @app.route("/api/alerts", methods=["GET"])
 def api_alerts():
     limit = request.args.get('limit', default=50, type=int)
-    crits = get_critical_leaks(limit=limit)
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    crits = get_critical_leaks(limit=limit, user_id=user_id)
     return jsonify(crits)
 
 # Risk summary aggregation
 @app.route("/api/risk/summary", methods=["GET"])
 def api_risk_summary():
-    return jsonify(risk_summary())
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    return jsonify(risk_summary(user_id=user_id))
 
 # Ingest endpoint to support crawler/mock posting leaks now; minimal validation and dedupe
 @app.route("/api/leaks", methods=["POST"])
@@ -361,6 +379,10 @@ def api_leaks_ingest():
     phone_numbers = payload.get('phone_numbers')
     physical_addresses = payload.get('physical_addresses')
 
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
     leak_id, is_dup = insert_leak_with_dedupe(
         source=source,
         url=url,
@@ -374,6 +396,7 @@ def api_leaks_ingest():
         names=json.dumps(names) if names else None,
         phone_numbers=json.dumps(phone_numbers) if phone_numbers else None,
         physical_addresses=json.dumps(physical_addresses) if physical_addresses else None,
+        user_id=user_id,
     )
 
     status = "duplicate" if is_dup else "accepted"
@@ -402,11 +425,10 @@ def api_run_pastebin():
     try:
         # Our fetch may or may not accept limit; handle both signatures
         try:
-            inserted = pastebin_fetch(limit=limit)
+            inserted = pastebin_fetch(limit=limit, user_id=current_user_id)
         except TypeError:
             inserted = pastebin_fetch() or 0
         # Update run status to completed
-        
         update_crawl_run_status(run_id, "completed")
 
     except RuntimeError as e:
@@ -437,7 +459,7 @@ def api_run_tor():
             "http": f"socks5h://127.0.0.1:{tor_module.TOR_PORT}",
             "https": f"socks5h://127.0.0.1:{tor_module.TOR_PORT}",
         }
-        ok = tor_fetch(SAFE_ONION, retries=retries, delay=delay)
+        ok = tor_fetch(SAFE_ONION, retries=retries, delay=delay, user_id=current_user_id)
     except (TypeError, ValueError, RuntimeError) as e:
         update_crawl_run_status(run_id, "failed")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -520,6 +542,7 @@ def api_run_i2p():
             content_hash=content_hash,
             severity=sev,
             entities=entities,
+            user_id=current_user_id
         )
         update_crawl_run_status(run_id, "completed")
         return {"status": "ok", "fetched": True, "mocked": True, "id": leak_id, "duplicate": is_dup}
@@ -542,7 +565,7 @@ def api_run_i2p():
         if not url:
             update_crawl_run_status(run_id, "failed")
             return jsonify({"status": "error", "message": "url is required when proxy is available"}), 400
-        ok = i2p_fetch(url, retries=retries, delay=delay)
+        ok = i2p_fetch(url, retries=retries, delay=delay, user_id=current_user_id)
         update_crawl_run_status(run_id, "completed")
     except (TypeError, ValueError, RuntimeError) as e:
         update_crawl_run_status(run_id, "failed")

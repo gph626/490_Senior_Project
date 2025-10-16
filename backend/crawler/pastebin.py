@@ -85,7 +85,7 @@ def health_check() -> bool:
         return False
 
 # ---------- Main crawler ----------
-def fetch_and_store(limit: int = 10, rate_limit_ms: int = 500) -> int:
+def fetch_and_store(limit: int = 10, rate_limit_ms: int = 500, user_id: int | None = None) -> int:
     """
     Fetch latest pastes, extract entities, match assets, compute severity, redact,
     insert with dedupe, and send event to API (idempotent via stable uid).
@@ -209,6 +209,7 @@ def fetch_and_store(limit: int = 10, rate_limit_ms: int = 500) -> int:
             phone_numbers=entities.get("phone_numbers"),
             physical_addresses=entities.get("physical_addresses"),
             passwords=entities.get("passwords"),
+            user_id=user_id,
         )
 
         if not is_dup:

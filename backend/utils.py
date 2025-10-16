@@ -4,7 +4,9 @@ import json
 import time
 import logging
 import requests
-from typing import Dict, Any
+from typing import Dict, Any, Set
+from backend.database import get_assets_for_user
+from flask import session
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,9 @@ ADDRESS_RE = re.compile(
 # Default API URL (matches Nik's mock_api.py)
 API_BASE_URL = os.environ.get("DARKWEB_API_URL", "http://127.0.0.1:5000")
 
+def get_current_user_id() -> int | None:
+    """Return the currently logged-in user's ID from session, or None."""
+    return session.get('user_id')
 
 def extract_entities(text: str) -> Dict[str, Any]:
     """Extract and normalize key entities from leaked content consistently across crawlers."""
@@ -203,6 +208,30 @@ def extract_addresses(text: str) -> list[str]:
         return []
     return list(set(ADDRESS_RE.findall(text)))
 
+
+def get_assets_sets() -> Dict[str, Set[str]]:
+    """
+    Returns a dictionary of the current user's assets grouped by type.
+    Example:
+      {
+        "email": {"alice@example.com", "bob@example.com"},
+        "domain": {"example.com"},
+        "ip": {"192.168.1.1"},
+        "btc": {"bc1qxyz..."}
+      }
+    """
+    user_id = get_current_user_id()
+    if not user_id:
+        return {"email": set(), "domain": set(), "ip": set(), "btc": set()}
+
+    assets = get_assets_for_user(user_id)  # should return list of asset rows
+    result: Dict[str, Set[str]] = {"email": set(), "domain": set(), "ip": set(), "btc": set()}
+    for asset in assets:
+        a_type = asset.type.lower()
+        val = asset.value.strip().lower()
+        if a_type in result:
+            result[a_type].add(val)
+    return result
 
 
 def send_event_to_api(event: Dict[str, Any], max_retries: int = 3, backoff: float = 1.5) -> None:

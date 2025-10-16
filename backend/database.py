@@ -1,9 +1,10 @@
 import os
 import json
 import datetime
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, UniqueConstraint
+from sqlalchemy.sql import func
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, UniqueConstraint, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.types import JSON
 from sqlalchemy import text
 import sys
@@ -53,6 +54,7 @@ class User(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(150), unique=True, nullable=False, index=True)
+    assets = relationship("Asset", back_populates="user", cascade="all, delete-orphan")
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
@@ -60,6 +62,16 @@ class User(Base):
         UniqueConstraint('username', name='uq_users_username'),
         UniqueConstraint('email', name='uq_users_email'),
     )
+
+class Asset(Base):
+    __tablename__ = "assets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # assuming your users table is named 'users'
+    type = Column(String, nullable=False)   # e.g., 'email', 'domain', 'ip', 'btc'
+    value = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    user = relationship("User", back_populates="assets")
 
 
 def init_db():
@@ -188,6 +200,15 @@ def authenticate_user(login: str, password: str) -> User | None:
     return user
 
 
+def get_assets_for_user(user_id: int):
+    """Return all assets belonging to the given user_id."""
+    session = SessionLocal()
+    try:
+        return session.query(Asset).filter(Asset.user_id == user_id).all()
+    finally:
+        session.close()
+
+
 def insert_crawl_run(source: str, user_id: int | None, status: str = "started") -> int:
     """Insert a new crawl run row and return its ID."""
     session = SessionLocal()
@@ -231,7 +252,19 @@ def update_crawl_run_status(run_id: int, status: str):
     finally:
         session.close()
 
-
+def _iter_recent_leaks(limit: int | None = None, user_id: int | None = None):
+    """Yield leaks newest-first. Optional limit (None = no explicit cap)."""
+    session = SessionLocal()
+    try:
+        q = session.query(Leak)
+        if user_id is not None:
+            q = q.filter(Leak.user_id == user_id)
+        q = q.order_by(Leak.timestamp.desc())
+        if limit:
+            q = q.limit(int(limit))
+        return q.all()
+    finally:
+        session.close()
 
 
 def insert_leak(
@@ -245,6 +278,7 @@ def insert_leak(
         names: str | None = None,
         phone_numbers: str | None = None,
         physical_addresses: str | None = None,
+        user_id: int | None = None,
     ) -> int:
     """Insert a leak and return the assigned id.
 
@@ -268,6 +302,7 @@ def insert_leak(
             names=names,
             phone_numbers=phone_numbers,
             physical_addresses=physical_addresses,
+            user_id=user_id,
         )
         session.add(leak)
         session.commit()
@@ -359,6 +394,8 @@ def insert_leak_with_dedupe(
     names: str | None = None,
     phone_numbers: str | None = None,
     physical_addresses: str | None = None,
+    user_id: int | None = None,
+    
 ) -> tuple[int, bool]:
     """Insert a leak using content_hash as a dedupe key.
 
@@ -409,6 +446,7 @@ def insert_leak_with_dedupe(
         names=names,
         phone_numbers=phone_numbers,
         physical_addresses=physical_addresses,
+        user_id=user_id,
     )
     return new_id, False
 
@@ -443,6 +481,16 @@ def leak_to_dict(leak: Leak) -> dict:
 
     }
     return out
+
+
+def get_leaks_for_user(user_id: int):
+    """Return all leaks belonging to a specific user."""
+    session = SessionLocal()
+    try:
+        return session.query(Leak).filter(Leak.user_id == user_id).all()
+    finally:
+        session.close()
+
 
 
 if __name__ == "__main__":

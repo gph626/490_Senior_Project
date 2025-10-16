@@ -74,6 +74,8 @@
     return true;
   }
 
+
+
   async function loadLeaks(){
     const res = await fetch('/api/leaks?limit=100');
     ALL_LEAKS = await res.json();
@@ -85,15 +87,25 @@
     renderLeaks(filtered);
   }
 
+
+  const API_KEY = localStorage.getItem('api_key') || "";
+
+
+
   async function runPastebin(){
     const runStatus = document.getElementById('runStatus');
     runStatus.textContent = 'Running…';
     const limit = parseInt(document.getElementById('pasteLimit').value || '10', 10);
     try {
       const res = await fetch('/api/crawlers/pastebin/run', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': API_KEY
+        },
         body: JSON.stringify({ limit })
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Error');
       runStatus.textContent = `Done. Inserted: ${data.inserted}`;
@@ -120,9 +132,14 @@
     }
     try {
       const res = await fetch('/api/crawlers/tor/run', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': API_KEY
+        },
         body: JSON.stringify({ port: port || undefined })
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Error');
       status.textContent = data.fetched ? `Done. (${data.url})` : 'No content fetched.';
@@ -142,9 +159,15 @@
       const hj = await h.json();
       if (!hj.ok){
         const res = await fetch('/api/crawlers/i2p/run', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': API_KEY
+          },
           body: JSON.stringify({ mock: true, port: port || undefined, url: url || undefined })
         });
+
+
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'Error');
         status.textContent = data.mocked ? 'Inserted mock leak (no I2P proxy)' : 'Done.';
@@ -158,9 +181,14 @@
     if (!url){ status.textContent = 'URL required (proxy is available)'; return; }
     try {
       const res = await fetch('/api/crawlers/i2p/run', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, port: port || undefined })
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': API_KEY
+        },
+        body: JSON.stringify({ mock: true, port: port || undefined, url: url || undefined })
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Error');
       status.textContent = data.mocked ? 'Inserted mock leak' : (data.fetched ? 'Done.' : 'No content fetched.');

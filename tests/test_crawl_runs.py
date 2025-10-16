@@ -20,7 +20,7 @@ def test_get_crawl_runs_for_user(tmp_path):
     user2_runs = get_crawl_runs_for_user(2)
     user2_run_ids = {r.id for r in user2_runs}
 
-    # ✅ Assertions
+    # Assertions
     assert run_id_user1_a in user1_run_ids
     assert run_id_user1_b in user1_run_ids
     assert run_id_user2_a not in user1_run_ids

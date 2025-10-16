@@ -4,8 +4,9 @@ import json
 import time
 import logging
 import requests
+from datetime import datetime
 from typing import Dict, Any, Set
-from backend.database import get_assets_for_user
+from backend.database import get_assets_for_user, SessionLocal, APIKey
 from flask import session
 
 logger = logging.getLogger(__name__)
@@ -36,9 +37,25 @@ ADDRESS_RE = re.compile(
 
 
 
-
 # Default API URL (matches Nik's mock_api.py)
 API_BASE_URL = os.environ.get("DARKWEB_API_URL", "http://127.0.0.1:5000")
+
+# backend/utils.py
+def get_user_by_api_key(key_str: str):
+    session = SessionLocal()
+    try:
+        api_key = session.query(APIKey).filter_by(key=key_str).first()
+        if not api_key:
+            return None
+
+        if api_key.expires_at and api_key.expires_at < datetime.utcnow():
+            return "EXPIRED"
+
+        return api_key.user_id
+    finally:
+        session.close()
+
+
 
 def get_current_user_id() -> int | None:
     """Return the currently logged-in user's ID from session, or None."""

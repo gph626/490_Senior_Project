@@ -2,13 +2,16 @@ import os
 import json
 import datetime
 from sqlalchemy.sql import func
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, UniqueConstraint, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, UniqueConstraint, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.types import JSON
 from sqlalchemy import text
+from flask_login import UserMixin
 import sys
+from datetime import timedelta
 import bcrypt
+import secrets
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get('DARKWEB_DB_PATH', os.path.join(BASE_DIR, 'data.sqlite'))
@@ -22,6 +25,7 @@ def get_engine():
 ENGINE = get_engine()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=ENGINE)
 Base = declarative_base()
+api_key = secrets.token_hex(32)
 
 
 class Leak(Base):
@@ -50,7 +54,7 @@ class CrawlRun(Base):
     user_id = Column(Integer, nullable=False)
 
 
-class User(Base):
+class User(Base, UserMixin):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(150), unique=True, nullable=False, index=True)
@@ -62,6 +66,8 @@ class User(Base):
         UniqueConstraint('username', name='uq_users_username'),
         UniqueConstraint('email', name='uq_users_email'),
     )
+    api_keys = relationship("APIKey", back_populates="user")
+
 
 class Asset(Base):
     __tablename__ = "assets"
@@ -72,6 +78,16 @@ class Asset(Base):
     value = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     user = relationship("User", back_populates="assets")
+
+class APIKey(Base):
+    __tablename__ = "api_keys"
+    id = Column(Integer, primary_key=True)
+    key = Column(String, unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)
+    revoked = Column(Boolean, default=False)
+    user = relationship("User", back_populates="api_keys")
 
 
 def init_db():

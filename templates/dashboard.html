@@ -114,6 +114,10 @@
             </div>
         </main>
     </div>
+    <script>
+        // Inject the user's API key into localStorage on dashboard load
+        localStorage.setItem('api_key', "{{ api_key }}");
+    </script>
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </body>
 </html>

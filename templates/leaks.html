@@ -145,6 +145,8 @@
       </section>
     </main>
   </div>
-  <script src="{{ url_for('static', filename='js/leaks.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/leaks.js') }}">
+    window.API_KEY = "{{ api_key or '' }}";
+  </script>
 </body>
 </html>

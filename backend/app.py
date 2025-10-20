@@ -1,19 +1,27 @@
 import os
-from flask import Flask, jsonify, request, send_from_directory, abort, redirect, session, render_template, flash
+from flask import Flask, jsonify, request, send_from_directory, abort, redirect, session, render_template, flash, g
 import socket
 import re
 import hashlib
 import time
 from collections import defaultdict, deque
+import json
+from backend.utils import get_user_by_api_key
+from flask_login import login_required, current_user, LoginManager, login_user
+from backend.database import SessionLocal, APIKey, User
+import secrets
+from datetime import datetime, timedelta
+
+
 
 # Import the database helpers in a way that works when running from the repo root
 # (python -m backend.app) or when running directly from backend/ (python app.py).
 try:
     # Preferred: running as a package from repo root
-    from backend.database import (
-        get_latest_leaks, leak_to_dict, insert_leak_with_dedupe,
-        create_user, authenticate_user, init_db
-    )
+    from backend.database import (get_latest_leaks, leak_to_dict, insert_leak_with_dedupe, 
+                                  create_user, authenticate_user, init_db, insert_crawl_run, 
+                                  get_crawl_runs_for_user, update_crawl_run_status, 
+                                  get_leaks_for_user, leak_to_dict)
     from backend.crawler.pastebin import fetch_and_store as pastebin_fetch
     from backend.crawler.tor_crawler import fetch_and_store as tor_fetch
     import backend.crawler.tor_crawler as tor_module
@@ -26,8 +34,9 @@ except ImportError:
     # Fallback: running directly in the backend/ directory
     from database import (
         get_latest_leaks, leak_to_dict, insert_leak_with_dedupe,
-        create_user, authenticate_user, init_db
+        create_user, authenticate_user, init_db, get_leaks_for_user, leak_to_dict
     )
+    from database import insert_crawl_run, get_crawl_runs_for_user, update_crawl_run_status
     from crawler.pastebin import fetch_and_store as pastebin_fetch
     from crawler.tor_crawler import fetch_and_store as tor_fetch
     import crawler.tor_crawler as tor_module
@@ -53,6 +62,35 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
 RATE_LIMIT_WINDOW = 60  # seconds
 RATE_LIMIT_MAX = 15     # max attempts per window
 _rate_limit_store: dict[str, deque] = defaultdict(deque)
+
+
+login_manager = LoginManager()
+login_manager.login_view = "login"  # redirect here if not logged in
+login_manager.init_app(app)
+
+@login_manager.user_loader
+def load_user(user_id):
+    session = SessionLocal()
+    user = session.get(User, int(user_id))
+    session.close()
+    return user
+
+@app.before_request
+def api_key_auth_middleware():
+    # Only apply for /api routes
+    if request.path.startswith("/api/"):
+        key = request.headers.get("x-api-key")
+        if key:
+            session = SessionLocal()
+            try:
+                api_key = session.query(APIKey).filter_by(key=key).first()
+                if api_key:
+                    g.api_user_id = api_key.user_id
+                else:
+                    return {"error": "Invalid API key"}, 401
+            finally:
+                session.close()
+
 
 def rate_limited(key: str) -> bool:
     now = time.time()
@@ -106,6 +144,37 @@ PUBLIC_ROUTES = [
     '/login', '/register', '/auth/login.html', '/auth/register.html', '/static/', '/favicon.ico', '/dashboard/base.css', '/api/check_email'
 ]
 
+def get_current_user_id():
+    return session.get('user_id')
+
+
+@app.before_request
+def check_api_key():
+    exempt_paths = ["/login", "/register", "/api/keys/new"]
+    if any(request.path.startswith(p) for p in exempt_paths):
+        return
+
+    if request.path.startswith("/api/"):
+        api_key_str = request.headers.get("x-api-key")
+        user_id = get_user_by_api_key(api_key_str) if api_key_str else None
+
+        if user_id == "EXPIRED":
+            return jsonify({"error": "Expired API key"}), 401
+
+        # API key takes priority
+        if user_id:
+            g.current_user_id = user_id
+            return
+
+        # Allow session fallback ONLY for safe (GET) routes, not crawler runs
+        if request.method == "GET" and session.get("logged_in") and session.get("user_id"):
+            g.current_user_id = session["user_id"]
+            return
+
+        # No API key and not a safe session fallback → reject
+        return jsonify({"error": "Invalid or missing API key"}), 401
+
+
 @app.before_request
 def require_login():
     path = request.path
@@ -115,6 +184,8 @@ def require_login():
     # Allow /auth/login.html and /auth/register.html without login
     if path in ['/auth/login.html', '/auth/register.html']:
         return None
+    if path.startswith("/api") and not session.get("logged_in"):
+        return redirect("/login")
     if not session.get('logged_in'):
         return redirect('/auth/login.html')
     return None
@@ -175,10 +246,27 @@ def dashboard_noext():
     return redirect('/dashboard/')
 
 @app.route('/dashboard/')
+@login_required
 def dashboard():
-    username = session.get('username', 'User')
-    return render_template('dashboard.html', username=username)
+    session = SessionLocal()
+    try:
+        api_key_obj = session.query(APIKey).filter_by(user_id=current_user.id).first()
 
+        # If user doesn't have an API key yet, generate one and store it
+        if not api_key_obj:
+            new_key = secrets.token_hex(32)
+            api_key_obj = APIKey(user_id=current_user.id, key=new_key)
+            session.add(api_key_obj)
+            session.commit()
+            session.refresh(api_key_obj)
+
+        return render_template(
+            "dashboard.html",
+            username=current_user.username,
+            api_key=api_key_obj.key  # Pass the key to the template
+        )
+    finally:
+        session.close()
 
 @app.route('/resources')
 def resources_noext_route():
@@ -242,9 +330,15 @@ def leaks_noext():
     return redirect('/leaks/')
 
 @app.route('/leaks/')
+@login_required
 def leaks():
     username = session.get('username', 'User')
-    return render_template('leaks.html', username=username)
+    # fetch or generate the API key for this user
+    session_db = SessionLocal()
+    key_obj = session_db.query(APIKey).filter(APIKey.user_id == current_user.id).first()
+    session_db.close()
+    api_key = key_obj.key if key_obj else None
+    return render_template('leaks.html', username=username, api_key=api_key)
 
 
 # Handle directory-style requests with trailing slash, serving the page file inside the folder
@@ -302,21 +396,36 @@ def serve_page_dir(page: str):
 # Dashboard leaks endpoint
 @app.route("/api/leaks", methods=["GET"])
 def api_leaks():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    leaks = get_leaks_for_user(user_id)
     limit = request.args.get("limit", default=10, type=int)
-    leaks = get_latest_leaks(limit)
+    leaks = leaks[:limit]  # trim to requested limit
+
     return jsonify([leak_to_dict(leak) for leak in leaks])
+
 
 # Alerts (critical leaks only)
 @app.route("/api/alerts", methods=["GET"])
 def api_alerts():
     limit = request.args.get('limit', default=50, type=int)
-    crits = get_critical_leaks(limit=limit)
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    crits = get_critical_leaks(limit=limit, user_id=user_id)
     return jsonify(crits)
 
 # Risk summary aggregation
 @app.route("/api/risk/summary", methods=["GET"])
 def api_risk_summary():
-    return jsonify(risk_summary())
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    return jsonify(risk_summary(user_id=user_id))
 
 # Ingest endpoint to support crawler/mock posting leaks now; minimal validation and dedupe
 @app.route("/api/leaks", methods=["POST"])
@@ -327,11 +436,13 @@ def api_leaks_ingest():
     title = payload.get('title')
     content = payload.get('content') or payload.get('data')
     content_hash = None
+
     # Accept hash in top-level or inside normalized
     if 'content_hash' in payload:
         content_hash = payload.get('content_hash')
     elif isinstance(payload.get('normalized'), dict):
         content_hash = payload['normalized'].get('content_hash')
+
     severity = payload.get('severity')
     entities = payload.get('entities') or (payload.get('normalized') or {}).get('entities')
 
@@ -346,6 +457,17 @@ def api_leaks_ingest():
             # keep default if any issue computing
             pass
 
+    # Extract fields from payload
+    passwords = payload.get('passwords')
+    ssn = payload.get('ssn')
+    names = payload.get('names')
+    phone_numbers = payload.get('phone_numbers')
+    physical_addresses = payload.get('physical_addresses')
+
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
     leak_id, is_dup = insert_leak_with_dedupe(
         source=source,
         url=url,
@@ -354,14 +476,29 @@ def api_leaks_ingest():
         content_hash=content_hash,
         severity=severity,
         entities=entities,
+        passwords=json.dumps(passwords) if passwords else None,
+        ssn=ssn,
+        names=json.dumps(names) if names else None,
+        phone_numbers=json.dumps(phone_numbers) if phone_numbers else None,
+        physical_addresses=json.dumps(physical_addresses) if physical_addresses else None,
+        user_id=user_id,
     )
+
     status = "duplicate" if is_dup else "accepted"
     resp = {"status": status, "id": leak_id}
     return jsonify(resp), 202
 
+
 # Trigger Pastebin crawler from the web app
 @app.route("/api/crawlers/pastebin/run", methods=["POST"])
 def api_run_pastebin():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    # Create a crawl run record at start
+    run_id = insert_crawl_run(source="pastebin", user_id=current_user_id, status="running")
+
     # Accept optional limit in JSON body
     limit = 10
     if request.is_json:
@@ -373,17 +510,28 @@ def api_run_pastebin():
     try:
         # Our fetch may or may not accept limit; handle both signatures
         try:
-            inserted = pastebin_fetch(limit=limit)
+            inserted = pastebin_fetch(limit=limit, user_id=current_user_id)
         except TypeError:
             inserted = pastebin_fetch() or 0
+        # Update run status to completed
+        update_crawl_run_status(run_id, "completed")
+
     except RuntimeError as e:
+        update_crawl_run_status(run_id, "failed")
         return jsonify({"status": "error", "message": str(e)}), 500
     return jsonify({"status": "ok", "inserted": inserted}), 200
+
 
 # Trigger Tor crawler from the web app
 @app.route("/api/crawlers/tor/run", methods=["POST"])
 def api_run_tor():
-    # Only allow a known-safe .onion endpoint; no arbitrary URL from client
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    # Create a crawl run record at start
+    run_id = insert_crawl_run(source="tor", user_id=current_user_id, status="running")
+
     SAFE_ONION = "http://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion"
     body = request.get_json(silent=True) or {}
     retries = int(body.get('retries', 3) or 3)
@@ -396,8 +544,9 @@ def api_run_tor():
             "http": f"socks5h://127.0.0.1:{tor_module.TOR_PORT}",
             "https": f"socks5h://127.0.0.1:{tor_module.TOR_PORT}",
         }
-        ok = tor_fetch(SAFE_ONION, retries=retries, delay=delay)
+        ok = tor_fetch(SAFE_ONION, retries=retries, delay=delay, user_id=current_user_id)
     except (TypeError, ValueError, RuntimeError) as e:
+        update_crawl_run_status(run_id, "failed")
         return jsonify({"status": "error", "message": str(e)}), 500
     return jsonify({"status": "ok", "fetched": bool(ok), "url": SAFE_ONION, "port": int(port)}), 200
 
@@ -426,6 +575,12 @@ def api_i2p_health():
 # Trigger I2P crawler from the web app
 @app.route("/api/crawlers/i2p/run", methods=["POST"])
 def api_run_i2p():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    run_id = insert_crawl_run(source="i2p", user_id=current_user_id, status="running")
+
     if not request.is_json:
         return jsonify({"status": "error", "message": "JSON body required"}), 400
     body = request.get_json(silent=True) or {}
@@ -472,7 +627,9 @@ def api_run_i2p():
             content_hash=content_hash,
             severity=sev,
             entities=entities,
+            user_id=current_user_id
         )
+        update_crawl_run_status(run_id, "completed")
         return {"status": "ok", "fetched": True, "mocked": True, "id": leak_id, "duplicate": is_dup}
 
     # Mock if asked
@@ -491,11 +648,43 @@ def api_run_i2p():
             "https": f"http://127.0.0.1:{port}",
         }
         if not url:
+            update_crawl_run_status(run_id, "failed")
             return jsonify({"status": "error", "message": "url is required when proxy is available"}), 400
-        ok = i2p_fetch(url, retries=retries, delay=delay)
+        ok = i2p_fetch(url, retries=retries, delay=delay, user_id=current_user_id)
+        update_crawl_run_status(run_id, "completed")
     except (TypeError, ValueError, RuntimeError) as e:
+        update_crawl_run_status(run_id, "failed")
         return jsonify({"status": "error", "message": str(e)}), 500
     return jsonify({"status": "ok", "fetched": bool(ok), "mocked": False}), 200
+
+
+@app.route("/api/crawl_runs", methods=["GET"])
+def api_crawl_runs():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    # Defensive: ensure it's int
+    try:
+        current_user_id = int(current_user_id)
+    except (TypeError, ValueError):
+        return jsonify({"error": "invalid user id"}), 400
+
+    runs = get_crawl_runs_for_user(current_user_id)
+    return jsonify([
+        {
+            "id": r.id,
+            "source": r.source,
+            "started_at": r.started_at.isoformat() if r.started_at else None,
+            "finished_at": r.finished_at.isoformat() if r.finished_at else None,
+            "status": r.status,
+            "user_id": r.user_id,
+        }
+        for r in runs
+    ])
+
+
+
 
 # ---- Assets (watchlist) API ----
 @app.route("/api/assets", methods=["GET"])  # list all assets
@@ -553,6 +742,7 @@ def api_account():
         user_profile.update(data)
         return jsonify({"status": "updated", "profile": user_profile})
     return jsonify(user_profile)
+
 
 # v1/events endpoint for crawler ingestion (for compatibility with crawler utils)
 @app.route("/v1/events", methods=["POST"])
@@ -663,6 +853,9 @@ def login():
     if not user:
         flash("Invalid credentials.", "error")
         return render_template('login.html', login_val=username_or_email)
+    
+    login_user(user)
+    
     session['logged_in'] = True
     session['username'] = user.username
     session['user_id'] = user.id
@@ -831,5 +1024,34 @@ def api_reset_password():
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         session_db.close()
+
+@app.route("/api/keys/new", methods=["POST"])
+def create_api_key():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Not authenticated"}), 401
+
+    session_db = SessionLocal()
+    try:
+        new_key = secrets.token_hex(32)
+        expires_at = datetime.utcnow() + timedelta(days=30)
+
+        api_key = APIKey(
+            key=new_key,
+            user_id=user_id,
+            expires_at=expires_at
+        )
+        session_db.add(api_key)
+        session_db.commit()
+        return jsonify({"api_key": new_key, "expires_at": expires_at.isoformat()})
+    finally:
+        session_db.close()
+
+
+
+
 if __name__ == "__main__":
     app.run(debug=True)
+
+
+

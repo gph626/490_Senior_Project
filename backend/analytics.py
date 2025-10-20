@@ -12,25 +12,28 @@ from typing import Iterable, List, Dict, Any
 
 from .database import SessionLocal, Leak
 from .assets_db import get_assets_sets, list_assets
+from . import database
+from backend.database import SessionLocal, Leak
+
+session = SessionLocal()
+session.query(Leak).delete()
+session.commit()
+session.close()
 
 
-def _iter_recent_leaks(limit: int | None = None) -> Iterable[Leak]:
-    """Yield leaks newest-first. Optional limit (None = no explicit cap)."""
-    session = SessionLocal()
-    try:
-        q = session.query(Leak).order_by(Leak.timestamp.desc())
-        if limit:
-            q = q.limit(int(limit))
-        for row in q.all():
-            yield row
-    finally:
-        session.close()
 
-
-def get_critical_leaks(limit: int = 50) -> List[Dict[str, Any]]:
+def get_critical_leaks(limit: int = 50, user_id: int | None = None) -> List[Dict[str, Any]]:
     """Return dicts for latest critical leaks up to limit."""
     out: List[Dict[str, Any]] = []
-    for leak in _iter_recent_leaks(limit=500):  # scan a window to find critical
+    try:
+        leaks_iter = database._iter_recent_leaks(limit=limit or 500, user_id=user_id)
+    except TypeError:
+        leaks_iter = database._iter_recent_leaks(limit=limit or 500)
+
+    for leak in leaks_iter:  # scan a window to find critical
+        if user_id is not None and leak.user_id != user_id:
+            continue
+        
         if (leak.severity or '').lower() == 'critical':
             norm = leak.normalized or {}
             out.append({
@@ -40,22 +43,35 @@ def get_critical_leaks(limit: int = 50) -> List[Dict[str, Any]]:
                 'severity': leak.severity,
                 'timestamp': leak.timestamp.isoformat() if leak.timestamp else None,
                 'entities': (norm or {}).get('entities') or {},
+                'ssn': leak.ssn,
+                'names': leak.names,
+                'phone_numbers': leak.phone_numbers,
+                'physical_addresses': leak.physical_addresses,
+                'passwords': leak.passwords,
             })
             if len(out) >= limit:
                 break
     return out
 
 
-def severity_counts(limit: int | None = None) -> Dict[str, int]:
-    """Return a frequency map of severities among recent leaks."""
+def severity_counts(limit: int | None = None, user_id: int | None = None) -> Dict[str, int]:
+    """Return a frequency map of severities among recent leaks, optionally filtered by user_id."""
     counts: Dict[str, int] = {}
-    for leak in _iter_recent_leaks(limit=limit):
+
+    try:
+        leaks_iter = database._iter_recent_leaks(limit=limit, user_id=user_id)
+    except TypeError:
+        leaks_iter = database._iter_recent_leaks(limit=limit)
+
+    for leak in leaks_iter:
         sev = (leak.severity or 'unknown').lower()
         counts[sev] = counts.get(sev, 0) + 1
+
     return counts
 
 
-def asset_risk(limit: int | None = None) -> List[Dict[str, Any]]:
+
+def asset_risk(limit: int | None = None, user_id: int | None = None) -> List[Dict[str, Any]]:
     """Return per-watchlist-asset risk inference based on leaks referencing it.
 
     Simple heuristic:
@@ -67,16 +83,63 @@ def asset_risk(limit: int | None = None) -> List[Dict[str, Any]]:
     # Build reverse index from entity value -> list of (severity, leak_id)
     appearances: Dict[str, list[str]] = {}
     crit_hits: set[str] = set()
-    for leak in _iter_recent_leaks(limit=limit or 1000):
+
+    try:
+        leaks_iter = database._iter_recent_leaks(limit=limit or 1000, user_id=user_id)
+    except TypeError:
+        leaks_iter = database._iter_recent_leaks(limit=limit or 1000)
+
+    for leak in leaks_iter:
         norm = leak.normalized or {}
         ents = (norm or {}).get('entities') or {}
         values = []
+
         for key in ('emails', 'domains', 'ips', 'btc_wallets'):
             for v in ents.get(key, []) or []:
                 if not isinstance(v, str):
                     continue
                 vv = v.lower().strip()
                 values.append(vv)
+        if leak.ssn:
+            values.append(str(leak.ssn).strip().lower())
+
+        if leak.names:
+            try:
+                import json
+                parsed = json.loads(leak.names) if isinstance(leak.names, str) else leak.names
+                for n in parsed:
+                    values.append(str(n).strip().lower())
+            except Exception:
+                values.append(str(leak.names).strip().lower())
+
+        if leak.phone_numbers:
+            try:
+                import json
+                parsed = json.loads(leak.phone_numbers) if isinstance(leak.phone_numbers, str) else leak.phone_numbers
+                for p in parsed:
+                    values.append(str(p).strip().lower())
+            except Exception:
+                values.append(str(leak.phone_numbers).strip().lower())
+
+        if leak.physical_addresses:
+            try:
+                import json
+                parsed = json.loads(leak.physical_addresses) if isinstance(leak.physical_addresses, str) else leak.physical_addresses
+                for addr in parsed:
+                    values.append(str(addr).strip().lower())
+            except Exception:
+                values.append(str(leak.physical_addresses).strip().lower())
+
+        if leak.passwords:
+            try:
+                import json
+                parsed = json.loads(leak.passwords) if isinstance(leak.passwords, str) else leak.passwords
+                for pwd in parsed:
+                    values.append(str(pwd).strip().lower())
+            except Exception:
+                values.append(str(leak.passwords).strip().lower())
+
+
         for v in set(values):  # de-dup for this leak
             appearances.setdefault(v, []).append((leak.severity or 'unknown').lower())
             if (leak.severity or '').lower() == 'critical':
@@ -114,12 +177,13 @@ def asset_risk(limit: int | None = None) -> List[Dict[str, Any]]:
     return results
 
 
-def risk_summary() -> Dict[str, Any]:
-    """Aggregate everything needed by the risk_analysis page."""
-    counts = severity_counts(limit=1000)
-    assets = asset_risk(limit=1000)
+def risk_summary(user_id: int | None = None) -> Dict[str, Any]:
+    """Aggregate everything needed by the risk_analysis page, optionally filtered by user."""
+    counts = severity_counts(limit=1000, user_id=user_id)
+    assets = asset_risk(limit=1000, user_id=user_id)
     return {
         'severity_counts': counts,
         'assets': assets,
         'total_leaks_indexed': sum(counts.values()),
     }
+

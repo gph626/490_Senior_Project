@@ -1,4 +1,5 @@
 import os
+import re
 import datetime
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, UniqueConstraint
 from sqlalchemy.orm import sessionmaker, declarative_base
@@ -9,6 +10,7 @@ ASSETS_DB_PATH = os.environ.get('ASSETS_DB_PATH', os.path.join(BASE_DIR, 'assets
 ASSETS_ENGINE = create_engine(f'sqlite:///{ASSETS_DB_PATH}', echo=False, connect_args={"check_same_thread": False})
 AssetsSession = sessionmaker(autocommit=False, autoflush=False, bind=ASSETS_ENGINE)
 AssetsBase = declarative_base()
+ALLOWED_ASSET_TYPES = {'email', 'domain', 'ip', 'btc', 'ssn', 'phone', 'address', 'name'}
 
 
 class Asset(AssetsBase):
@@ -32,8 +34,18 @@ def upsert_asset(asset_type: str, value: str) -> int:
         raise ValueError('type and value are required')
     asset_type = asset_type.strip().lower()
     value_norm = value.strip().lower()
-    if asset_type not in {'email', 'domain', 'ip', 'btc'}:
-        raise ValueError('type must be one of: email, domain, ip, btc')
+    
+    if asset_type not in ALLOWED_ASSET_TYPES:
+        raise ValueError(f"type must be one of: {', '.join(ALLOWED_ASSET_TYPES)}")
+
+    # Additional normalization for specific types
+    if asset_type == 'phone':
+        value_norm = re.sub(r'\D', '', value_norm)  # keep only digits
+    elif asset_type == 'ssn':
+        value_norm = value_norm.replace('-', '').strip()
+    elif asset_type == 'name':
+        value_norm = value_norm.strip().lower()
+
     session = AssetsSession()
     try:
         existing = session.query(Asset).filter(Asset.type == asset_type, Asset.value == value_norm).first()
@@ -90,9 +102,48 @@ def get_assets_sets() -> dict:
             'domain': set(),
             'ip': set(),
             'btc': set(),
+            'ssn': set(),
+            'phone': set(),
+            'address': set(),
+            'name': set(),
         }
+
         for r in session.query(Asset).all():
             out.get(r.type, set()).add(r.value)
         return out
+    finally:
+        session.close()
+
+# If companies upload CSVs or JSON lists, use this.
+def upsert_assets_bulk(assets: list[tuple[str, str]]) -> list[int]:
+    """Insert many assets efficiently (type, value). Returns list of IDs."""
+    init_assets_db()
+    session = AssetsSession()
+    ids = []
+    try:
+        for asset_type, value in assets:
+            asset_type = asset_type.strip().lower()
+            value_norm = value.strip().lower()
+
+            if asset_type not in ALLOWED_ASSET_TYPES:
+                continue
+
+            if asset_type == 'phone':
+                value_norm = re.sub(r'\D', '', value_norm)  # keep only digits
+            elif asset_type == 'ssn':
+                value_norm = value_norm.replace('-', '').strip()
+            elif asset_type == 'name':
+                value_norm = value_norm.strip().lower()
+
+            existing = session.query(Asset).filter(Asset.type == asset_type, Asset.value == value_norm).first()
+            if existing:
+                ids.append(existing.id)
+                continue
+            obj = Asset(type=asset_type, value=value_norm)
+            session.add(obj)
+            session.flush()
+            ids.append(obj.id)
+        session.commit()
+        return ids
     finally:
         session.close()

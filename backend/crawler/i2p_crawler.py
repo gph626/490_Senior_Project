@@ -15,6 +15,7 @@ from backend.utils import (
     redact_sensitive_data,
     send_event_to_api,
     guess_tags,
+    extract_entities,
 )
 
 # --- INIT ---
@@ -32,11 +33,6 @@ I2P_PROXY = {
     "https": "http://127.0.0.1:4444",
 }
 
-# --- REGEXES ---
-EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
-DOMAIN_RE = re.compile(r"\b(?:(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)\.)+[a-z]{2,}\b", re.I)
-IPV4_RE = re.compile(r"\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?:\.|$)){4}\b")
-BTC_RE = re.compile(r"\b(?:bc1|[13])[a-zA-HJ-NP-Z0-9]{25,39}\b")
 
 # --- HEALTH CHECK ---
 def health_check():
@@ -54,8 +50,10 @@ def health_check():
         logger.warning(f"I2P health check exception: {e}")
         return False
 
+
+
 # --- FETCH & PROCESS ---
-def fetch_and_store(url: str, retries: int = 3, delay: int = 10) -> bool:
+def fetch_and_store(url: str, retries: int = 3, delay: int = 10, user_id: int | None = None) -> bool:
     session = requests.Session()
     if USE_I2P:
         session.proxies = I2P_PROXY
@@ -79,17 +77,7 @@ def fetch_and_store(url: str, retries: int = 3, delay: int = 10) -> bool:
             # --- Fingerprint ---
             content_hash = "sha256:" + hashlib.sha256(content.encode("utf-8", errors="ignore")).hexdigest()
 
-            # --- Extract Entities ---
-            emails = sorted(set(EMAIL_RE.findall(content)))
-            domains = sorted(set(DOMAIN_RE.findall(content)))
-            ips = sorted(set(IPV4_RE.findall(content)))
-            btcs = sorted(set(BTC_RE.findall(content)))
-            entities = {
-                "emails": emails,
-                "domains": [d.lower() for d in domains],
-                "ips": ips,
-                "btc_wallets": btcs,
-            }
+            entities = extract_entities(content)
 
             # --- Tagging & Matching ---
             lang = detect_language(content)
@@ -108,7 +96,7 @@ def fetch_and_store(url: str, retries: int = 3, delay: int = 10) -> bool:
                 severity = None
 
             # --- Insert locally ---
-            leak_id, is_dup = insert_leak_with_dedupe(
+            _, is_dup = insert_leak_with_dedupe(
                 source="I2P",
                 url=url,
                 title=title,
@@ -116,7 +104,14 @@ def fetch_and_store(url: str, retries: int = 3, delay: int = 10) -> bool:
                 content_hash=content_hash,
                 severity=severity,
                 entities=entities,
+                ssn=entities.get("ssns"),
+                names=entities.get("names"),
+                phone_numbers=entities.get("phone_numbers"),
+                physical_addresses=entities.get("physical_addresses"),
+                passwords=entities.get("passwords"),
+                user_id=user_id,
             )
+
 
             # --- Event Payload ---
             event_uid = hashlib.sha256((url + content_hash).encode()).hexdigest()
@@ -133,7 +128,14 @@ def fetch_and_store(url: str, retries: int = 3, delay: int = 10) -> bool:
                 "severity": severity,
                 "matched_assets": matched_assets,
                 "timestamp": time.time(),
+                "ssn": entities.get("ssns"),
+                "names": entities.get("names"),
+                "phone_numbers": entities.get("phone_numbers"),
+                "physical_addresses": entities.get("physical_addresses"),
+                "passwords": entities.get("passwords"),
             }
+
+
 
             # --- Send to API ---
             send_event_to_api(event)

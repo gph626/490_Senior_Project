@@ -8,3 +8,5 @@ matplotlib
 requests[socks]
 stem
 bcrypt
+python-dotenv
+colorama

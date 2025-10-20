@@ -1,5 +1,7 @@
 import os
+from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_from_directory, abort, redirect, session, render_template, flash, g
+from flask import current_app as app
 import socket
 import re
 import hashlib
@@ -11,6 +13,8 @@ from flask_login import login_required, current_user, LoginManager, login_user
 from backend.database import SessionLocal, APIKey, User
 import secrets
 from datetime import datetime, timedelta
+
+load_dotenv()
 
 
 
@@ -658,6 +662,42 @@ def api_run_i2p():
     return jsonify({"status": "ok", "fetched": bool(ok), "mocked": False}), 200
 
 
+# Trigger GitHub crawler from the web app
+@app.route("/api/crawlers/github/run", methods=["POST"])
+def api_run_github():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    # Create a crawl run record at start
+    run_id = insert_crawl_run(source="github", user_id=current_user_id, status="running")
+
+    # Optional limit parameter
+    limit = 10
+    if request.is_json:
+        body = request.get_json(silent=True) or {}
+        try:
+            limit = int(body.get("limit", limit))
+        except (TypeError, ValueError):
+            pass
+
+    try:
+        def run_github_crawler(limit, user_id):
+            import importlib
+            github_crawler = importlib.import_module("backend.crawler.github_crawler")
+            return github_crawler.fetch_and_store(limit=limit, user_id=user_id)
+
+        inserted = run_github_crawler(limit, current_user_id)
+
+        update_crawl_run_status(run_id, "completed")
+    except RuntimeError as e:
+        update_crawl_run_status(run_id, "failed")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    return jsonify({"status": "ok", "inserted": inserted}), 200
+
+
+
 @app.route("/api/crawl_runs", methods=["GET"])
 def api_crawl_runs():
     current_user_id = get_current_user_id()
@@ -768,6 +808,30 @@ def get_config(org_id):
                 "limit": 5,
                 "rate_limit_ms": 500,
                 "timeout_sec": 15
+            },
+            "tor": {
+                "socks_port": 9050,
+                "timeout_sec": 40,
+                "keywords": ["dump", "breach", "login", "database", "leak"]
+            },
+            "i2p": {
+                "proxy_host": "127.0.0.1",
+                "proxy_port": 4444,
+                "timeout_sec": 40,
+                "keywords": ["credential", "compromised", "breach", "account"]
+            },
+            "github": {
+                "token": os.getenv("DEFAULT_GITHUB_TOKEN", ""),
+                "timeout_sec": 20,
+                "limit": 10,
+                "keywords": [
+                    "password", "apikey", "secret", "aws_access_key_id", "private_key, api_key, token, database, credential, access_key"
+                ]
+            }
+            ,
+            "freenet": {
+                "timeout_sec": 30,
+                "keywords": ["leak", "dump", "credential"]
             }
         }
     })
@@ -910,6 +974,17 @@ def register():
         return render_template('register.html', username_val=username, email_val=email, error=msg)
     try:
         user_id = create_user(username, email, password)
+
+        #Generate API key for new user
+        session_db = SessionLocal()
+        api_key_value = secrets.token_hex(32)
+        api_key = APIKey(user_id=user_id, key=api_key_value)
+        session_db.add(api_key)
+        session_db.commit()
+        session_db.close()
+
+        print(f"[DEBUG] Created API key for user {username}: {api_key_value}")
+
     except ValueError as e:
         error_msg = str(e)
         lowered = error_msg.lower()

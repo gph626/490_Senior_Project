@@ -126,6 +126,16 @@
             <span class="muted">Limit</span>
             <span id="runStatus" class="muted"></span>
           </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px;">
+            <button id="runGithubBtn"
+                    style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">
+              Run GitHub Crawl
+            </button>
+            <input id="githubLimit" type="number" min="1" max="50" value="5"
+                  style="width:80px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
+            <span class="muted">Limit</span>
+            <span id="githubStatus" class="muted"></span>
+          </div>
           <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <button id="runTorBtn" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Fetch via Tor</button>
             <input id="torPort" type="number" placeholder="9150" value="9150" style="width:100px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />

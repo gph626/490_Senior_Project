@@ -198,6 +198,32 @@
     }
   }
 
+
+  async function runGithub(){
+    const status = document.getElementById('githubStatus');
+    status.textContent = 'Running…';
+    const limit = parseInt(document.getElementById('githubLimit').value || '5', 10);
+    try {
+      const res = await fetch('/api/crawlers/github/run', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': API_KEY
+        },
+        body: JSON.stringify({ limit })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Error');
+      status.textContent = `Done. Inserted: ${data.inserted}`;
+      await loadLeaks();
+    } catch (e){
+      status.textContent = 'Error: ' + e.message;
+    }
+  }
+
+
+
   async function loadAssets(){
     const res = await fetch('/api/assets');
     const items = await res.json();
@@ -254,5 +280,6 @@
     document.getElementById('applyFilters')?.addEventListener('click', applyAndRender);
     loadAssets();
     document.getElementById('addAsset')?.addEventListener('click', addAsset);
+    document.getElementById('runGithubBtn')?.addEventListener('click', runGithub);
   });
 })();

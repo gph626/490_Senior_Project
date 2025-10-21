@@ -8,6 +8,9 @@ from datetime import datetime
 from typing import Dict, Any, Set
 from backend.database import get_assets_for_user, SessionLocal, APIKey
 from flask import session
+from colorama import Fore, Style, init
+init(autoreset=True)
+
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +43,6 @@ ADDRESS_RE = re.compile(
 # Default API URL (matches Nik's mock_api.py)
 API_BASE_URL = os.environ.get("DARKWEB_API_URL", "http://127.0.0.1:5000")
 
-# backend/utils.py
 def get_user_by_api_key(key_str: str):
     session = SessionLocal()
     try:
@@ -253,25 +255,50 @@ def get_assets_sets() -> Dict[str, Set[str]]:
 
 def send_event_to_api(event: Dict[str, Any], max_retries: int = 3, backoff: float = 1.5) -> None:
     """
-    Send the leak event to the backend API (idempotent by UID).
+    Send the leak event to the backend API (idempotent by UID),
+    with colorized and cleaner output formatting.
     """
     url = f"{API_BASE_URL}/v1/events"
-    print(f"[DEBUG] Sending event to {url} with uid={event.get('uid')}")
+    uid = event.get("uid", "<no-uid>")
+    print(f"{Fore.CYAN}[DEBUG]{Style.RESET_ALL} Sending event to {url} with uid={uid}")
 
     headers = {"Content-Type": "application/json"}
+
     for attempt in range(max_retries):
         try:
             resp = requests.post(url, data=json.dumps(event), headers=headers, timeout=10)
-            if resp.status_code in (200, 202):
-                logger.info("Event sent successfully (status %s): %s", resp.status_code, event.get("uid"))
-                print(f"[DEBUG] Got response {resp.status_code}: {resp.text}")
+            content_type = resp.headers.get("Content-Type", "")
+            text = resp.text.strip()
 
-                return
+            if resp.status_code in (200, 202):
+                print(f"{Fore.GREEN}[SUCCESS]{Style.RESET_ALL} Event sent (status {resp.status_code}): {uid}")
+
+                # --- Handle response format ---
+                if content_type.startswith("application/json"):
+                    try:
+                        parsed = resp.json()
+                        pretty = json.dumps(parsed, indent=2)
+                        print(f"{Fore.CYAN}[DEBUG]{Style.RESET_ALL} JSON response:\n{pretty}\n")
+                    except ValueError:
+                        snippet = text[:200].replace("\n", " ")
+                        print(f"{Fore.YELLOW}[DEBUG]{Style.RESET_ALL} Non-JSON response: {snippet}...\n")
+
+                elif content_type.startswith("text/html"):
+                    snippet = text[:180].replace("\n", " ").replace("  ", "")
+                    print(f"{Fore.MAGENTA}[DEBUG]{Style.RESET_ALL} HTML response: {snippet}...\n")
+
+                else:
+                    snippet = text[:200].replace("\n", " ")
+                    print(f"{Fore.BLUE}[DEBUG]{Style.RESET_ALL} Text response: {snippet}...\n")
+
+                return  # success → done
+
             else:
-                logger.warning("API responded with %s: %s", resp.status_code, resp.text)
+                print(f"{Fore.YELLOW}[WARNING]{Style.RESET_ALL} API responded with {resp.status_code}: {text[:200]}")
 
         except requests.RequestException as e:
-            logger.warning("Failed to send event (attempt %d): %s", attempt + 1, e)
+            print(f"{Fore.RED}[ERROR]{Style.RESET_ALL} Failed to send event (attempt {attempt + 1}): {e}")
+
         time.sleep(backoff ** attempt)
 
-    logger.error("Failed to send event after %d attempts: %s", max_retries, event.get("uid"))
+    print(f"{Fore.RED}[FAIL]{Style.RESET_ALL} Gave up after {max_retries} attempts for uid={uid}")

@@ -12,6 +12,10 @@ import sys
 from datetime import timedelta
 import bcrypt
 import secrets
+import logging
+from colorama import Fore, Style
+
+logger = logging.getLogger("database")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.environ.get('DARKWEB_DB_PATH', os.path.join(BASE_DIR, 'data.sqlite'))
@@ -341,29 +345,34 @@ def delete_user(user_id: int) -> bool:
     finally:
         session.close()
 
-def find_leak_by_content_hash(content_hash: str) -> Leak | None:
-    """Return the most recent leak whose normalized dict has the given content_hash.
-
-    Note: JSON querying varies by SQLite build; we keep it simple by scanning
-    normalized dicts in Python for now. For larger datasets, consider adding a
-    dedicated column and index for the hash.
-    """
+def find_leak_by_content_hash(content_hash: str, user_id: int | None = None) -> Leak | None:
+    """Return the most recent leak for this user whose normalized dict has the given content_hash."""
     if not content_hash:
         return None
+
     session = SessionLocal()
     try:
-        # Fetch a reasonable window of recent rows to keep this fast in dev
-        rows = session.query(Leak).order_by(Leak.timestamp.desc()).limit(1000).all()
+        query = session.query(Leak).order_by(Leak.timestamp.desc())
+
+        # Only check leaks for this specific user; never mix across users
+        if user_id is not None:
+            query = query.filter(Leak.user_id == user_id)
+        else:
+            # If user_id is missing, skip dedupe entirely to avoid cross-user conflicts
+            return None
+
+        rows = query.limit(1000).all()
         for row in rows:
             try:
                 norm = row.normalized or {}
                 if isinstance(norm, dict) and norm.get('content_hash') == content_hash:
                     return row
-            except (TypeError, ValueError, KeyError):
+            except Exception:
                 continue
         return None
     finally:
         session.close()
+
 
 
 def find_leak_by_url(url: str) -> Leak | None:
@@ -424,13 +433,18 @@ def insert_leak_with_dedupe(
 
     # If we have a hash, check for an existing record
     if content_hash:
-        existing = find_leak_by_content_hash(content_hash)
-        if existing is not None:
+        existing = find_leak_by_content_hash(content_hash, user_id)
+        if existing is not None and existing.user_id == user_id:
+            # Duplicate only if this user already owns it
+            print(f"[DUPLICATE] Skipping {source} leak (hash={content_hash[:12]}) for user {user_id}")
             return existing.id, True
+
     else:
         # Fallback: dedupe by URL if provided
         existing = find_leak_by_url(url_norm)
         if existing is not None:
+            print(f"{Fore.YELLOW}[DUPLICATE]{Style.RESET_ALL} Skipping {source} leak (url={url_norm})")
+            logger.info("Duplicate leak skipped (url=%s, source=%s)", url_norm, source)
             return existing.id, True
 
     # --- Serialize list fields to JSON strings ---
@@ -464,6 +478,8 @@ def insert_leak_with_dedupe(
         physical_addresses=physical_addresses,
         user_id=user_id,
     )
+    print(f"{Fore.GREEN}[NEW]{Style.RESET_ALL} Inserted {source} leak (id={new_id}, hash={content_hash[:12] if content_hash else 'n/a'})")
+    logger.info("Inserted new leak (id=%s, source=%s, hash=%s)", new_id, source, content_hash)
     return new_id, False
 
 

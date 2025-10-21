@@ -697,6 +697,47 @@ def api_run_github():
     return jsonify({"status": "ok", "inserted": inserted}), 200
 
 
+# --- Freenet proxy health ---
+@app.route("/api/proxy/freenet/health")
+def freenet_health():
+    try:
+        from backend.crawler.freenet_crawler import health_check
+        result = health_check()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# --- Run Freenet crawler (API-key/session scoped) ---
+@app.route("/api/crawlers/freenet/run", methods=["POST"])
+def api_run_freenet():
+    current_user_id = get_current_user_id()
+    if not current_user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    # create crawl run
+    run_id = insert_crawl_run(source="freenet", user_id=current_user_id, status="running")
+
+    body = request.get_json(silent=True) or {}
+    limit = body.get("limit", 5)
+    urls = body.get("urls")  # optional override list
+    mock = bool(body.get("mock", False))
+
+    try:
+        from backend.crawler.freenet_crawler import fetch_and_store
+        inserted = fetch_and_store(
+            limit=int(limit),
+            user_id=int(current_user_id),
+            urls=urls if isinstance(urls, list) else None,
+            mock=mock,
+        )
+        update_crawl_run_status(run_id, "completed")
+        return jsonify({"status": "ok", "inserted": inserted}), 200
+    except Exception as e:
+        update_crawl_run_status(run_id, "failed")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 
 @app.route("/api/crawl_runs", methods=["GET"])
 def api_crawl_runs():
@@ -791,7 +832,7 @@ def v1_events_ingest():
 
 
 # Config route to backend
-@app.route("/v1/config/org/<int:org_id>")
+@app.route("/v1/config/org/<int:org_id>", methods=["GET"])
 def get_config(org_id):
     # TODO: Replace with real org-specific logic later
     return jsonify({
@@ -830,8 +871,9 @@ def get_config(org_id):
             }
             ,
             "freenet": {
-                "timeout_sec": 30,
-                "keywords": ["leak", "dump", "credential"]
+                "seeds": ["http://127.0.0.1:8888/USK@dCnkUL22fAmKbKg-Cftx9j2m4IwyWB0QbGoiq1RSLP8,4d1TDqwRr4tYlsubLrQK~c4h0~FtmE-OXCDmFiI8BB4,AQACAAE/Sharesite/41/"],
+                "keywords": ["test", "freenet", "leak", "credential", "password", "breach", "database", "dump, sharesite"],
+                "timeout_sec": 30
             }
         }
     })

@@ -223,6 +223,45 @@
   }
 
 
+async function runFreenet(){
+  const status = document.getElementById('freenetStatus');
+  status.textContent = 'Running…';
+  const limit = parseInt(document.getElementById('freenetLimit').value || '5', 10);
+  const wantMock = document.getElementById('freenetMock').checked;
+
+  // quick health ping
+  let proxyOK = false;
+  try {
+    const h = await fetch('/api/proxy/freenet/health');
+    const hj = await h.json();
+    proxyOK = !!hj.ok;
+  } catch(e){
+    // swallow; we’ll decide based on wantMock
+  }
+
+  const payload = {
+    limit,
+    mock: wantMock && !proxyOK
+  };
+
+  try {
+    const res = await fetch('/api/crawlers/freenet/run', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': API_KEY
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Error');
+    status.textContent = `Done. Inserted: ${data.inserted}${payload.mock ? ' (mock)' : ''}`;
+    await loadLeaks();
+  } catch (e){
+    status.textContent = 'Error: ' + e.message;
+  }
+}
+
 
   async function loadAssets(){
     const res = await fetch('/api/assets');
@@ -281,5 +320,6 @@
     loadAssets();
     document.getElementById('addAsset')?.addEventListener('click', addAsset);
     document.getElementById('runGithubBtn')?.addEventListener('click', runGithub);
+    document.getElementById('runFreenetBtn')?.addEventListener('click', runFreenet);
   });
 })();

@@ -23,7 +23,6 @@ from backend.utils import (
     extract_entities,
 )
 
-# --- Force consistent working directory for database ---
 
 from backend.database import ENGINE
 print(f"[DEBUG] Connected to database: {ENGINE.url}")

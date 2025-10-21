@@ -435,7 +435,7 @@ def insert_leak_with_dedupe(
     if content_hash:
         existing = find_leak_by_content_hash(content_hash, user_id)
         if existing is not None and existing.user_id == user_id:
-            # ✅ Duplicate only if this user already owns it
+            # Duplicate only if this user already owns it
             print(f"[DUPLICATE] Skipping {source} leak (hash={content_hash[:12]}) for user {user_id}")
             return existing.id, True
 

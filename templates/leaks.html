@@ -143,6 +143,12 @@
             <span id="torStatus" class="muted"></span>
           </div>
           <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <button id="runFreenetBtn" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Fetch via Freenet</button>
+            <input id="freenetLimit" type="number" placeholder="5" value="5" style="width:100px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
+            <label class="muted"><input type="checkbox" id="freenetMock" checked /> mock if no proxy</label>
+            <span id="freenetStatus" class="muted"></span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <button id="runI2PBtn" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Fetch via I2P</button>
             <input id="i2pUrl" placeholder="http://zzz.i2p/" style="flex:1; min-width:280px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
             <input id="i2pPort" type="number" placeholder="4444" style="width:100px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />

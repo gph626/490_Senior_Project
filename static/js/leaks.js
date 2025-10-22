@@ -19,16 +19,31 @@
         const more = arr.length > max ? ` <span class="muted">+${arr.length-max} more</span>` : '';
         return items.map(v => `<span class="badge" style="background:#2a2f36; color:#cfd7e6; margin-right:4px;">${v}</span>`).join('') + more;
       };
-      const entsHtml = [
-        showList(ents.emails),
-        showList(ents.domains),
-        showList(ents.ips),
-        showList(ents.btc_wallets)
-      ].filter(Boolean).join(' ');
+      // Labeled, compact entities summary using badges
+      const labeled = [];
+      if (Array.isArray(ents.emails) && ents.emails.length) labeled.push(`<span class="muted">emails:</span> ${showList(ents.emails, 2)}`);
+      if (Array.isArray(ents.domains) && ents.domains.length) labeled.push(`<span class="muted">domains:</span> ${showList(ents.domains, 2)}`);
+      if (Array.isArray(ents.ips) && ents.ips.length) labeled.push(`<span class="muted">ips:</span> ${showList(ents.ips, 2)}`);
+      if (Array.isArray(ents.btc_wallets) && ents.btc_wallets.length) labeled.push(`<span class="muted">btc:</span> ${showList(ents.btc_wallets, 2)}`);
+      const parseMaybeJson = (v) => {
+        if (!v) return [];
+        try { const arr = typeof v === 'string' ? JSON.parse(v) : v; return Array.isArray(arr) ? arr : []; } catch { return []; }
+      };
+      const ssns = parseMaybeJson(it.ssn);
+      const names = parseMaybeJson(it.names);
+      const phones = parseMaybeJson(it.phone_numbers);
+      const addrs = parseMaybeJson(it.physical_addresses);
+      const pwds = parseMaybeJson(it.passwords);
+      if (ssns.length) labeled.push(`<span class="muted">ssns:</span> ${showList(ssns, 2)}`);
+      if (names.length) labeled.push(`<span class="muted">names:</span> ${showList(names, 2)}`);
+      if (phones.length) labeled.push(`<span class="muted">phones:</span> ${showList(phones, 2)}`);
+      if (addrs.length) labeled.push(`<span class="muted">addresses:</span> ${showList(addrs, 1)}`);
+      if (pwds.length) labeled.push(`<span class="muted">passwords:</span> ${showList(pwds, 1)}`);
+      const entsHtml = labeled.join(' ');
       return `<tr>
                 <td>${it.source || ''}</td>
                 <td><span class="truncate" title="${title.replaceAll('"','&quot;')}">${title}</span></td>
-                <td>${entsHtml || '<span class="muted">—</span>'}</td>
+                <td style="max-width:460px">${entsHtml || '<span class="muted">—</span>'}</td>
                 <td><span class="badge ${sevClass}">${it.severity || 'unknown'}</span></td>
                 <td class="nowrap">${ts}</td>
               </tr>`;
@@ -46,27 +61,30 @@
     const wantDomains = document.getElementById('entDomains').checked;
     const wantIPs = document.getElementById('entIPs').checked;
     const wantBTC = document.getElementById('entBTC').checked;
-
+    // Add new filters for ssn, passwords, names, phone, address
+    // (Add checkboxes in the UI if needed)
     const title = (item.title || '').toLowerCase();
     const content = (item.content || item.data || '').toLowerCase();
     const norm = item.normalized || {};
     const ents = norm.entities || {};
-
     const hay = title + ' ' + content;
     if (inc.length && !inc.some(k => hay.includes(k))) return false;
     if (exc.length && exc.some(k => hay.includes(k))) return false;
-
     const hasEmails = Array.isArray(ents.emails) && ents.emails.length > 0;
     const hasDomains = Array.isArray(ents.domains) && ents.domains.length > 0;
     const hasIPs = Array.isArray(ents.ips) && ents.ips.length > 0;
     const hasBTC = Array.isArray(ents.btc_wallets) && ents.btc_wallets.length > 0;
-
-    const anyOn = wantEmails || wantDomains || wantIPs || wantBTC;
+    // Add checks for new fields
+    const hasSSN = !!item.ssn;
+    const hasPasswords = !!item.passwords;
+    const hasNames = !!item.names;
+    const hasPhone = !!item.phone_numbers;
+    const hasAddress = !!item.physical_addresses;
+    const anyOn = wantEmails || wantDomains || wantIPs || wantBTC /* || wantSSN || wantPasswords || wantNames || wantPhone || wantAddress */;
     if (anyOn){
       const ok = (wantEmails && hasEmails) || (wantDomains && hasDomains) || (wantIPs && hasIPs) || (wantBTC && hasBTC);
       if (!ok) return false;
     }
-
     if (sevSel){
       const itemSev = (item.severity || 'unknown').toLowerCase();
       if (itemSev !== sevSel) return false;
@@ -77,7 +95,7 @@
 
 
   async function loadLeaks(){
-    const res = await fetch('/api/leaks?limit=100');
+    const res = await fetch('/api/leaks?limit=100', { headers: { 'X-API-Key': API_KEY } });
     ALL_LEAKS = await res.json();
     applyAndRender();
   }
@@ -264,7 +282,7 @@ async function runFreenet(){
 
 
   async function loadAssets(){
-    const res = await fetch('/api/assets');
+    const res = await fetch('/api/assets', { headers: { 'X-API-Key': API_KEY } });
     const items = await res.json();
     const tbody = document.querySelector('#assets-table tbody');
     if (!Array.isArray(items) || items.length === 0){
@@ -282,7 +300,7 @@ async function runFreenet(){
     document.querySelectorAll('.delAsset').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.getAttribute('data-id');
-        await fetch('/api/assets/' + id, { method: 'DELETE' });
+        await fetch('/api/assets/' + id, { method: 'DELETE', headers: { 'X-API-Key': API_KEY } });
         await loadAssets();
       });
     });
@@ -298,7 +316,7 @@ async function runFreenet(){
       return;
     }
     const res = await fetch('/api/assets', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
       body: JSON.stringify({ type, value })
     });
     if (!res.ok){

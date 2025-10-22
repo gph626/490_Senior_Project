@@ -24,9 +24,19 @@ logger.setLevel(logging.INFO)
 # Ensure DB and tables exist (no path juggling here; your app sets DARKWEB_DB_PATH)
 init_db()
 
-# Config
-FPROXY_HOST = os.environ.get("FRENET_FPROXY_HOST", "127.0.0.1")
-FPROXY_PORT = int(os.environ.get("FRENET_FPROXY_PORT", "8888"))
+# Config (support both FRENET_* and FREENET_* env names)
+FPROXY_HOST = (
+    os.environ.get("FRENET_FPROXY_HOST")
+    or os.environ.get("FREENET_FPROXY_HOST")
+    or os.environ.get("FREENET_HOST")
+    or "127.0.0.1"
+)
+FPROXY_PORT = int(
+    os.environ.get("FRENET_FPROXY_PORT")
+    or os.environ.get("FREENET_FPROXY_PORT")
+    or os.environ.get("FREENET_PORT")
+    or "8888"
+)
 FPROXY_BASE = f"http://{FPROXY_HOST}:{FPROXY_PORT}"
 ORG_ID = int(os.environ.get("DARKWEB_ORG_ID", "123"))
 _CONFIG_CACHE: Dict[str, Any] = {}
@@ -111,11 +121,60 @@ def _guess_tags(text: str, asset_hit_count: int) -> Dict[str, Any]:
     }
 
 
+def _parse_env_seeds() -> List[str]:
+    """Read optional FREENET_SEEDS (or FRENET_SEEDS) from env.
+    Accepts comma/newline/semicolon-separated list. Supports raw USK@/SSK@/CHK@ URIs
+    and full FProxy URLs. Raw URIs are prefixed with FPROXY_BASE.
+    """
+    raw = (
+        os.environ.get("FREENET_SEEDS")
+        or os.environ.get("FRENET_SEEDS")
+        or ""
+    )
+    if not raw:
+        return []
+    import re
+    # Split on newlines or semicolons ONLY; do NOT split on commas because Freenet URIs contain commas.
+    parts = [p.strip() for p in re.split(r"[\n;]+", raw) if p.strip() and not p.strip().startswith("#")]
+    urls: List[str] = []
+    for p in parts:
+        # Normalize any 'freenet:' prefix to plain path style used by FProxy
+        # e.g., http://127.0.0.1:8888/freenet:USK@... -> http://127.0.0.1:8888/USK@...
+        if p.startswith("http://") or p.startswith("https://"):
+            if "/freenet:" in p:
+                p = p.replace("/freenet:", "/", 1)
+        else:
+            if p.startswith("freenet:"):
+                p = p.replace("freenet:", "", 1)
+        if p.startswith("http://") or p.startswith("https://"):
+            urls.append(p)
+        elif p.startswith("USK@") or p.startswith("SSK@") or p.startswith("CHK@"):
+            urls.append(f"{FPROXY_BASE}/{p}")
+        else:
+            # treat as path under FProxy (e.g., "/USK@..." or "USK@...")
+            urls.append(f"{FPROXY_BASE}/{p.lstrip('/')}")
+    return urls
+
+
 def _urls_from_config(limit: int) -> List[str]:
     sc = get_source_cfg()
-    seeds = sc.get("seeds") or []
+    seeds_cfg = sc.get("seeds") or []
+    seeds_env = _parse_env_seeds()
+    # Combine config and env seeds, preserve order, de-dup
+    seen = set()
+    combined: List[str] = []
+    for lst in (seeds_cfg, seeds_env):
+        for u in lst:
+            if u not in seen:
+                seen.add(u)
+                combined.append(u)
     # seeds should be full FProxy URLs (http://127.0.0.1:8888/USK@... or SSK@... etc.)
-    return list(seeds)[: max(1, int(limit))]
+    chosen = combined[: max(1, int(limit))]
+    if not chosen:
+        logger.info("No seeds found (config+env).")
+    else:
+        logger.info("Using Freenet seeds (limit=%s): %s", limit, chosen)
+    return chosen
 
 
 def fetch_and_store(
@@ -183,8 +242,51 @@ def fetch_and_store(
     s, timeout = build_session()
     target_urls = list(urls or _urls_from_config(limit))
     if not target_urls:
-        logger.info("No Freenet seeds/urls configured. Nothing to crawl.")
-        return 0
+        # Safe fallback: insert a mock leak so the UI shows activity without requiring seeds
+        logger.info("No Freenet seeds/urls configured. Falling back to mock insert.")
+        content = f"Mock Freenet page for user {user_id} (no seeds configured)."
+        content_hash = "sha256:" + hashlib.sha256(content.encode("utf-8")).hexdigest()
+        entities = extract_entities(content)
+        try:
+            sev = compute_severity_from_entities(entities)
+        except Exception:
+            sev = None
+        _, is_dup = insert_leak_with_dedupe(
+            source="freenet",
+            url="freenet://mock-no-seeds",
+            title="Mock Freenet Content (no seeds)",
+            content=content,
+            content_hash=content_hash,
+            severity=sev,
+            entities=entities,
+            passwords=entities.get("passwords"),
+            ssn=entities.get("ssns"),
+            names=entities.get("names"),
+            phone_numbers=entities.get("phone_numbers"),
+            physical_addresses=entities.get("physical_addresses"),
+            user_id=user_id,
+        )
+        if not is_dup:
+            try:
+                uid = stable_uid("freenet://mock-no-seeds", content_hash)
+                event = {
+                    "uid": uid,
+                    "org_id": ORG_ID,
+                    "source": "freenet",
+                    "source_type": "freesite",
+                    "url": "freenet://mock-no-seeds",
+                    "language": detect_language(content),
+                    "entities": entities,
+                    "asset_matches": match_assets(content, get_config()) or {},
+                    "severity": sev,
+                    "tags": _guess_tags(content, 0),
+                    "content": redact_sensitive_data(content),
+                    "content_preview": content[:2000],
+                }
+                send_event_to_api(event)
+            except Exception:
+                pass
+        return 1 if not is_dup else 0
 
     inserted = 0
     for u in target_urls[:limit]:

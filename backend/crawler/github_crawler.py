@@ -1,15 +1,12 @@
 import os
 import time
-import re
-import os
-import sys
 import hashlib
 import logging
 import requests
 from dotenv import load_dotenv
 load_dotenv()
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from flask_login import current_user  
 from backend.database import insert_leak_with_dedupe, init_db
 from backend.severity import compute_severity_from_entities
@@ -97,26 +94,32 @@ def fetch_and_store(limit: int = 10, rate_limit_ms: int = 1500, user_id: int | N
     """
     sc = get_source_cfg()
     keywords = sc.get("keywords") or ["password", "apikey", "secret", "aws_access_key_id", "private_key"]
-    limit = int(sc.get("limit", limit))
-    rate_limit_ms = int(sc.get("rate_limit_ms", rate_limit_ms))
+    # Prefer explicit function arguments over config defaults
+    if not (isinstance(limit, int) and limit > 0):
+        try:
+            limit = int(sc.get("limit", 10))
+        except Exception:
+            limit = 10
+    if not (isinstance(rate_limit_ms, int) and rate_limit_ms >= 0):
+        try:
+            rate_limit_ms = int(sc.get("rate_limit_ms", 1500))
+        except Exception:
+            rate_limit_ms = 1500
 
     s, timeout = build_session()
 
     api_url = "https://api.github.com/search/code"
     inserted = 0
 
+    remaining = max(0, int(limit))
     for kw in keywords:
+        if remaining <= 0:
+            break
         query = f"{kw} in:file public:true"
         logger.info("Searching GitHub for '%s'...", kw)
         try:
-            for page in range(1, 3):  # get up to 2 pages (~60 results total)
-                resp = s.get(api_url, params={"q": query, "per_page": limit, "page": page}, timeout=timeout)
-                if resp.status_code != 200:
-                    logger.warning("GitHub search failed: HTTP %s (%s)", resp.status_code, resp.text[:200])
-                    break
-                items = resp.json().get("items", [])
-                if not items:
-                    break
+            per_page = min(max(1, remaining), 100)
+            resp = s.get(api_url, params={"q": query, "per_page": per_page, "page": 1}, timeout=timeout)
             if resp.status_code != 200:
                 logger.warning("GitHub search failed: HTTP %s (%s)", resp.status_code, resp.text[:200])
                 time.sleep(max(0, rate_limit_ms) / 1000.0)
@@ -127,7 +130,9 @@ def fetch_and_store(limit: int = 10, rate_limit_ms: int = 1500, user_id: int | N
             continue
 
         items = resp.json().get("items", [])
-        for item in items:
+        if not items:
+            continue
+        for item in items[:remaining]:
             repo = item["repository"]["full_name"]
             path = item.get("path")
             html_url = item.get("html_url")
@@ -169,6 +174,9 @@ def fetch_and_store(limit: int = 10, rate_limit_ms: int = 1500, user_id: int | N
 
             if not is_dup:
                 inserted += 1
+                remaining -= 1
+                if remaining <= 0:
+                    break
 
             # Prepare event payload
             event: Dict[str, Any] = {
@@ -202,6 +210,8 @@ def fetch_and_store(limit: int = 10, rate_limit_ms: int = 1500, user_id: int | N
                     time.sleep(wait)
 
             time.sleep(max(0, rate_limit_ms) / 1000.0)
+        if remaining <= 0:
+            break
 
     logger.info("[GitHubCrawler] Run complete. Inserted new=%s | user_id=%s", inserted, user_id or getattr(current_user, 'id', None))
     return inserted

@@ -92,8 +92,21 @@ def fetch_and_store(limit: int = 10, rate_limit_ms: int = 500, user_id: int | No
     Returns number of newly-inserted DB rows.
     """
     sc = get_source_cfg()
-    limit = int(sc.get("limit", limit))
-    rate_limit_ms = int(sc.get("rate_limit_ms", rate_limit_ms))
+    # Prefer explicit function arguments over config defaults
+    if sc.get("limit") is not None:
+        try:
+            # Only use config if caller didn't specify a positive limit
+            if not (isinstance(limit, int) and limit > 0):
+                limit = int(sc.get("limit"))
+        except Exception:
+            pass
+    cfg_rate = sc.get("rate_limit_ms")
+    if cfg_rate is not None:
+        try:
+            if not (isinstance(rate_limit_ms, int) and rate_limit_ms >= 0):
+                rate_limit_ms = int(cfg_rate)
+        except Exception:
+            pass
 
     s, timeout = build_session()
 

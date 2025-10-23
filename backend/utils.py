@@ -80,7 +80,14 @@ def extract_entities(text: str) -> Dict[str, Any]:
 
     # Core fields
     emails = sorted(set(e.lower() for e in EMAIL_RE.findall(text)))
-    domains = sorted(set(d.lower() for d in DOMAIN_RE.findall(text)))
+    domains_raw = sorted(set(d.lower() for d in DOMAIN_RE.findall(text)))
+    # Heuristic filter to reduce false positives from filenames like "config.yaml" or "script.py"
+    _bad_tlds = {
+        'txt','md','yaml','yml','json','toml','ini','cfg','conf','csv','log','lock','db','bak','old',
+        'py','ipynb','rb','go','rs','js','ts','jsx','tsx','java','kt','c','cc','cpp','h','hpp','cs',
+        'sh','bash','zsh','ps1','bat','cmd','sql','db','dat','pdf','png','jpg','jpeg','gif','svg','ico'
+    }
+    domains = [d for d in domains_raw if d.rsplit('.', 1)[-1] not in _bad_tlds]
     ips = sorted(set(IPV4_RE.findall(text)))
     btcs = sorted(set(BTC_RE.findall(text)))
 
@@ -263,6 +270,30 @@ def send_event_to_api(event: Dict[str, Any], max_retries: int = 3, backoff: floa
     print(f"{Fore.CYAN}[DEBUG]{Style.RESET_ALL} Sending event to {url} with uid={uid}")
 
     headers = {"Content-Type": "application/json"}
+    # Optionally include API key so server can associate event with a user
+    api_key = os.environ.get("DARKWEB_API_KEY") or os.environ.get("API_KEY")
+    if not api_key:
+        # Fallback: if we're inside a Flask request, use that user's API key
+        try:
+            from flask import g
+            uid = getattr(g, "current_user_id", None) or session.get("user_id")
+            if uid:
+                db = SessionLocal()
+                try:
+                    key_obj = (
+                        db.query(APIKey)
+                        .filter(APIKey.user_id == uid)
+                        .order_by(APIKey.created_at.desc())
+                        .first()
+                    )
+                    if key_obj and key_obj.key:
+                        api_key = key_obj.key
+                finally:
+                    db.close()
+        except Exception:
+            pass
+    if api_key:
+        headers["X-API-Key"] = api_key
 
     for attempt in range(max_retries):
         try:

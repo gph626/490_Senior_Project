@@ -3,11 +3,11 @@
   function renderLeaks(items){
     const tbody = document.querySelector('#leaks-table tbody');
     if (!Array.isArray(items) || items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="muted">No leaks yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="muted">No leaks yet.</td></tr>';
       return;
     }
     const rows = items.map(it => {
-      const sev = (it.severity || 'unknown').toLowerCase();
+  const sev = (it.severity || 'zero severity').toLowerCase();
       const sevClass = ['low','medium','high','critical'].includes(sev) ? sev : '';
       const title = it.title || '(no title)';
       const ts = it.timestamp ? new Date(it.timestamp).toLocaleString() : '';
@@ -46,9 +46,29 @@
                 <td style="max-width:460px">${entsHtml || '<span class="muted">—</span>'}</td>
                 <td><span class="badge ${sevClass}">${it.severity || 'unknown'}</span></td>
                 <td class="nowrap">${ts}</td>
+                <td class="nowrap"><button data-id="${it.id}" class="delLeak" style="padding:4px 8px; border:none; border-radius:6px; cursor:pointer;">Delete</button></td>
               </tr>`;
     }).join('');
     tbody.innerHTML = rows;
+    // bind delete buttons
+    document.querySelectorAll('.delLeak').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        try {
+          const res = await fetch('/api/leaks/' + id, { method: 'DELETE', headers: { 'X-API-Key': API_KEY } });
+          if (!res.ok){
+            const err = await res.json().catch(()=>({}));
+            alert('Delete failed: ' + (err.message || res.status));
+            return;
+          }
+          // remove from local list and re-render
+          ALL_LEAKS = (ALL_LEAKS || []).filter(x => x.id != id);
+          applyAndRender();
+        } catch(e){
+          alert('Delete failed: ' + e.message);
+        }
+      });
+    });
   }
 
   let ALL_LEAKS = [];

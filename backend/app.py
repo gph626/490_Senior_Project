@@ -31,7 +31,7 @@ try:
     import backend.crawler.tor_crawler as tor_module
     from backend.crawler.i2p_crawler import fetch_and_store as i2p_fetch
     import backend.crawler.i2p_crawler as i2p_module
-    from backend.database import Asset, SessionLocal, Base
+    from backend.database import Asset, SessionLocal, Base, Leak
     from backend.severity import compute_severity_from_entities
     from backend.analytics import get_critical_leaks, risk_summary
 except ImportError:
@@ -462,8 +462,8 @@ def api_leaks_ingest():
     if not (content or (payload.get('attachments'))):
         return jsonify({"code": "validation_error", "message": "content or attachments required"}), 400
 
-    # Auto-compute severity if not provided and entities exist
-    if (not severity) and entities:
+    # Auto-compute severity if not provided (compute even when entities are empty -> 'zero severity')
+    if not severity:
         try:
             severity = compute_severity_from_entities(entities)
         except (TypeError, ValueError, KeyError):
@@ -790,6 +790,33 @@ def hash_sensitive_value(value: str) -> str:
     except Exception:
         return value
 
+def normalize_asset_value(asset_type: str, value: str) -> str:
+    """Normalize asset values consistently with entity extraction before hashing/storage."""
+    if not value:
+        return value
+    t = (asset_type or '').strip().lower()
+    v = value.strip()
+    if t in ('email', 'domain', 'ip'):
+        return v.lower()
+    if t == 'ssn':
+        # store only digits
+        import re as _re
+        return _re.sub(r"\D", "", v)
+    if t == 'phone':
+        import re as _re
+        return _re.sub(r"\D", "", v)
+    if t == 'name':
+        return v.lower()
+    if t == 'address':
+        # entities are Title Cased; align to that to match hashing comparison
+        return v.title()
+    if t == 'btc':
+        # BTC addresses are case sensitive for bech32 prefix casing, but matching supports hash/plain; keep as-is
+        return v
+    if t == 'password':
+        return v
+    return v
+
 @app.route("/api/assets", methods=["GET"])
 def api_assets_list():
     uid = get_current_user_id()
@@ -825,21 +852,35 @@ def api_assets_add():
         return jsonify({"error": "not authenticated"}), 401
     if not t or not v:
         return jsonify({"code": "validation_error", "message": "type and value required"}), 400
-    # Hash/encrypt sensitive fields
+    # Normalize then hash/encrypt sensitive fields
     SENSITIVE_TYPES = ['ssn', 'phone', 'btc', 'password', 'name', 'address']
     if t in SENSITIVE_TYPES:
-        v = hash_sensitive_value(v)
+        v = hash_sensitive_value(normalize_asset_value(t, v))
+    else:
+        v = normalize_asset_value(t, v)
     session_db = SessionLocal()
     try:
         # Check for existing asset
         existing = session_db.query(Asset).filter(Asset.type == t, Asset.value == v, Asset.user_id == user_id).first()
         if existing:
-            return jsonify({"status": "ok", "id": existing.id}), 200
+            # Recompute severities in case this existing asset just became relevant
+            try:
+                from backend.database import recompute_severity_for_user_leaks
+                updated = recompute_severity_for_user_leaks(user_id)
+            except Exception:
+                updated = 0
+            return jsonify({"status": "ok", "id": existing.id, "updated": updated}), 200
         obj = Asset(type=t, value=v, user_id=user_id)
         session_db.add(obj)
         session_db.commit()
         session_db.refresh(obj)
-        return jsonify({"status": "ok", "id": obj.id}), 201
+        # After adding an asset, recompute severities for this user's leaks
+        try:
+            from backend.database import recompute_severity_for_user_leaks
+            updated = recompute_severity_for_user_leaks(user_id)
+        except Exception:
+            updated = 0
+        return jsonify({"status": "ok", "id": obj.id, "updated": updated}), 201
     finally:
         session_db.close()
 
@@ -850,7 +891,32 @@ def api_assets_delete(asset_id: int):
         obj = session_db.query(Asset).filter(Asset.id == asset_id).first()
         if not obj:
             return jsonify({"code": "not_found", "message": "asset not found"}), 404
+        uid = obj.user_id
         session_db.delete(obj)
+        session_db.commit()
+        # Recompute severities after deletion
+        try:
+            from backend.database import recompute_severity_for_user_leaks
+            updated = recompute_severity_for_user_leaks(uid)
+        except Exception:
+            updated = 0
+        return jsonify({"status": "ok", "updated": updated}), 200
+    finally:
+        session_db.close()
+
+
+# Delete a leak (for the current user)
+@app.route("/api/leaks/<int:leak_id>", methods=["DELETE"])
+def api_leaks_delete(leak_id: int):
+    uid = get_current_user_id()
+    if not uid:
+        return jsonify({"error": "not authenticated"}), 401
+    session_db = SessionLocal()
+    try:
+        lk = session_db.query(Leak).filter(Leak.id == leak_id, Leak.user_id == uid).first()
+        if not lk:
+            return jsonify({"code": "not_found", "message": "leak not found"}), 404
+        session_db.delete(lk)
         session_db.commit()
         return jsonify({"status": "ok"}), 200
     finally:

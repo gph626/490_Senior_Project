@@ -502,6 +502,138 @@ def api_leaks_ingest():
     return jsonify(resp), 202
 
 
+# Seed five mock leaks: one per crawler type, covering all entity types across them
+@app.route("/api/leaks/mock", methods=["POST"])
+def api_leaks_insert_mock():
+    uid = get_current_user_id()
+    if not uid:
+        return jsonify({"error": "not authenticated"}), 401
+
+    # Define 5 mock leaks (pastebin, github, tor, i2p, freenet)
+    samples = [
+        {
+            "source": "pastebin",
+            "url": "https://pastebin.com/mock/abc123",
+            "title": "Credentials dump for service",
+            "content": "Login for alice@example.com password: hunter2\nSome extra lines...",
+            "entities": {
+                "emails": ["alice@example.com"],
+                "domains": ["example.com"],
+                "ips": [],
+                "btc_wallets": [],
+                "ssns": [],
+                "phone_numbers": [],
+                "passwords": ["hunter2"],
+                "physical_addresses": [],
+                "names": []
+            },
+            "passwords": ["hunter2"]
+        },
+        {
+            "source": "github",
+            "url": "https://github.com/user/repo/blob/main/config.yml",
+            "title": "Config leak with domain and IP",
+            "content": "production: domain: example.com\nadmin_ip: 203.0.113.10",
+            "entities": {
+                "emails": [],
+                "domains": ["example.com"],
+                "ips": ["203.0.113.10"],
+                "btc_wallets": [],
+                "ssns": [],
+                "phone_numbers": [],
+                "passwords": [],
+                "physical_addresses": [],
+                "names": []
+            }
+        },
+        {
+            "source": "tor",
+            "url": "http://exampleonionabcdef.onion/page",
+            "title": "Onion forum post with BTC and name",
+            "content": "Payment to bc1qexampleexampleexampleexamplex0j2z by user John Doe.",
+            "entities": {
+                "emails": [],
+                "domains": [],
+                "ips": [],
+                "btc_wallets": ["bc1qexampleexampleexampleexamplex0j2z"],
+                "ssns": [],
+                "phone_numbers": [],
+                "passwords": [],
+                "physical_addresses": [],
+                "names": ["john doe"]
+            },
+            "names": ["john doe"]
+        },
+        {
+            "source": "i2p",
+            "url": "http://mock.i2p/page",
+            "title": "I2P leak with SSN and phone",
+            "content": "Employee SSN 123-45-6789 and phone (555) 123-4567 recorded.",
+            "entities": {
+                "emails": [],
+                "domains": [],
+                "ips": [],
+                "btc_wallets": [],
+                "ssns": ["123456789"],
+                "phone_numbers": ["5551234567"],
+                "passwords": [],
+                "physical_addresses": [],
+                "names": []
+            },
+            "ssn": ["123456789"],
+            "phone_numbers": ["5551234567"]
+        },
+        {
+            "source": "freenet",
+            "url": "freenet://USK@mock-key/mock-site/0/",
+            "title": "Freenet page with address",
+            "content": "Contact at 123 Main Street for delivery.",
+            "entities": {
+                "emails": [],
+                "domains": [],
+                "ips": [],
+                "btc_wallets": [],
+                "ssns": [],
+                "phone_numbers": [],
+                "passwords": [],
+                "physical_addresses": ["123 Main Street"],
+                "names": []
+            },
+            "physical_addresses": ["123 Main Street"]
+        },
+    ]
+
+    from backend.database import insert_leak_with_dedupe
+    inserted = []
+    dupes = 0
+    for s in samples:
+        try:
+            text = s["content"] or ""
+            ch = "sha256:" + hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()
+            leak_id, is_dup = insert_leak_with_dedupe(
+                source=s["source"],
+                url=s.get("url"),
+                title=s.get("title"),
+                content=text,
+                content_hash=ch,
+                severity=None,
+                entities=s.get("entities") or {},
+                passwords=s.get("passwords"),
+                ssn=s.get("ssn"),
+                names=s.get("names"),
+                phone_numbers=s.get("phone_numbers"),
+                physical_addresses=s.get("physical_addresses"),
+                user_id=uid,
+            )
+            if is_dup:
+                dupes += 1
+            inserted.append(leak_id)
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+    return jsonify({"status": "ok", "inserted": len(inserted), "ids": inserted, "duplicates": dupes}), 200
+
+
 # Trigger Pastebin crawler from the web app
 @app.route("/api/crawlers/pastebin/run", methods=["POST"])
 def api_run_pastebin():

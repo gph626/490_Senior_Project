@@ -359,5 +359,21 @@ async function runFreenet(){
     document.getElementById('addAsset')?.addEventListener('click', addAsset);
     document.getElementById('runGithubBtn')?.addEventListener('click', runGithub);
     document.getElementById('runFreenetBtn')?.addEventListener('click', runFreenet);
+    document.getElementById('insertMockLeaksBtn')?.addEventListener('click', async () => {
+      const status = document.getElementById('mockInsertStatus');
+      status.textContent = 'Inserting…';
+      try {
+        const res = await fetch('/api/leaks/mock', {
+          method: 'POST',
+          headers: { 'X-API-Key': API_KEY }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Error');
+        status.textContent = `Inserted: ${data.inserted}${data.duplicates ? ` (dupes: ${data.duplicates})` : ''}`;
+        await loadLeaks();
+      } catch (e){
+        status.textContent = 'Error: ' + e.message;
+      }
+    });
   });
 })();

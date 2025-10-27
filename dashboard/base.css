@@ -433,10 +433,8 @@ section.resource-item,
 section.account-item,
 section.dashboard-item,
 section.alerts-item,
-section.risk-analysis-item,
 section.reports-item,
 section.alerts-table-section,
-section.risk-table-section,
 section.report-section {
     background: #181B20;
     color: #ECECEC;
@@ -451,7 +449,7 @@ section.report-section {
     margin-right: auto;
 }
 
-#dashboard-section, #alerts-section, #risk-analysis-section, #reports-section {
+#dashboard-section, #alerts-section, #reports-section {
     margin-bottom: 36px;
 }
 

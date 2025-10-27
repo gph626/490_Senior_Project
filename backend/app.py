@@ -153,7 +153,6 @@ ALIASES = {
     'resources': 'resourcespage/resources.html',
     'account': 'accountpage/account.html',
     'alerts': 'dashboardpage/alerts.html',
-    'risk_analysis': 'dashboardpage/risk_analysis.html',
     'reports': 'dashboardpage/reports.html',
     'leaks': 'dashboardpage/leaks.html',
     'login': 'auth/login.html',
@@ -338,15 +337,7 @@ def alerts():
 
 
 # Risk Analysis page routes
-@app.route('/risk_analysis')
-def risk_analysis_noext():
-    return redirect('/risk_analysis/')
-
-
-@app.route('/risk_analysis/')
-def risk_analysis():
-    username = session.get('username', 'User')
-    return render_template('risk_analysis.html', username=username)
+# (Risk Analysis page removed)
 
 
 # Reports page routes
@@ -386,7 +377,6 @@ def serve_page_dir(page: str):
         'resources': 'resourcespage/resources.html',
         'account': 'accountpage/account.html',
         'alerts': 'dashboardpage/alerts.html',
-        'risk_analysis': 'dashboardpage/risk_analysis.html',
         'reports': 'dashboardpage/reports.html',
         'leaks': 'dashboardpage/leaks.html',
         'index': 'homepage/homepage.html',  
@@ -402,7 +392,6 @@ def serve_page_dir(page: str):
             'resources': 'resources.html',
             'account': 'account.html',
             'alerts': 'alerts.html',
-            'risk_analysis': 'risk_analysis.html',
             'reports': 'reports.html',
             'leaks': 'leaks.html',
         }
@@ -454,7 +443,8 @@ def api_alerts():
     crits = get_critical_leaks(limit=limit, user_id=user_id)
     return jsonify(crits)
 
-# Risk summary aggregation
+
+# Risk summary aggregation (restored so dashboard charts can fetch summary data)
 @app.route("/api/risk/summary", methods=["GET"])
 def api_risk_summary():
     user_id = session.get('user_id')
@@ -462,6 +452,9 @@ def api_risk_summary():
         return jsonify({"error": "not authenticated"}), 401
 
     return jsonify(risk_summary(user_id=user_id))
+
+# Risk summary aggregation
+# /api/risk/summary removed (risk analysis feature removed)
 
 # Ingest endpoint to support crawler/mock posting leaks now; minimal validation and dedupe
 @app.route("/api/leaks", methods=["POST"])

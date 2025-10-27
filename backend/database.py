@@ -511,32 +511,10 @@ def delete_user(user_id: int) -> bool:
         session.close()
 
 
-def delete_user_by_email(email: str) -> int:
-    """Delete any users matching the given email (case-insensitive).
-
-    Returns the number of deleted users. This is intended as an admin/maintenance
-    helper to clean up stale accounts when necessary.
-    """
-    if not email:
-        return 0
-    email_clean = email.strip().lower()
-    session = SessionLocal()
-    deleted = 0
-    try:
-        from sqlalchemy import func
-        users = session.query(User).filter(func.lower(User.email) == email_clean).all()
-        ids = [u.id for u in users]
-    finally:
-        session.close()
-
-    for uid in ids:
-        try:
-            if delete_user(uid):
-                deleted += 1
-        except Exception:
-            # continue attempting to delete other matches
-            continue
-    return deleted
+# Note: admin/maintenance helper `delete_user_by_email` removed to avoid
+# exposing admin-style bulk deletion helpers in the public codebase. If
+# bulk user cleanup is needed, run a small maintenance script that imports
+# `delete_user` and performs controlled removals.
 
 def find_leak_by_content_hash(content_hash: str, user_id: int | None = None) -> Leak | None:
     """Return the most recent leak for this user whose normalized dict has the given content_hash."""

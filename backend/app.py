@@ -8,6 +8,7 @@ import socket
 import re
 import hashlib
 import time
+import logging
 from collections import defaultdict, deque
 import json
 from backend.utils import get_user_by_api_key
@@ -15,6 +16,7 @@ from flask_login import login_required, current_user, LoginManager, login_user, 
 from backend.database import SessionLocal, APIKey, User
 import secrets
 from datetime import datetime, timedelta
+import backend.database as database
 
 load_dotenv()
 
@@ -63,6 +65,9 @@ app = Flask(
     static_folder=os.path.join(PROJECT_ROOT, 'static')  # serve project-level static assets
 )
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
+
+# Lightweight logger for request-time debugging (safe to leave in; logs at INFO)
+logger = logging.getLogger("backend.app")
 
 # Session timeout configuration (set via env var SESSION_TIMEOUT_MINUTES).
 # Use Flask's permanent session mechanism so the cookie will expire after the
@@ -173,7 +178,8 @@ def get_current_user_id():
 
 @app.before_request
 def check_api_key():
-    exempt_paths = ["/login", "/register", "/api/keys/new"]
+    # Allow some public endpoints (login/register and a few API helpers) to skip API-key check
+    exempt_paths = ["/login", "/register", "/api/keys/new", "/api/check_email"]
     if any(request.path.startswith(p) for p in exempt_paths):
         return
 
@@ -1306,6 +1312,12 @@ def register():
         flash(msg, 'error')
         return render_template('register.html', username_val=username, email_val=email, error=msg)
     try:
+        # Log which DB path the running server is using and the attempted email/username
+        try:
+            logger.info("register attempt: DB_PATH=%s email=%s username=%s", getattr(database, 'DB_PATH', '<unknown>'), email, username)
+        except Exception:
+            pass
+
         user_id = create_user(username, email, password)
 
         #Generate API key for new user
@@ -1327,6 +1339,20 @@ def register():
             error_msg = "This username is already taken."
         else:
             error_msg = "Registration failed. Please try again."
+        # Log a quick DB check to help diagnose why email was considered taken
+        try:
+            session_check = SessionLocal()
+            from sqlalchemy import func
+            exists_check = session_check.query(User.id).filter(func.lower(User.email) == (email or '').lower()).first() is not None
+            logger.info("register failed: DB_PATH=%s email=%s exists=%s exception=%s", getattr(database, 'DB_PATH', '<unknown>'), email, exists_check, repr(e))
+        except Exception:
+            pass
+        finally:
+            try:
+                session_check.close()
+            except Exception:
+                pass
+
         flash(error_msg, "error")
         return render_template('register.html', username_val=username, email_val=email, error=error_msg)
     session['logged_in'] = True
@@ -1347,6 +1373,10 @@ def api_check_email():
         # Case-insensitive check
         from sqlalchemy import func
         exists = session_db.query(User.id).filter(func.lower(User.email) == email.lower()).first() is not None
+        try:
+            logger.info("api_check_email: DB_PATH=%s email=%s exists=%s", getattr(database, 'DB_PATH', '<unknown>'), email, exists)
+        except Exception:
+            pass
     finally:
         session_db.close()
     return jsonify({"available": not exists})

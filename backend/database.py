@@ -478,11 +478,65 @@ def delete_user(user_id: int) -> bool:
         user = session.query(User).filter(User.id == user_id).first()
         if not user:
             return False
+
+        # Delete related rows that are not covered by SQLAlchemy cascade rules.
+        # Assets are configured with a relationship and cascade, but API keys,
+        # leaks, and crawl_runs are simple tables referenced by user_id and
+        # should be removed explicitly to fully wipe account data.
+        try:
+            # Remove API keys
+            session.query(APIKey).filter(APIKey.user_id == user_id).delete(synchronize_session=False)
+        except Exception:
+            session.rollback()
+
+        try:
+            # Remove leaks (may be many) and crawl runs
+            session.query(Leak).filter(Leak.user_id == user_id).delete(synchronize_session=False)
+            session.query(CrawlRun).filter(CrawlRun.user_id == user_id).delete(synchronize_session=False)
+        except Exception:
+            session.rollback()
+
+        try:
+            # Remove any assets (relationship *should* handle this when deleting user,
+            # but remove explicitly to be safe for older DB schemas)
+            session.query(Asset).filter(Asset.user_id == user_id).delete(synchronize_session=False)
+        except Exception:
+            session.rollback()
+
+        # Finally delete the user row
         session.delete(user)
         session.commit()
         return True
     finally:
         session.close()
+
+
+def delete_user_by_email(email: str) -> int:
+    """Delete any users matching the given email (case-insensitive).
+
+    Returns the number of deleted users. This is intended as an admin/maintenance
+    helper to clean up stale accounts when necessary.
+    """
+    if not email:
+        return 0
+    email_clean = email.strip().lower()
+    session = SessionLocal()
+    deleted = 0
+    try:
+        from sqlalchemy import func
+        users = session.query(User).filter(func.lower(User.email) == email_clean).all()
+        ids = [u.id for u in users]
+    finally:
+        session.close()
+
+    for uid in ids:
+        try:
+            if delete_user(uid):
+                deleted += 1
+        except Exception:
+            # continue attempting to delete other matches
+            continue
+    return deleted
 
 def find_leak_by_content_hash(content_hash: str, user_id: int | None = None) -> Leak | None:
     """Return the most recent leak for this user whose normalized dict has the given content_hash."""

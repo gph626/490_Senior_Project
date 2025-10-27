@@ -95,6 +95,9 @@ def api_key_auth_middleware():
     # Only apply for /api routes
     if request.path.startswith("/api/"):
         key = request.headers.get("x-api-key")
+        # If an API key is provided, validate it and set g.api_user_id. If no
+        # API key is provided, don't block the request here — allow
+        # session-based/browser auth to handle it for UI routes.
         if key:
             session = SessionLocal()
             try:
@@ -102,7 +105,7 @@ def api_key_auth_middleware():
                 if api_key:
                     g.api_user_id = api_key.user_id
                 else:
-                    return {"error": "Invalid API key"}, 401
+                    return jsonify({"error": "Invalid API key"}), 401
             finally:
                 session.close()
 
@@ -187,10 +190,11 @@ def check_api_key():
             return
 
         # Allow session fallback for safe (GET) routes. Also explicitly allow
-        # session-based access for the password reset endpoint used by the
-        # web UI so logged-in users can POST their new password.
-        if ((request.method == "GET") or (request.path == "/api/reset_password")) \
-                and session.get("logged_in") and session.get("user_id"):
+        # session-based access for the password reset endpoint and the
+        # account delete endpoint used by the web UI so logged-in users can
+        # POST their new password or request account deletion from the browser.
+        if (((request.method == "GET") or (request.path == "/api/reset_password") or (request.path == "/api/account/delete"))
+                and session.get("logged_in") and session.get("user_id")):
             g.current_user_id = session["user_id"]
             return
 

@@ -144,6 +144,7 @@
       </section>
     </main>
   </div>
+
   <!-- Leak details modal -->
   <div id="leakModal" class="modal-backdrop" style="display:none;">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="leakModalTitle">
@@ -154,9 +155,17 @@
       <div id="leakModalBody" class="modal-body"></div>
     </div>
   </div>
+
+  <!-- Embed initial data as JSON so editors won't try to parse Jinja inside a JS block -->
+  <script id="initial-data" type="application/json">{{ {'api_key': api_key}|tojson }}</script>
   <script>
-    // Persist API key for API calls from JS (used by crawlers/assets endpoints)
-    try { if ('{{ api_key or '' }}') { localStorage.setItem('api_key', '{{ api_key or '' }}'); } } catch (e) {}
+    try {
+      const raw = document.getElementById('initial-data')?.textContent || '{}';
+      const init = JSON.parse(raw);
+      if (init.api_key) {
+        localStorage.setItem('api_key', init.api_key);
+      }
+    } catch (e) { /* ignore */ }
   </script>
   <script src="{{ url_for('static', filename='js/leaks.js') }}"></script>
 </body>

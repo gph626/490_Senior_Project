@@ -11,7 +11,7 @@ import time
 from collections import defaultdict, deque
 import json
 from backend.utils import get_user_by_api_key
-from flask_login import login_required, current_user, LoginManager, login_user
+from flask_login import login_required, current_user, LoginManager, login_user, logout_user
 from backend.database import SessionLocal, APIKey, User
 import secrets
 from datetime import datetime, timedelta
@@ -63,6 +63,15 @@ app = Flask(
     static_folder=os.path.join(PROJECT_ROOT, 'static')  # serve project-level static assets
 )
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
+
+# Session timeout configuration (set via env var SESSION_TIMEOUT_MINUTES).
+# Use Flask's permanent session mechanism so the cookie will expire after the
+# configured inactivity window.
+try:
+    session_timeout_minutes = int(os.environ.get('SESSION_TIMEOUT_MINUTES', '30'))
+except ValueError:
+    session_timeout_minutes = 30
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=session_timeout_minutes)
 
 # --- Simple in-memory rate limiting (IP based) ---
 RATE_LIMIT_WINDOW = 60  # seconds
@@ -177,12 +186,15 @@ def check_api_key():
             g.current_user_id = user_id
             return
 
-        # Allow session fallback ONLY for safe (GET) routes, not crawler runs
-        if request.method == "GET" and session.get("logged_in") and session.get("user_id"):
+        # Allow session fallback for safe (GET) routes. Also explicitly allow
+        # session-based access for the password reset endpoint used by the
+        # web UI so logged-in users can POST their new password.
+        if ((request.method == "GET") or (request.path == "/api/reset_password")) \
+                and session.get("logged_in") and session.get("user_id"):
             g.current_user_id = session["user_id"]
             return
 
-        # No API key and not a safe session fallback → reject
+        # No API key and not an allowed session fallback → reject
         return jsonify({"error": "Invalid or missing API key"}), 401
 
 
@@ -1228,7 +1240,10 @@ def login():
         return render_template('login.html', login_val=username_or_email)
     
     login_user(user)
-    
+    # Don't make the session permanent so the cookie is a browser-session cookie
+    # and will be cleared when the user exits/closes the browser.
+    session.permanent = False
+
     session['logged_in'] = True
     session['username'] = user.username
     session['user_id'] = user.id
@@ -1238,6 +1253,11 @@ def login():
 # Logout route
 @app.route("/logout", methods=["GET", "POST"])
 def logout():
+    # Use flask-login's logout helper and clear session data
+    try:
+        logout_user()
+    except Exception:
+        pass
     session.clear()
     return redirect('/auth/login.html')
 
@@ -1315,12 +1335,14 @@ def register():
 def api_check_email():
     # lightweight availability check
     from backend.database import SessionLocal, User  # local import to avoid circular
-    email = (request.args.get('email') or '').strip().lower()
+    email = (request.args.get('email') or '').strip()
     if not email:
         return jsonify({"available": False, "error": "email required"}), 400
     session_db = SessionLocal()
     try:
-        exists = session_db.query(User.id).filter(User.email == email).first() is not None
+        # Case-insensitive check
+        from sqlalchemy import func
+        exists = session_db.query(User.id).filter(func.lower(User.email) == email.lower()).first() is not None
     finally:
         session_db.close()
     return jsonify({"available": not exists})

@@ -22,7 +22,7 @@
                         {% if error %}
                             <div class="auth-error" style="color: red; margin-bottom: 1em;">{{ error }}</div>
                         {% endif %}
-            <form action="/register" method="post" class="modern-auth-form">
+            <form id="register-form" action="/register" method="post" class="modern-auth-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <!-- Dummy hidden field to trick autofill -->
                 <input type="text" name="fakeusernameremembered" style="display:none">
@@ -30,7 +30,7 @@
                                 <input type="text" id="reg_user" name="reg_user" value="{{ username_val|default('') }}" required autocomplete="off">
                 <label for="reg_email">Email</label>
                                 <input type="email" id="reg_email" name="reg_email" value="{{ email_val|default('') }}" required autocomplete="off" onblur="checkEmailAvailability()">
-                                <div id="email-status" style="font-size:0.85em; margin-top:4px;"></div>
+                                                <div id="email-status" style="font-size:0.85em; margin-top:4px;"></div>
                 <label for="reg_password">Password</label>
                 <input type="password" id="reg_password" name="reg_password" required autocomplete="new-password" oninput="pwStrength()">
                 <div id="pw-strength" style="font-size:0.85em; margin-top:4px;"></div>
@@ -58,28 +58,54 @@
                             out.textContent = labels[score];
                             out.style.color = score >=4 ? 'green' : (score>=2 ? '#e69500' : 'red');
                         }
-                        async function checkEmailAvailability(){
+            async function checkEmailAvailability(){
                                 const emailInput = document.getElementById('reg_email');
                                 const statusDiv = document.getElementById('email-status');
                                 const email = emailInput.value.trim();
                                 if(!email){ statusDiv.textContent=''; return; }
                                 statusDiv.style.color = '#666';
-                                statusDiv.textContent = 'Checking availability...';
+                statusDiv.textContent = 'Checking availability...';
+                statusDiv.dataset.state = 'checking';
                                 try {
                                         const resp = await fetch(`/api/check_email?email=${encodeURIComponent(email)}`);
                                         const data = await resp.json();
                                         if(data.available){
                                                 statusDiv.style.color = 'green';
-                                                statusDiv.textContent = 'Email is available';
+                        statusDiv.textContent = 'Email is available';
+                        statusDiv.dataset.state = 'available';
                                         } else {
                                                 statusDiv.style.color = 'red';
-                                                statusDiv.textContent = 'Email is already in use';
+                        statusDiv.textContent = 'Email is already in use';
+                        statusDiv.dataset.state = 'taken';
                                         }
                                 } catch(e){
                                         statusDiv.style.color = 'red';
-                                        statusDiv.textContent = 'Error checking email';
+                    statusDiv.textContent = 'Error checking email';
+                    statusDiv.dataset.state = 'error';
                                 }
                         }
+            // Prevent form submission if email is known taken; if unknown, re-check quickly.
+            document.getElementById('register-form').addEventListener('submit', async function(e){
+                const statusDiv = document.getElementById('email-status');
+                const state = statusDiv.dataset.state;
+                const email = document.getElementById('reg_email').value.trim();
+                if(state === 'taken'){
+                e.preventDefault();
+                alert('That email is already in use. Please use a different email.');
+                return;
+                }
+                if(state !== 'available'){
+                // do a quick synchronous availability check
+                e.preventDefault();
+                await checkEmailAvailability();
+                if(statusDiv.dataset.state === 'taken'){
+                    alert('That email is already in use. Please use a different email.');
+                    return;
+                }
+                // If available now, submit the form
+                this.submit();
+                }
+            });
                         </script>
         </div>
     </div>

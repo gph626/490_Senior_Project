@@ -1,9 +1,10 @@
 import os
 import json
 import datetime
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, UniqueConstraint, ForeignKey, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, UniqueConstraint, ForeignKey, Boolean, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.types import JSON
 from sqlalchemy import text
 from flask_login import UserMixin
@@ -180,14 +181,24 @@ def create_user(username: str, email: str, password: str) -> int:
         raise ValueError("username, email, password required")
     session = SessionLocal()
     try:
-        # Uniqueness checks
-        existing = session.query(User).filter((User.username == username_clean) | (User.email == email_clean)).first()
+        # Case-insensitive uniqueness checks for username/email
+        username_norm = username_clean.lower()
+        existing = (
+            session.query(User)
+            .filter((func.lower(User.username) == username_norm) | (func.lower(User.email) == email_clean))
+            .first()
+        )
         if existing:
             raise ValueError("username or email already exists")
         pw_hash = hash_password(password)
         user = User(username=username_clean, email=email_clean, password_hash=pw_hash)
         session.add(user)
-        session.commit()
+        try:
+            session.commit()
+        except IntegrityError as ie:
+            # Handle DB-level uniqueness errors (race conditions or missing constraints at schema time)
+            session.rollback()
+            raise ValueError("username or email already exists") from ie
         session.refresh(user)
         return user.id
     finally:

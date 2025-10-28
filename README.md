@@ -98,6 +98,40 @@ python -m backend.app
 - `/api/account` is a mock endpoint (does not persist users).
 
 
+## Email / SMTP configuration
+
+This project includes a lightweight SMTP-based notifier used to send email alerts for new leaks. Sending is disabled by default to keep tests and local development safe.
+
+Environment variables:
+
+- `MAIL_ENABLED` - set to `1` or `true` to enable sending emails (default: disabled).
+- `SMTP_HOST` - SMTP server host (default: `localhost`).
+- `SMTP_PORT` - SMTP server port (default: `25`).
+- `SMTP_USER` - SMTP username (optional).
+- `SMTP_PASS` - SMTP password (optional).
+- `SMTP_FROM` - From address for outgoing messages (defaults to `noreply@<SMTP_HOST>`).
+- `SMTP_TLS` - set to `1`/`true` to use STARTTLS when connecting (default: off).
+- `SMTP_SSL` - set to `1`/`true` to use SMTP over SSL (default: off).
+
+Developer helpers:
+
+- CLI test script: `scripts/send_test_email.py` — run this script to perform a dry-run (safe no-op) or actually send when using `--enable` and appropriate SMTP env vars.
+- Notifications code: `backend/notifications.py` implements `send_email(...)` and respects `MAIL_ENABLED`.
+
+Example (debug SMTP server that prints messages):
+
+```bash
+# start a local debug SMTP server that prints received messages
+python -m smtpd -c DebuggingServer -n localhost:1025
+
+# in another shell, run the test script and enable sending
+export SMTP_HOST=localhost
+export SMTP_PORT=1025
+python3 scripts/send_test_email.py --to you@example.com --subject "Test" --body "Hello" --enable
+```
+
+
+
 ## Testing
 - Unit tests: `tests/test_database.py`, `tests/test_crawler.py`
 - Run tests manually:

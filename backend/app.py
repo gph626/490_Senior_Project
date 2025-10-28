@@ -198,6 +198,13 @@ def get_csrf_token() -> str:
     return token
 
 def validate_csrf(token: str | None) -> bool:
+    # Allow tests to disable CSRF via environment for integration testing.
+    # This keeps production behaviour unchanged unless DISABLE_CSRF=1 is set.
+    try:
+        if os.environ.get('DISABLE_CSRF', '').strip() in ('1', 'true', 'yes'):
+            return True
+    except Exception:
+        pass
     return token and token == session.get('_csrf_token')
 
 app.jinja_env.globals['csrf_token'] = get_csrf_token

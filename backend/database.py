@@ -14,6 +14,7 @@ import secrets
 import logging
 from colorama import Fore, Style
 from typing import Dict, Set, Any
+from backend.notifications import send_email, is_mail_enabled
 
 logger = logging.getLogger("database")
 
@@ -662,6 +663,34 @@ def insert_leak_with_dedupe(
     )
     print(f"{Fore.GREEN}[NEW]{Style.RESET_ALL} Inserted {source} leak (id={new_id}, hash={content_hash[:12] if content_hash else 'n/a'})")
     logger.info("Inserted new leak (id=%s, source=%s, hash=%s)", new_id, source, content_hash)
+    # If a leak belongs to a specific user and mail sending is enabled,
+    # attempt to notify that user's email address. Failures here should
+    # never prevent the leak insertion, so we catch and log exceptions.
+    if user_id is not None:
+        try:
+            if is_mail_enabled():
+                s = SessionLocal()
+                try:
+                    user = s.query(User).filter(User.id == user_id).first()
+                finally:
+                    s.close()
+                if user and getattr(user, 'email', None):
+                    subj = f"[LeakAlert] New leak: {normalized.get('title') or source}"
+                    body = (
+                        f"A new leak was detected for your account.\n\n"
+                        f"Title: {normalized.get('title')}\n"
+                        f"Source: {source}\n"
+                        f"Severity: {severity}\n"
+                        f"URL: {url_norm}\n\n"
+                        "Log in to view details."
+                    )
+                    try:
+                        send_email(user.email, subj, body, None)
+                    except Exception:
+                        logger.exception("Failed to send leak notification to %s for leak %s", user.email, new_id)
+        except Exception:
+            logger.exception("Notification attempt failed for leak %s", new_id)
+
     return new_id, False
 
 

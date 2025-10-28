@@ -77,6 +77,68 @@ try:
 except ValueError:
     session_timeout_minutes = 30
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=session_timeout_minutes)
+# Safer cookie defaults (can be overridden via env vars)
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'true').lower() in ('1', 'true', 'yes')
+app.config['SESSION_COOKIE_HTTPONLY'] = os.environ.get('SESSION_COOKIE_HTTPONLY', 'true').lower() in ('1', 'true', 'yes')
+app.config['SESSION_COOKIE_SAMESITE'] = os.environ.get('SESSION_COOKIE_SAMESITE', 'Lax')
+
+# Server-side cookie/session validation settings.
+# We store issued_at and last_activity timestamps in the session (Flask-signed)
+# and enforce both an idle timeout and an absolute lifetime. These can be
+# configured via environment variables:
+# - SESSION_IDLE_TIMEOUT_MINUTES (defaults to SESSION_TIMEOUT_MINUTES)
+# - SESSION_ABSOLUTE_TIMEOUT_MINUTES (defaults to 24*60 = 24 hours)
+try:
+    SESSION_IDLE_TIMEOUT_MINUTES = int(os.environ.get('SESSION_IDLE_TIMEOUT_MINUTES', str(session_timeout_minutes)))
+except ValueError:
+    SESSION_IDLE_TIMEOUT_MINUTES = session_timeout_minutes
+try:
+    SESSION_ABSOLUTE_TIMEOUT_MINUTES = int(os.environ.get('SESSION_ABSOLUTE_TIMEOUT_MINUTES', str(24 * 60)))
+except ValueError:
+    SESSION_ABSOLUTE_TIMEOUT_MINUTES = 24 * 60
+
+
+@app.before_request
+def validate_session_cookie():
+    """Server-side validation of the client session cookie age.
+
+    This enforces two policies:
+    - absolute lifetime (time since login/issued_at)
+    - idle timeout (time since last_activity)
+
+    Both values are stored in the signed Flask session so the server can
+    detect expired sessions even though sessions are client-side cookies.
+    If a session is expired we clear it and redirect the user to login.
+    """
+    # Nothing to do if user doesn't have a session
+    if not session.get('logged_in'):
+        return
+
+    now = int(time.time())
+    issued = session.get('issued_at')
+    last = session.get('last_activity')
+
+    # Absolute timeout
+    if issued and (now - int(issued)) > (SESSION_ABSOLUTE_TIMEOUT_MINUTES * 60):
+        session.clear()
+        try:
+            flash('Session expired (maximum lifetime reached). Please log in again.', 'error')
+        except Exception:
+            # flash may fail in non-HTML API contexts; ignore
+            pass
+        return redirect('/auth/login.html')
+
+    # Idle timeout
+    if last and (now - int(last)) > (SESSION_IDLE_TIMEOUT_MINUTES * 60):
+        session.clear()
+        try:
+            flash('Session expired due to inactivity. Please log in again.', 'error')
+        except Exception:
+            pass
+        return redirect('/auth/login.html')
+
+    # Sliding behaviour: update last_activity on each valid request
+    session['last_activity'] = now
 
 # --- Simple in-memory rate limiting (IP based) ---
 RATE_LIMIT_WINDOW = 60  # seconds
@@ -1250,6 +1312,12 @@ def login():
     session['logged_in'] = True
     session['username'] = user.username
     session['user_id'] = user.id
+    # Record issued and last-activity timestamps (server-side validation
+    # uses these fields to enforce idle/absolute expirations even when the
+    # browser holds the cookie). Stored in the signed Flask session.
+    now_ts = int(time.time())
+    session['issued_at'] = now_ts
+    session['last_activity'] = now_ts
     flash("Welcome back, {}!".format(user.username), "success")
     return redirect('/dashboard/')
 

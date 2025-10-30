@@ -98,13 +98,15 @@
           ? new Date(run.finished_at).toLocaleString()
           : '-';
 
+        // Do not display the run ID on the dashboard table — show source, status, started, finished
         tr.innerHTML = `
-          <td>${run.id}</td>
           <td>${run.source}</td>
           <td>${run.status}</td>
           <td>${new Date(run.started_at).toLocaleString()}</td>
           <td>${finished}</td>
         `;
+        // Store the run id on the row as a data attribute (kept hidden) for potential future actions
+        if (run.id !== undefined && run.id !== null) tr.dataset.runId = run.id;
         tableBody.appendChild(tr);
       });
     } catch (e) {

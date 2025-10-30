@@ -34,14 +34,10 @@
             <nav>
                 <ul>
                     <li><a href="{{ url_for('homepage') }}">Home</a></li>
-                    <li class="dropdown">
-                        <a href="{{ url_for('dashboard') }}" class="dropbtn">Dashboard ▼</a>
-                        <div class="dropdown-content">
-                            <a href="{{ url_for('alerts') }}">Alerts</a>
-                            <a href="{{ url_for('leaks') }}">Leaks</a>
-                            <a href="{{ url_for('reports') }}">Reports</a>
-                        </div>
-                    </li>
+                    <li><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                    <li><a href="{{ url_for('alerts') }}">Alerts</a></li>
+                    <li><a href="{{ url_for('leaks') }}">Leaks</a></li>
+                    <li><a href="{{ url_for('reports') }}">Reports</a></li>
                     <li><a href="{{ url_for('resources_route') }}">Resources</a></li>
                 </ul>
             </nav>
@@ -117,6 +113,7 @@
         // Inject the user's API key into localStorage on dashboard load
         localStorage.setItem('api_key', "{{ api_key }}");
     </script>
+    <script src="{{ url_for('static', filename='js/dropdowns.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </body>
 </html>

@@ -64,10 +64,10 @@
 .dropdown-content a:hover {
     background-color: #3D4754;
 }
-.dropdown:hover .dropdown-content {
+.dropdown .dropdown-content.show {
     display: block;
 }
-.dropdown:hover .dropbtn {
+.dropbtn.open {
     background: #3D4754;
 }
 /* Modern Auth Page Styles */
@@ -284,6 +284,7 @@ body {
     background: #3D4754;
     color: #A7001D;
 }
+.user-dropdown-btn.open { color: #430A0C; }
 .show {
     display: flex !important;
 }

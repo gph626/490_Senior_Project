@@ -333,6 +333,21 @@ body {
     color: #ECECEC;
 }
 
+/* Active page border (non-intrusive, doesn't shift layout) */
+.sidebar nav a.active-page {
+    position: relative;
+}
+.sidebar nav a.active-page::before {
+    content: "";
+    position: absolute;
+    left: 10px; /* keep a small inset from the left edge */
+    top: 10px;
+    bottom: 10px;
+    width: 4px;
+    background: #A7001D; /* match header accent color */
+    border-radius: 4px;
+}
+
 main {
     flex: 1;
     display: flex;

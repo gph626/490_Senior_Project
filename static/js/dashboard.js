@@ -128,5 +128,27 @@
       }
       init();
     });
+    // Mark the active sidebar link based on current path
+    (function markActiveNav(){
+      try {
+        const rawPath = window.location.pathname || '/';
+        // Normalize trailing slashes (treat /foo and /foo/ as same)
+        const curPath = rawPath.replace(/\/+$/,'') || '/';
+        const anchors = document.querySelectorAll('.sidebar nav a');
+        anchors.forEach(a => {
+          try {
+            const url = new URL(a.getAttribute('href'), window.location.origin);
+            const aPath = (url.pathname || '/').replace(/\/+$/,'') || '/';
+            if (aPath === curPath) {
+              a.classList.add('active-page');
+            }
+          } catch(e) {
+            // ignore malformed hrefs
+          }
+        });
+      } catch (e) {
+        console.warn('markActiveNav error', e);
+      }
+    })();
   });
 })();

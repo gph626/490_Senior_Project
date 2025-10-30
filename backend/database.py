@@ -212,9 +212,13 @@ def get_user_by_username_or_email(login: str) -> User | None:
     login_norm = login.strip().lower()
     session = SessionLocal()
     try:
+        # Perform case-insensitive comparison for both username and email so
+        # users can log in with either value regardless of case. Usernames may
+        # be stored with mixed-case, so use func.lower to normalize on the DB
+        # side.
         user = (
             session.query(User)
-            .filter((User.username == login_norm) | (User.email == login_norm))
+            .filter((func.lower(User.username) == login_norm) | (func.lower(User.email) == login_norm))
             .first()
         )
         return user

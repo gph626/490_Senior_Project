@@ -326,6 +326,21 @@ def _build_entities_from_leak(leak: Leak) -> Dict[str, Any]:
     return entity
 
 
+def _is_valid_severity(sev: str | None) -> bool:
+    """Return True if the severity value should be included in lists/results.
+
+    Exclude None/empty, 'zero severity', 'unknown', and '0' (case-insensitive).
+    """
+    if not sev:
+        return False
+    s = str(sev).strip().lower()
+    if not s:
+        return False
+    if s in ('zero severity', 'unknown', '0'):
+        return False
+    return True
+
+
 def recompute_severity_for_user_leaks(user_id: int) -> int:
     """Recompute severity for all leaks of a user based on current assets.
 
@@ -426,7 +441,10 @@ def _iter_recent_leaks(limit: int | None = None, user_id: int | None = None):
         q = q.order_by(Leak.timestamp.desc())
         if limit:
             q = q.limit(int(limit))
-        return q.all()
+        # Filter out leaks with unknown/zero severity so downstream callers
+        # only see meaningful leak records.
+        rows = q.all()
+        return [r for r in rows if _is_valid_severity(r.severity)]
     finally:
         session.close()
 
@@ -701,7 +719,11 @@ def insert_leak_with_dedupe(
 def get_latest_leaks(limit: int = 10):
     session = SessionLocal()
     try:
-        return session.query(Leak).order_by(Leak.timestamp.desc()).limit(limit).all()
+        # Use the same filtering rule as _iter_recent_leaks to exclude
+        # unknown/zero severities from public lists.
+        q = session.query(Leak).order_by(Leak.timestamp.desc()).limit(limit)
+        rows = q.all()
+        return [r for r in rows if _is_valid_severity(r.severity)]
     finally:
         session.close()
 
@@ -734,7 +756,8 @@ def get_leaks_for_user(user_id: int):
     """Return all leaks belonging to a specific user."""
     session = SessionLocal()
     try:
-        return session.query(Leak).filter(Leak.user_id == user_id).all()
+        rows = session.query(Leak).filter(Leak.user_id == user_id).order_by(Leak.timestamp.desc()).all()
+        return [r for r in rows if _is_valid_severity(r.severity)]
     finally:
         session.close()
 

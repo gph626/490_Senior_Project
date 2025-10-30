@@ -1423,9 +1423,40 @@ def register():
 
         flash(error_msg, "error")
         return render_template('register.html', username_val=username, email_val=email, error=error_msg)
-    session['logged_in'] = True
-    session['username'] = username
-    session['user_id'] = user_id
+    # Log the user in (mirror the behaviour in the /login route)
+    try:
+        # Try to fetch the newly created user object and use flask-login
+        new_user = None
+        try:
+            # Prefer authenticate_user to get the User object, fall back to DB lookup
+            new_user = authenticate_user(username, password)
+        except Exception:
+            try:
+                session_db = SessionLocal()
+                new_user = session_db.get(User, int(user_id))
+            finally:
+                try:
+                    session_db.close()
+                except Exception:
+                    pass
+
+        if new_user:
+            login_user(new_user)
+        # Don't make the session permanent (keep same behaviour as login)
+        session.permanent = False
+
+        now_ts = int(time.time())
+        session['logged_in'] = True
+        session['username'] = username
+        session['user_id'] = user_id
+        session['issued_at'] = now_ts
+        session['last_activity'] = now_ts
+    except Exception:
+        # If anything goes wrong with login plumbing, fall back to minimal session
+        session['logged_in'] = True
+        session['username'] = username
+        session['user_id'] = user_id
+
     flash("Registration successful!", "success")
     return redirect('/homepage/')
 

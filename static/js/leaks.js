@@ -1,13 +1,16 @@
 // Leaks page logic
 (function(){
+  const PAGE_SIZE = 20;
+  let CURRENT_PAGE = 1;
+  let FILTERED = [];
   function renderLeaks(items){
     const tbody = document.querySelector('#leaks-table tbody');
     if (!Array.isArray(items) || items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="muted">No leaks yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="muted">No leaks yet.</td></tr>';
       return;
     }
     const rows = items.map(it => {
-  const sev = (it.severity || 'zero severity').toLowerCase();
+      const sev = (it.severity || 'zero severity').toLowerCase();
       const sevClass = ['low','medium','high','critical'].includes(sev) ? sev : '';
       const title = it.title || '(no title)';
       const ts = it.timestamp ? new Date(it.timestamp).toLocaleString() : '';
@@ -40,12 +43,13 @@
       if (addrs.length) labeled.push(`<span class="muted">addresses:</span> ${showList(addrs, 1)}`);
       if (pwds.length) labeled.push(`<span class="muted">passwords:</span> ${showList(pwds, 1)}`);
       const entsHtml = labeled.join(' ');
-      return `<tr>
-                <td>${it.source || ''}</td>
-                <td><span class="truncate" title="${title.replaceAll('"','&quot;')}">${title}</span></td>
-                <td style="max-width:460px">${entsHtml || '<span class="muted">—</span>'}</td>
+      const src = (it.source || '').toLowerCase();
+      const srcLabel = (it.source || '').toUpperCase();
+      return `<tr class="leak-row" data-id="${it.id}">
+                <td><span class="chip chip-${src}">${srcLabel}</span></td>
+                <td><span class="wrap-title" title="${title.replaceAll('"','&quot;')}">${title}</span></td>
+                <td style="max-width:380px">${entsHtml || '<span class=\"muted\">—</span>'}</td>
                 <td><span class="badge ${sevClass}">${it.severity || 'unknown'}</span></td>
-                <td class="nowrap">${ts}</td>
                 <td class="nowrap"><button data-id="${it.id}" class="delLeak" style="padding:4px 8px; border:none; border-radius:6px; cursor:pointer;">Delete</button></td>
               </tr>`;
     }).join('');
@@ -53,6 +57,7 @@
     // bind delete buttons
     document.querySelectorAll('.delLeak').forEach(btn => {
       btn.addEventListener('click', async () => {
+        event?.stopPropagation?.();
         const id = btn.getAttribute('data-id');
         try {
           const res = await fetch('/api/leaks/' + id, { method: 'DELETE', headers: { 'X-API-Key': API_KEY } });
@@ -69,45 +74,30 @@
         }
       });
     });
+
+    // row click -> open modal
+    tbody.querySelectorAll('tr.leak-row').forEach(tr => {
+      tr.addEventListener('click', (ev) => {
+        if (ev.target.closest('button')) return; // ignore button clicks
+        const id = Number(tr.getAttribute('data-id'));
+        const item = (ALL_LEAKS || []).find(x => x.id === id);
+        if (item) openLeakModal(item);
+      });
+    });
   }
 
   let ALL_LEAKS = [];
 
   function matchesFilters(item){
     const sevSel = (document.getElementById('sevFilter').value || '').toLowerCase();
-    const inc = (document.getElementById('incKeys').value || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
-    const exc = (document.getElementById('excKeys').value || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
-    const wantEmails = document.getElementById('entEmails').checked;
-    const wantDomains = document.getElementById('entDomains').checked;
-    const wantIPs = document.getElementById('entIPs').checked;
-    const wantBTC = document.getElementById('entBTC').checked;
-    // Add new filters for ssn, passwords, names, phone, address
-    // (Add checkboxes in the UI if needed)
-    const title = (item.title || '').toLowerCase();
-    const content = (item.content || item.data || '').toLowerCase();
-    const norm = item.normalized || {};
-    const ents = norm.entities || {};
-    const hay = title + ' ' + content;
-    if (inc.length && !inc.some(k => hay.includes(k))) return false;
-    if (exc.length && exc.some(k => hay.includes(k))) return false;
-    const hasEmails = Array.isArray(ents.emails) && ents.emails.length > 0;
-    const hasDomains = Array.isArray(ents.domains) && ents.domains.length > 0;
-    const hasIPs = Array.isArray(ents.ips) && ents.ips.length > 0;
-    const hasBTC = Array.isArray(ents.btc_wallets) && ents.btc_wallets.length > 0;
-    // Add checks for new fields
-    const hasSSN = !!item.ssn;
-    const hasPasswords = !!item.passwords;
-    const hasNames = !!item.names;
-    const hasPhone = !!item.phone_numbers;
-    const hasAddress = !!item.physical_addresses;
-    const anyOn = wantEmails || wantDomains || wantIPs || wantBTC /* || wantSSN || wantPasswords || wantNames || wantPhone || wantAddress */;
-    if (anyOn){
-      const ok = (wantEmails && hasEmails) || (wantDomains && hasDomains) || (wantIPs && hasIPs) || (wantBTC && hasBTC);
-      if (!ok) return false;
-    }
+    const srcSel = (document.getElementById('srcFilter').value || '').toLowerCase();
     if (sevSel){
       const itemSev = (item.severity || 'unknown').toLowerCase();
       if (itemSev !== sevSel) return false;
+    }
+    if (srcSel){
+      const src = (item.source || '').toLowerCase();
+      if (src !== srcSel) return false;
     }
     return true;
   }
@@ -120,9 +110,27 @@
     applyAndRender();
   }
 
-  function applyAndRender(){
-    const filtered = (ALL_LEAKS || []).filter(matchesFilters);
-    renderLeaks(filtered);
+  function applyAndRender(resetPage=false){
+    FILTERED = (ALL_LEAKS || []).filter(matchesFilters);
+    const total = FILTERED.length;
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (resetPage) CURRENT_PAGE = 1;
+    if (CURRENT_PAGE > totalPages) CURRENT_PAGE = totalPages;
+    if (CURRENT_PAGE < 1) CURRENT_PAGE = 1;
+    const startIdx = (CURRENT_PAGE - 1) * PAGE_SIZE;
+    const endIdx = Math.min(startIdx + PAGE_SIZE, total);
+    const pageItems = FILTERED.slice(startIdx, endIdx);
+    renderLeaks(pageItems);
+    // update pager
+    const info = document.getElementById('pageInfo');
+    if (info){
+      if (total === 0) info.textContent = 'Showing 0 of 0';
+      else info.textContent = `Showing ${startIdx+1}–${endIdx} of ${total}`;
+    }
+    const prev = document.getElementById('prevPage');
+    const next = document.getElementById('nextPage');
+    if (prev) prev.disabled = CURRENT_PAGE <= 1;
+    if (next) next.disabled = CURRENT_PAGE >= totalPages || total === 0;
   }
 
 
@@ -261,44 +269,7 @@
   }
 
 
-async function runFreenet(){
-  const status = document.getElementById('freenetStatus');
-  status.textContent = 'Running…';
-  const limit = parseInt(document.getElementById('freenetLimit').value || '5', 10);
-  const wantMock = document.getElementById('freenetMock').checked;
-
-  // quick health ping
-  let proxyOK = false;
-  try {
-    const h = await fetch('/api/proxy/freenet/health');
-    const hj = await h.json();
-    proxyOK = !!hj.ok;
-  } catch(e){
-    // swallow; we’ll decide based on wantMock
-  }
-
-  const payload = {
-    limit,
-    mock: wantMock && !proxyOK
-  };
-
-  try {
-    const res = await fetch('/api/crawlers/freenet/run', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': API_KEY
-      },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Error');
-    status.textContent = `Done. Inserted: ${data.inserted}${payload.mock ? ' (mock)' : ''}`;
-    await loadLeaks();
-  } catch (e){
-    status.textContent = 'Error: ' + e.message;
-  }
-}
+  // Freenet functionality removed
 
 
   async function loadAssets(){
@@ -351,14 +322,25 @@ async function runFreenet(){
 
   document.addEventListener('DOMContentLoaded', () => {
     loadLeaks();
+    // tabs behavior
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.getAttribute('data-tab');
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(target)?.classList.add('active');
+      });
+    });
     document.getElementById('runPastebinBtn')?.addEventListener('click', runPastebin);
     document.getElementById('runTorBtn')?.addEventListener('click', runTor);
     document.getElementById('runI2PBtn')?.addEventListener('click', runI2P);
-    document.getElementById('applyFilters')?.addEventListener('click', applyAndRender);
+  document.getElementById('applyFilters')?.addEventListener('click', () => applyAndRender(true));
+  document.getElementById('prevPage')?.addEventListener('click', () => { CURRENT_PAGE -= 1; applyAndRender(false); });
+  document.getElementById('nextPage')?.addEventListener('click', () => { CURRENT_PAGE += 1; applyAndRender(false); });
     loadAssets();
     document.getElementById('addAsset')?.addEventListener('click', addAsset);
     document.getElementById('runGithubBtn')?.addEventListener('click', runGithub);
-    document.getElementById('runFreenetBtn')?.addEventListener('click', runFreenet);
     document.getElementById('insertMockLeaksBtn')?.addEventListener('click', async () => {
       const status = document.getElementById('mockInsertStatus');
       status.textContent = 'Inserting…';
@@ -375,5 +357,64 @@ async function runFreenet(){
         status.textContent = 'Error: ' + e.message;
       }
     });
+
+    // Modal close controls
+    document.getElementById('leakModalClose')?.addEventListener('click', closeLeakModal);
+    document.getElementById('leakModal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'leakModal') closeLeakModal();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeLeakModal();
+    });
   });
+
+  function openLeakModal(item){
+    const modal = document.getElementById('leakModal');
+    const body = document.getElementById('leakModalBody');
+    if (!modal || !body) return;
+    const norm = item.normalized || {};
+    const ents = norm.entities || {};
+    const parseMaybeJson = (v) => {
+      if (!v) return [];
+      try{ const arr = typeof v === 'string' ? JSON.parse(v) : v; return Array.isArray(arr) ? arr : []; }catch{ return []; }
+    };
+    const full = {
+      emails: ents.emails || [],
+      domains: ents.domains || [],
+      ips: ents.ips || [],
+      btc_wallets: ents.btc_wallets || [],
+      ssns: parseMaybeJson(item.ssn),
+      names: parseMaybeJson(item.names),
+      phone_numbers: parseMaybeJson(item.phone_numbers),
+      physical_addresses: parseMaybeJson(item.physical_addresses),
+      passwords: parseMaybeJson(item.passwords),
+    };
+    const list = (label, arr) => arr && arr.length
+      ? `<div style="margin-bottom:6px;"><span class=\"muted\" style=\"text-transform:uppercase;\">${label}:</span><div>${arr.map(x=>`<span class=\"badge\" style=\"background:#2a2f36; color:#cfd7e6; margin:2px 4px 2px 0;\">${x}</span>`).join('')}</div></div>`
+      : '';
+    const src = (item.source||'').toLowerCase();
+    const sev = (item.severity || 'unknown').toLowerCase();
+    body.innerHTML = `
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+        <span class="chip chip-${src}">${(item.source||'').toUpperCase()}</span>
+        <span class="badge ${['low','medium','high','critical'].includes(sev)?sev:''}">${item.severity||'unknown'}</span>
+      </div>
+      <div style="margin-bottom:10px; font-weight:700;">${(item.title||'(no title)')}</div>
+      ${list('emails', full.emails)}
+      ${list('domains', full.domains)}
+      ${list('ips', full.ips)}
+      ${list('btc', full.btc_wallets)}
+      ${list('ssns', full.ssns)}
+      ${list('names', full.names)}
+      ${list('phones', full.phone_numbers)}
+      ${list('addresses', full.physical_addresses)}
+      ${list('passwords', full.passwords)}
+    `;
+    modal.style.display = 'flex';
+  }
+
+  function closeLeakModal(){
+    const modal = document.getElementById('leakModal');
+    if (modal) modal.style.display = 'none';
+  }
 })();

@@ -210,12 +210,14 @@ body {
 .sidebar {
     background: #222831;
     color: #ECECEC;
-    width: 220px;
+    width: 65px; /* unify with new.css */
     padding: 40px 0 0 0;
     box-shadow: 2px 0 8px rgba(0,0,0,0.08);
     display: flex;
     flex-direction: column;
     align-items: center;
+    position: fixed; /* keep consistent fixed narrow sidebar */
+    height: 100vh;
 }
 
 .sidebar-user {
@@ -336,6 +338,7 @@ main {
     justify-content: space-around;
     margin: 40px 0;
     align-items: flex-start;
+    margin-left: 80px; /* leave space for fixed 65px sidebar */
 }
 
 header {
@@ -388,6 +391,7 @@ main {
     display: flex;
     justify-content: space-around;
     margin: 40px 0;
+    margin-left: 80px; /* ensure consistency if previous block overridden */
 }
 
 section {
@@ -482,16 +486,27 @@ section.report-section {
 .table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    margin-left: 0; /* keep tables anchored to the left edge of the card */
 }
+
+/* Slightly shift tables left inside card to align with page baseline */
+.align-left-tight { margin-left: -16px; }
 
 table.data {
     width: 100%;
     border-collapse: collapse;
-    background: #15181d;
+    background: var(--card-background-color); /* align with page/card background */
     color: #e6e6e6;
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 1px 8px rgba(0,0,0,0.2);
+    margin-left: 0; /* avoid any centering from UA styles */
+}
+
+/* Leaks page: ensure both tables align left consistently */
+#leaks-table,
+#assets-table {
+    margin-left: 0 !important;
 }
 
 table.data th, table.data td {
@@ -499,10 +514,11 @@ table.data th, table.data td {
     text-align: left;
     border-bottom: 1px solid rgba(255,255,255,0.06);
     font-size: 14px;
+    vertical-align: top;
 }
 
 table.data th {
-    background: #0f1216;
+    background: var(--primary-color); /* header slightly darker */
     font-weight: 700;
     letter-spacing: .3px;
 }
@@ -529,4 +545,110 @@ table.data tr:hover {
 
 .muted { color: #9aa2ac; font-size: 12px; }
 .nowrap { white-space: nowrap; }
-.truncate { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+.truncate { max-width: 720px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+/* Allow wrapped titles in leaks table */
+.wrap-title { white-space: normal; word-break: break-word; display: inline; }
+
+/* Modern chips for source */
+.chip {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    background: #2a2f36;
+    color: #cfd7e6;
+}
+.chip-pastebin { background: #2a2f36; color: #e2f0ff; }
+.chip-github { background: #24292E; color: #ffffff; }
+.chip-tor { background: #3f1a5b; color: #e7d9f7; }
+.chip-i2p { background: #1b3d2f; color: #cfe9de; }
+
+/* Compact inputs and buttons */
+.btn-primary {
+    padding: 8px 12px;
+    border: none;
+    background: #A7001D;
+    color: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.btn-primary:hover { background: #C80024; }
+.btn-secondary {
+    padding: 8px 12px;
+    border: none;
+    background: #2d6cdf;
+    color: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+/* Pager */
+.pager .btn-primary[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.input-compact {
+    width: 100px;
+    padding: 6px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: #181B20;
+    color: #ECECEC;
+}
+.input-wide {
+    flex: 1;
+    min-width: 240px;
+    padding: 6px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    background: #181B20;
+    color: #ECECEC;
+}
+
+/* Tabs */
+.tabs { display: flex; gap: 8px; margin: 8px 0 12px; }
+.tab-btn {
+    background: #0f1216;
+    color: #e6e6e6;
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.tab-btn.active { background: #A7001D; color: #fff; border-color: transparent; }
+.tab-content { display: none; width: 100%; max-width: 100%; }
+.tab-content.active { display: block; width: 100%; max-width: 100%; }
+
+/* Modal styles */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+.modal-card {
+    background: #181B20;
+    color: #ECECEC;
+    border-radius: 10px;
+    width: min(900px, 92vw);
+    max-height: 80vh;
+    overflow: auto;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    padding: 16px 18px 18px 18px;
+}
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.modal-body {
+    font-size: 14px;
+    line-height: 1.6;
+}

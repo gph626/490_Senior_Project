@@ -348,7 +348,9 @@ main {
     flex-direction: column;
     align-items: flex-start;
     background-color: var(--primary-color);
-    margin-left: 80px;
+    /* create a small black cushion around the gray page area */
+    margin: 12px 12px 12px 92px; /* left accounts for 65px sidebar + cushion */
+    border-radius: 12px;
     overflow-x: hidden;
 }
 

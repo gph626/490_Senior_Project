@@ -1,53 +1,7 @@
-import os
-import time
-import hashlib
-import logging
-from typing import Dict, Any, Optional, List
-
-import requests
-from bs4 import BeautifulSoup
-
-from backend.database import init_db, insert_leak_with_dedupe
-from backend.severity import compute_severity_from_entities
-from backend.crawler.config import load_config
-from backend.utils import (
-    match_assets,
-    detect_language,
-    redact_sensitive_data,
-    send_event_to_api,
-    extract_entities,
-)
-
-logger = logging.getLogger("freenet_crawler")
-logger.setLevel(logging.INFO)
-
-# Ensure DB and tables exist (no path juggling here; your app sets DARKWEB_DB_PATH)
-init_db()
-
-# Config (support both FRENET_* and FREENET_* env names)
-FPROXY_HOST = (
-    os.environ.get("FRENET_FPROXY_HOST")
-    or os.environ.get("FREENET_FPROXY_HOST")
-    or os.environ.get("FREENET_HOST")
-    or "127.0.0.1"
-)
-FPROXY_PORT = int(
-    os.environ.get("FRENET_FPROXY_PORT")
-    or os.environ.get("FREENET_FPROXY_PORT")
-    or os.environ.get("FREENET_PORT")
-    or "8888"
-)
-FPROXY_BASE = f"http://{FPROXY_HOST}:{FPROXY_PORT}"
-ORG_ID = int(os.environ.get("DARKWEB_ORG_ID", "123"))
-_CONFIG_CACHE: Dict[str, Any] = {}
-
-
-def get_config() -> Dict[str, Any]:
-    global _CONFIG_CACHE
-    if not _CONFIG_CACHE:
-        try:
-            _CONFIG_CACHE = load_config(ORG_ID) or {}
-            logger.info("Loaded config for org_id=%s", ORG_ID)
+# Freenet support has been removed from this project.
+# This module is intentionally disabled.
+raise ImportError("Freenet support has been removed from this project.")
+'''
         except Exception as e:
             logger.warning("Config load failed (%s). Using defaults.", e)
             _CONFIG_CACHE = {}
@@ -392,4 +346,5 @@ if __name__ == "__main__":
         count = fetch_and_store(mock=False, user_id=None, urls=[test_url], limit=1)
         print(f"Inserted {count} leaks.")
     else:
-        print("FProxy not reachable. Make sure Freenet is running and FProxy is enabled.")
+    print("FProxy not reachable. Make sure Freenet is running and FProxy is enabled.")
+'''

@@ -8,7 +8,6 @@
     <title>Resources</title>
     <link rel="stylesheet" href="/dashboard/new.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
-    <script src="resources.js"></script>
 </head>
 <body>
      <!-- <header>
@@ -20,11 +19,10 @@
         <aside class="sidebar">
             <nav>
                 <ul>
-                    <li><a href="/homepage/homepage.html"><i class="fa-regular fa-house"></i></a></li>
-                    <li><a href="/dashboardpage/dashboard.html"><i class="fa-regular fa-chart-bar"></i></a></li>
-                    <li><a href="/resourcespage/resources.html"><i class="fa-regular fa-file"></i></a></li>
-                    <li><a href="/accountpage/account.html"><i class="fa-regular fa-circle-user"></i></a></li>
-                    
+                    <li><a href="{{ url_for('homepage') }}"><i class="fa-regular fa-house"></i></a></li>
+                    <li><a href="{{ url_for('dashboard') }}"><i class="fa-regular fa-chart-bar"></i></a></li>
+                    <li><a class="active" href="{{ url_for('resources_route') }}"><i class="fa-regular fa-file"></i></a></li>
+                    <li><a href="{{ url_for('account') }}"><i class="fa-regular fa-circle-user"></i></a></li>
                 </ul>
             </nav>
         </aside>

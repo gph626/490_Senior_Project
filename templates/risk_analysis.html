@@ -4,100 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Risk Analysis</title>
+    <link rel="stylesheet" href="/dashboard/new.css">
     <link rel="stylesheet" href="/dashboard/base.css">
-    <style>
-        .alert-high { color: #e74c3c; font-weight: bold; }
-        .alert-medium { color: #f39c12; font-weight: bold; }
-        .alert-low { color: #27ae60; font-weight: bold; }
-        .container {
-            display: flex;
-            flex-direction: row;
-            min-height: 100vh;
-            width: 100vw;
-        }
-        .sidebar {
-            min-width: 220px;
-        }
-        main {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
-            width: 100%;
-            padding-top: 0;
-        }
-        #risk-analysis {
-            width: 100%;
-            margin-bottom: 0;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 16px;
-        }
-        th, td {
-            padding: 12px 8px;
-            border-bottom: 1px solid #e0e0e0;
-            text-align: left;
-        }
-        th {
-            background: #000000;
-        }
-        th, td {
-            width: 25%;
-        }
-        @media (max-width: 900px) {
-            .container {
-                flex-direction: column;
-            }
-            main, #risk-analysis {
-                align-items: center;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
 </head>
 <body>
-    <header>
-        <div class="header-flex">
-            <div class="logo">
-                <img src="../dashboard/logo.png" alt="Site Logo" height="80" width="80" onerror="this.onerror=null;this.src='https://via.placeholder.com/80x80?text=Logo';">
-            </div>
-            <h1 class="site-heading">Risk Analysis</h1>
-        </div>
-    </header>
     <div class="container">
         <aside class="sidebar">
-            <div class="sidebar-user">
-                <div class="user-info user-dropdown">
-                    <span class="user-label">Logged in as</span>
-                    <div class="dropdown">
-                        <a href="#" class="dropbtn user-name user-dropdown-btn">{{ username }} ▼</a>
-                        <div class="dropdown-content user-dropdown-content">
-                            <a href="{{ url_for('account') }}">Account</a>
-                            <a href="/logout">Logout</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
             <nav>
                 <ul>
-                    <li><a href="{{ url_for('homepage') }}">Home</a></li>
-                    <li class="dropdown">
-                        <a href="{{ url_for('dashboard') }}" class="dropbtn">Dashboard ▼</a>
-                        <div class="dropdown-content">
-                            <a href="{{ url_for('alerts') }}">Alerts</a>
-                            <a href="{{ url_for('leaks') }}">Leaks</a>
-                            <a href="{{ url_for('reports') }}">Reports</a>
-                            <a href="{{ url_for('risk_analysis') }}">Risk Analysis</a>
-                        </div>
-                    </li>
-                    <li><a href="{{ url_for('resources_route') }}">Resources</a></li>
+                    <li><a href="{{ url_for('homepage') }}"><i class="fa-regular fa-house"></i></a></li>
+                    <li><a href="{{ url_for('dashboard') }}"><i class="fa-regular fa-chart-bar"></i></a></li>
+                    <li><a href="{{ url_for('resources_route') }}"><i class="fa-regular fa-file"></i></a></li>
+                    <li><a href="{{ url_for('account') }}"><i class="fa-regular fa-circle-user"></i></a></li>
                 </ul>
             </nav>
         </aside>
         <main>
-            <section id="risk-analysis">
+            <div class="section-heading">
                 <h2>Risk Analysis</h2>
+            </div>
+            <section id="risk-analysis">
                 <section class="risk-table-section" style="display:flex; flex-direction:column; gap:24px;">
                     <div>
                         <h3 style="margin:4px 0 8px 0;">Severity Distribution</h3>

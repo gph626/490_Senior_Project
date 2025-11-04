@@ -1,4 +1,6 @@
 import os
+import random
+import string
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_from_directory, abort, redirect, session, render_template, flash, g
 from flask import current_app as app
@@ -108,7 +110,6 @@ def rate_limited(key: str) -> bool:
     return False
 
 # --- CSRF token helpers ---
-import secrets
 
 def get_csrf_token() -> str:
     token = session.get('_csrf_token')
@@ -502,42 +503,91 @@ def api_leaks_ingest():
     return jsonify(resp), 202
 
 
-# Seed five mock leaks: one per crawler type, covering all entity types across them
+# Seed mock leaks: one per crawler type, built dynamically to avoid repeats
 @app.route("/api/leaks/mock", methods=["POST"])
 def api_leaks_insert_mock():
     uid = get_current_user_id()
     if not uid:
         return jsonify({"error": "not authenticated"}), 401
 
-    # Define 5 mock leaks (pastebin, github, tor, i2p, freenet)
+    # Helper generators to ensure dynamic, low-collision mock data
+    def rand_digits(n=6):
+        return ''.join(random.choice(string.digits) for _ in range(n))
+
+    def rand_word(n=6):
+        letters = 'abcdefghijklmnopqrstuvwxyz'
+        return ''.join(random.choice(letters) for _ in range(n))
+
+    def rand_domain():
+        return f"{rand_word(random.randint(5,10))}.com"
+
+    def rand_email():
+        return f"{rand_word(random.randint(4,8))}@{rand_domain()}"
+
+    def rand_ipv4():
+        # Use TEST-NET-3 203.0.113.0/24 per RFC 5737
+        return f"203.0.113.{random.randint(1,254)}"
+
+    def rand_btc():
+        alpha = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l'  # bech32 charset (subset)
+        return 'bc1q' + ''.join(random.choice(alpha) for _ in range(38))
+
+    def rand_name():
+        first = random.choice(["alex","sam","jordan","taylor","morgan","riley","casey","jamie"]) 
+        last = random.choice(["lee","smith","johnson","brown","davis","miller","wilson","clark"]) 
+        return f"{first} {last}"
+
+    def rand_ssn():
+        # 9 digits, avoid all-zero groups
+        a = random.randint(100,899)
+        b = random.randint(10,99)
+        c = random.randint(1000,9999)
+        return f"{a:03d}{b:02d}{c:04d}"
+
+    def rand_phone():
+        # 10 digits, avoid obviously invalid with a simple format; return digits
+        return f"{random.randint(200,999)}{random.randint(200,999)}{random.randint(1000,9999)}"
+
+    # Build 4 dynamic samples each call
+    email = rand_email()
+    domain = email.split('@')[-1]
+    password = secrets.token_hex(3)
+    ip = rand_ipv4()
+    btc = rand_btc()
+    name = rand_name()
+    ssn = rand_ssn()
+    phone = rand_phone()
+
     samples = [
+        # Pastebin: email + domain + password
         {
             "source": "pastebin",
-            "url": "https://pastebin.com/mock/abc123",
-            "title": "Credentials dump for service",
-            "content": "Login for alice@example.com password: hunter2\nSome extra lines...",
+            "url": f"https://pastebin.com/{secrets.token_hex(4)}",
+            "title": f"Credentials dump for {domain}",
+            "content": f"Login for {email} password: {password}\nAdditional lines {secrets.token_hex(4)}...",
             "entities": {
-                "emails": ["alice@example.com"],
-                "domains": ["example.com"],
+                "emails": [email],
+                "domains": [domain],
                 "ips": [],
                 "btc_wallets": [],
                 "ssns": [],
                 "phone_numbers": [],
-                "passwords": ["hunter2"],
+                "passwords": [password],
                 "physical_addresses": [],
                 "names": []
             },
-            "passwords": ["hunter2"]
+            "passwords": [password]
         },
+        # GitHub: domain + IP
         {
             "source": "github",
-            "url": "https://github.com/user/repo/blob/main/config.yml",
-            "title": "Config leak with domain and IP",
-            "content": "production: domain: example.com\nadmin_ip: 203.0.113.10",
+            "url": f"https://github.com/{rand_word(6)}/{rand_word(5)}/blob/main/{rand_word(5)}.yml",
+            "title": f"Config leak for {domain} with admin IP",
+            "content": f"production: domain: {domain}\nadmin_ip: {ip}",
             "entities": {
                 "emails": [],
-                "domains": ["example.com"],
-                "ips": ["203.0.113.10"],
+                "domains": [domain],
+                "ips": [ip],
                 "btc_wallets": [],
                 "ssns": [],
                 "phone_numbers": [],
@@ -546,61 +596,45 @@ def api_leaks_insert_mock():
                 "names": []
             }
         },
+        # Tor: BTC + name
         {
             "source": "tor",
-            "url": "http://exampleonionabcdef.onion/page",
+            "url": f"http://{rand_word(16)}.onion/{rand_word(5)}",
             "title": "Onion forum post with BTC and name",
-            "content": "Payment to bc1qexampleexampleexampleexamplex0j2z by user John Doe.",
+            "content": f"Payment to {btc} by user {name}.",
             "entities": {
                 "emails": [],
                 "domains": [],
                 "ips": [],
-                "btc_wallets": ["bc1qexampleexampleexampleexamplex0j2z"],
+                "btc_wallets": [btc],
                 "ssns": [],
                 "phone_numbers": [],
                 "passwords": [],
                 "physical_addresses": [],
-                "names": ["john doe"]
+                "names": [name.lower()]
             },
-            "names": ["john doe"]
+            "names": [name.lower()]
         },
+        # I2P: SSN + phone
         {
             "source": "i2p",
-            "url": "http://mock.i2p/page",
+            "url": f"http://{rand_word(6)}.i2p/{rand_word(4)}",
             "title": "I2P leak with SSN and phone",
-            "content": "Employee SSN 123-45-6789 and phone (555) 123-4567 recorded.",
+            "content": f"Employee SSN {ssn[:3]}-{ssn[3:5]}-{ssn[5:]} and phone ({phone[:3]}) {phone[3:6]}-{phone[6:]} recorded.",
             "entities": {
                 "emails": [],
                 "domains": [],
                 "ips": [],
                 "btc_wallets": [],
-                "ssns": ["123456789"],
-                "phone_numbers": ["5551234567"],
+                "ssns": [ssn],
+                "phone_numbers": [phone],
                 "passwords": [],
                 "physical_addresses": [],
                 "names": []
             },
-            "ssn": ["123456789"],
-            "phone_numbers": ["5551234567"]
-        },
-        {
-            "source": "freenet",
-            "url": "freenet://USK@mock-key/mock-site/0/",
-            "title": "Freenet page with address",
-            "content": "Contact at 123 Main Street for delivery.",
-            "entities": {
-                "emails": [],
-                "domains": [],
-                "ips": [],
-                "btc_wallets": [],
-                "ssns": [],
-                "phone_numbers": [],
-                "passwords": [],
-                "physical_addresses": ["123 Main Street"],
-                "names": []
-            },
-            "physical_addresses": ["123 Main Street"]
-        },
+            "ssn": [ssn],
+            "phone_numbers": [phone]
+        }
     ]
 
     from backend.database import insert_leak_with_dedupe
@@ -609,6 +643,7 @@ def api_leaks_insert_mock():
     for s in samples:
         try:
             text = s["content"] or ""
+            # hash incorporates random content ensuring low chance of duplicates
             ch = "sha256:" + hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()
             leak_id, is_dup = insert_leak_with_dedupe(
                 source=s["source"],
@@ -838,45 +873,7 @@ def api_run_github():
     return jsonify({"status": "ok", "inserted": inserted}), 200
 
 
-# --- Freenet proxy health ---
-@app.route("/api/proxy/freenet/health")
-def freenet_health():
-    try:
-        from backend.crawler.freenet_crawler import health_check
-        result = health_check()
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-# --- Run Freenet crawler (API-key/session scoped) ---
-@app.route("/api/crawlers/freenet/run", methods=["POST"])
-def api_run_freenet():
-    current_user_id = get_current_user_id()
-    if not current_user_id:
-        return jsonify({"error": "not authenticated"}), 401
-
-    # create crawl run
-    run_id = insert_crawl_run(source="freenet", user_id=current_user_id, status="running")
-
-    body = request.get_json(silent=True) or {}
-    limit = body.get("limit", 5)
-    urls = body.get("urls")  # optional override list
-    mock = bool(body.get("mock", False))
-
-    try:
-        from backend.crawler.freenet_crawler import fetch_and_store
-        inserted = fetch_and_store(
-            limit=int(limit),
-            user_id=int(current_user_id),
-            urls=urls if isinstance(urls, list) else None,
-            mock=mock,
-        )
-        update_crawl_run_status(run_id, "completed")
-        return jsonify({"status": "ok", "inserted": inserted}), 200
-    except Exception as e:
-        update_crawl_run_status(run_id, "failed")
-        return jsonify({"status": "error", "message": str(e)}), 500
+# (Freenet endpoints removed)
 
 
 
@@ -1144,12 +1141,6 @@ def get_config(org_id):
                 "keywords": [
                     "password", "apikey", "secret", "aws_access_key_id", "private_key, api_key, token, database, credential, access_key"
                 ]
-            }
-            ,
-            "freenet": {
-                "seeds": ["http://127.0.0.1:8888/USK@dCnkUL22fAmKbKg-Cftx9j2m4IwyWB0QbGoiq1RSLP8,4d1TDqwRr4tYlsubLrQK~c4h0~FtmE-OXCDmFiI8BB4,AQACAAE/Sharesite/41/"],
-                "keywords": ["test", "freenet", "leak", "credential", "password", "breach", "database", "dump, sharesite"],
-                "timeout_sec": 30
             }
         }
     })

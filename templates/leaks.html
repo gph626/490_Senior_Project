@@ -4,54 +4,113 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Leaks</title>
+  <link rel="stylesheet" href="/dashboard/new.css">
   <link rel="stylesheet" href="/dashboard/base.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
 </head>
 <body>
-  <header>
-    <div class="header-flex">
-      <div class="logo">
-        <img src="../dashboard/logo.png" alt="Site Logo" height="80" width="80" onerror="this.onerror=null;this.src='https://via.placeholder.com/80x80?text=Logo';">
-      </div>
-      <h1 class="site-heading">Leaks</h1>
-    </div>
-  </header>
   <div class="container">
     <aside class="sidebar">
-      <div class="sidebar-user">
-        <div class="user-info user-dropdown">
-          <span class="user-label">Logged in as</span>
-          <div class="dropdown">
-            <a href="#" class="dropbtn user-name user-dropdown-btn">{{ username }} ▼</a>
-            <div class="dropdown-content user-dropdown-content">
-              <a href="{{ url_for('account') }}">Account</a>
-              <a href="/logout">Logout</a>
-            </div>
-          </div>
-        </div>
-      </div>
       <nav>
         <ul>
-          <li><a href="{{ url_for('homepage') }}">Home</a></li>
-          <li class="dropdown">
-            <a href="{{ url_for('dashboard') }}" class="dropbtn">Dashboard ▼</a>
-            <div class="dropdown-content">
-              <a href="{{ url_for('alerts') }}">Alerts</a>
-              <a href="{{ url_for('leaks') }}">Leaks</a>
-              <a href="{{ url_for('reports') }}">Reports</a>
-              <a href="{{ url_for('risk_analysis') }}">Risk Analysis</a>
-            </div>
-          </li>
-          <li><a href="{{ url_for('resources_route') }}">Resources</a></li>
+          <li><a href="{{ url_for('homepage') }}"><i class="fa-regular fa-house"></i></a></li>
+          <li><a href="{{ url_for('dashboard') }}"><i class="fa-regular fa-chart-bar"></i></a></li>
+          <li><a href="{{ url_for('resources_route') }}"><i class="fa-regular fa-file"></i></a></li>
+          <li><a href="{{ url_for('account') }}"><i class="fa-regular fa-circle-user"></i></a></li>
         </ul>
       </nav>
     </aside>
-    <main>
-      <section style="width:100%; max-width:1100px;">
-        <h2>Latest Leaks</h2>
-        <section class="dashboard-item" style="margin-bottom:16px;">
+  <main style="justify-content:center;">
+    <div class="section-heading">
+      <h2>Leaks</h2>
+    </div>
+    <section style="width:100%; max-width:1200px; margin:0 auto;">
+
+        <!-- Toolbar: crawler run buttons moved to the top -->
+        <div class="dashboard-item" style="margin-bottom:12px;">
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <button id="runPastebinBtn" class="btn-primary">Run Pastebin</button>
+            <input id="pasteLimit" type="number" min="1" max="100" value="10" class="input-compact" />
+            <span class="muted">Limit</span>
+            <span id="runStatus" class="muted"></span>
+
+            <button id="runGithubBtn" class="btn-primary">Run GitHub</button>
+            <input id="githubLimit" type="number" min="1" max="50" value="5" class="input-compact" />
+            <span class="muted">Limit</span>
+            <span id="githubStatus" class="muted"></span>
+
+            <button id="runTorBtn" class="btn-primary">Fetch via Tor</button>
+            <input id="torPort" type="number" placeholder="9150" value="9150" class="input-compact" />
+            <span id="torStatus" class="muted"></span>
+
+            <button id="runI2PBtn" class="btn-primary">Fetch via I2P</button>
+            <input id="i2pUrl" placeholder="http://zzz.i2p/" class="input-wide" />
+            <input id="i2pPort" type="number" placeholder="4444" class="input-compact" />
+            <span id="i2pStatus" class="muted"></span>
+
+            <button id="insertMockLeaksBtn" class="btn-secondary">Insert Mock Leaks</button>
+            <span id="mockInsertStatus" class="muted"></span>
+          </div>
+          <div class="muted" style="font-size: 12px; margin-top:6px;">
+            Note: Tor requires a local SOCKS proxy (127.0.0.1:9050 or 9150). I2P requires a local HTTP proxy (127.0.0.1:4444).
+          </div>
+        </div>
+
+        <!-- Tabs: Leaks and Watchlist -->
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="leaksTab">Leaks</button>
+          <button class="tab-btn" data-tab="watchlistTab">Watchlist</button>
+        </div>
+
+        <!-- Leaks tab content -->
+        <section id="leaksTab" class="tab-content active">
+          <div class="align-left-tight" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0 12px 0;">
+            <select id="srcFilter" title="Source" class="input-compact">
+              <option value="">any source</option>
+              <option value="pastebin">pastebin</option>
+              <option value="github">github</option>
+              <option value="tor">tor</option>
+              <option value="i2p">i2p</option>
+            </select>
+            <select id="sevFilter" title="Severity" class="input-compact">
+              <option value="">any severity</option>
+              <option value="critical">critical</option>
+              <option value="high">high</option>
+              <option value="medium">medium</option>
+              <option value="low">low</option>
+              <option value="zero severity">zero severity</option>
+              <option value="unknown">unknown</option>
+            </select>
+            <button id="applyFilters" class="btn-primary">Apply</button>
+          </div>
+          <div class="pager align-left-tight" id="leaksPagerTop" style="display:flex; align-items:center; gap:10px; margin:6px 0;">
+            <button id="prevPage" class="btn-primary" title="Previous" style="padding:4px 10px;">‹</button>
+            <span id="pageInfo" class="muted">Showing 0 of 0</span>
+            <button id="nextPage" class="btn-primary" title="Next" style="padding:4px 10px;">›</button>
+          </div>
+          <div class="table-wrap align-left-tight">
+            <table class="data" id="leaks-table">
+              <thead>
+                <tr>
+                  <th>Source</th>
+                  <th>Title</th>
+                  <th>Entities</th>
+                  <th>Severity</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td colspan="5" class="muted">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Watchlist tab content -->
+        <section id="watchlistTab" class="tab-content">
           <h3 style="margin-top:0">Watchlist (affects severity)</h3>
-          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
-            <select id="assetType" style="padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;">
+          <div class="align-left-tight" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
+            <select id="assetType" class="input-compact">
               <option value="email">email</option>
               <option value="domain">domain</option>
               <option value="ip">ip</option>
@@ -62,11 +121,11 @@
               <option value="phone">phone</option>
               <option value="address">address</option>
             </select>
-            <input id="assetValue" placeholder="value (e.g., user@acme.com or acme.com)" style="flex:1; min-width:240px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
-            <button id="addAsset" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Add</button>
+            <input id="assetValue" placeholder="value (e.g., user@acme.com or acme.com)" class="input-wide" />
+            <button id="addAsset" class="btn-primary">Add</button>
             <span id="assetStatus" class="muted"></span>
           </div>
-          <div class="table-wrap">
+          <div class="table-wrap align-left-tight">
             <table class="data" id="assets-table">
               <thead>
                 <tr>
@@ -82,94 +141,18 @@
             </table>
           </div>
         </section>
-        <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0 16px 0;">
-          <input id="incKeys" placeholder="Include keywords (comma-separated)" style="flex:1; min-width:220px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
-          <input id="excKeys" placeholder="Exclude keywords (comma-separated)" style="flex:1; min-width:220px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
-          <select id="sevFilter" title="Severity" style="padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;">
-            <option value="">any severity</option>
-            <option value="critical">critical</option>
-            <option value="high">high</option>
-            <option value="medium">medium</option>
-            <option value="low">low</option>
-            <option value="zero severity">zero severity</option>
-            <option value="unknown">unknown</option>
-          </select>
-          <label class="muted" style="display:flex; gap:6px; align-items:center;">
-            <input type="checkbox" id="entEmails" /> emails
-          </label>
-          <label class="muted" style="display:flex; gap:6px; align-items:center;">
-            <input type="checkbox" id="entDomains" /> domains
-          </label>
-          <label class="muted" style="display:flex; gap:6px; align-items:center;">
-            <input type="checkbox" id="entIPs" /> IPs
-          </label>
-          <label class="muted" style="display:flex; gap:6px; align-items:center;">
-            <input type="checkbox" id="entBTC" /> BTC
-          </label>
-          <button id="applyFilters" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Apply</button>
-        </div>
-        <div class="table-wrap">
-          <table class="data" id="leaks-table">
-            <thead>
-              <tr>
-                <th>Source</th>
-                <th>Title</th>
-                <th>Entities</th>
-                <th>Severity</th>
-                <th class="nowrap">Timestamp</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td colspan="6" class="muted">Loading…</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div style="margin-top:16px; display:flex; flex-direction:column; gap:10px;">
-          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <button id="runPastebinBtn" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Run Pastebin Crawl</button>
-            <input id="pasteLimit" type="number" min="1" max="100" value="10" style="width:80px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
-            <span class="muted">Limit</span>
-            <span id="runStatus" class="muted"></span>
-          </div>
-          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px;">
-            <button id="runGithubBtn"
-                    style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">
-              Run GitHub Crawl
-            </button>
-            <input id="githubLimit" type="number" min="1" max="50" value="5"
-                  style="width:80px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
-            <span class="muted">Limit</span>
-            <span id="githubStatus" class="muted"></span>
-          </div>
-          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <button id="insertMockLeaksBtn" style="padding:8px 12px; border:none; background:#2d6cdf; color:#fff; border-radius:6px; cursor:pointer;">Insert 5 Mock Leaks</button>
-            <span id="mockInsertStatus" class="muted"></span>
-          </div>
-          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <button id="runTorBtn" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Fetch via Tor</button>
-            <input id="torPort" type="number" placeholder="9150" value="9150" style="width:100px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
-            <span class="muted">Target: DuckDuckGo’s onion (safe)</span>
-            <span id="torStatus" class="muted"></span>
-          </div>
-          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <button id="runFreenetBtn" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Fetch via Freenet</button>
-            <input id="freenetLimit" type="number" placeholder="5" value="5" style="width:100px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
-            <label class="muted"><input type="checkbox" id="freenetMock" checked /> mock if no proxy</label>
-            <span id="freenetStatus" class="muted"></span>
-          </div>
-          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <button id="runI2PBtn" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Fetch via I2P</button>
-            <input id="i2pUrl" placeholder="http://zzz.i2p/" style="flex:1; min-width:280px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
-            <input id="i2pPort" type="number" placeholder="4444" style="width:100px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
-            <span id="i2pStatus" class="muted"></span>
-          </div>
-          <div class="muted" style="font-size: 12px;">
-            Note: Tor requires a local SOCKS proxy (127.0.0.1:9050 for tor.exe or 9150 for Tor Browser). I2P requires a local HTTP proxy (127.0.0.1:4444). Ensure these are running before fetching.
-          </div>
-        </div>
       </section>
     </main>
+  </div>
+  <!-- Leak details modal -->
+  <div id="leakModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="leakModalTitle">
+      <div class="modal-header">
+        <h3 id="leakModalTitle" style="margin:0;">Leak details</h3>
+        <button id="leakModalClose" class="btn-primary" style="background:#3D4754;">Close</button>
+      </div>
+      <div id="leakModalBody" class="modal-body"></div>
+    </div>
   </div>
   <script>
     // Persist API key for API calls from JS (used by crawlers/assets endpoints)

@@ -4,50 +4,27 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Leaks</title>
+  <link rel="stylesheet" href="/dashboard/new.css">
   <link rel="stylesheet" href="/dashboard/base.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
 </head>
 <body>
-  <header>
-    <div class="header-flex">
-      <div class="logo">
-        <img src="../dashboard/logo.png" alt="Site Logo" height="80" width="80" onerror="this.onerror=null;this.src='https://via.placeholder.com/80x80?text=Logo';">
-      </div>
-      <h1 class="site-heading">Leaks</h1>
-    </div>
-  </header>
   <div class="container">
     <aside class="sidebar">
-      <div class="sidebar-user">
-        <div class="user-info user-dropdown">
-          <span class="user-label">Logged in as</span>
-          <div class="dropdown">
-            <a href="#" class="dropbtn user-name user-dropdown-btn">{{ username }} ▼</a>
-            <div class="dropdown-content user-dropdown-content">
-              <a href="{{ url_for('account') }}">Account</a>
-              <a href="/logout">Logout</a>
-            </div>
-          </div>
-        </div>
-      </div>
       <nav>
         <ul>
-          <li><a href="{{ url_for('homepage') }}">Home</a></li>
-          <li class="dropdown">
-            <a href="{{ url_for('dashboard') }}" class="dropbtn">Dashboard ▼</a>
-            <div class="dropdown-content">
-              <a href="{{ url_for('alerts') }}">Alerts</a>
-              <a href="{{ url_for('leaks') }}">Leaks</a>
-              <a href="{{ url_for('reports') }}">Reports</a>
-              <a href="{{ url_for('risk_analysis') }}">Risk Analysis</a>
-            </div>
-          </li>
-          <li><a href="{{ url_for('resources_route') }}">Resources</a></li>
+          <li><a href="{{ url_for('homepage') }}"><i class="fa-regular fa-house"></i></a></li>
+          <li><a href="{{ url_for('dashboard') }}"><i class="fa-regular fa-chart-bar"></i></a></li>
+          <li><a href="{{ url_for('resources_route') }}"><i class="fa-regular fa-file"></i></a></li>
+          <li><a href="{{ url_for('account') }}"><i class="fa-regular fa-circle-user"></i></a></li>
         </ul>
       </nav>
     </aside>
   <main style="justify-content:center;">
-  <section style="width:100%; max-width:1200px; margin:0 auto;">
-        <h2>Latest Leaks</h2>
+    <div class="section-heading">
+      <h2>Leaks</h2>
+    </div>
+    <section style="width:100%; max-width:1200px; margin:0 auto;">
 
         <!-- Toolbar: crawler run buttons moved to the top -->
         <div class="dashboard-item" style="margin-bottom:12px;">
@@ -87,7 +64,7 @@
 
         <!-- Leaks tab content -->
         <section id="leaksTab" class="tab-content active">
-          <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0 12px 0;">
+          <div class="align-left-tight" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0 12px 0;">
             <select id="srcFilter" title="Source" class="input-compact">
               <option value="">any source</option>
               <option value="pastebin">pastebin</option>
@@ -106,7 +83,7 @@
             </select>
             <button id="applyFilters" class="btn-primary">Apply</button>
           </div>
-          <div class="pager" id="leaksPagerTop" style="display:flex; align-items:center; gap:10px; margin:6px 0;">
+          <div class="pager align-left-tight" id="leaksPagerTop" style="display:flex; align-items:center; gap:10px; margin:6px 0;">
             <button id="prevPage" class="btn-primary" title="Previous" style="padding:4px 10px;">‹</button>
             <span id="pageInfo" class="muted">Showing 0 of 0</span>
             <button id="nextPage" class="btn-primary" title="Next" style="padding:4px 10px;">›</button>
@@ -132,7 +109,7 @@
         <!-- Watchlist tab content -->
         <section id="watchlistTab" class="tab-content">
           <h3 style="margin-top:0">Watchlist (affects severity)</h3>
-          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
+          <div class="align-left-tight" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
             <select id="assetType" class="input-compact">
               <option value="email">email</option>
               <option value="domain">domain</option>

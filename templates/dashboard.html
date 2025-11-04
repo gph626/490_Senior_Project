@@ -6,48 +6,26 @@
     <meta name="description" content="Homepage with dashboard, resources, and account management for users.">
     <meta name="keywords" content="homepage, dashboard, resources, account, user, web">
     <title>Dashboard</title>
+    <link rel="stylesheet" href="/dashboard/new.css">
     <link rel="stylesheet" href="/dashboard/base.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
 </head>
 <body>
-    <header>
-        <div class="header-flex">
-            <div class="logo">
-            <img src="../dashboard/logo.png" alt="Site Logo" height="80" width="80" onerror="this.onerror=null;this.src='https://via.placeholder.com/80x80?text=Logo';">
-            </div>
-            <h1 class="site-heading">Dashboard</h1>
-        </div>
-    </header>
     <div class="container">
         <aside class="sidebar">
-            <div class="sidebar-user">
-                <div class="user-info user-dropdown">
-                    <span class="user-label">Logged in as</span>
-                    <div class="dropdown">
-                        <a href="#" class="dropbtn user-name user-dropdown-btn">{{ username }} ▼</a>
-                        <div class="dropdown-content user-dropdown-content">
-                            <a href="{{ url_for('account') }}">Account</a>
-                            <a href="/logout">Logout</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
             <nav>
                 <ul>
-                    <li><a href="{{ url_for('homepage') }}">Home</a></li>
-                    <li class="dropdown">
-                        <a href="{{ url_for('dashboard') }}" class="dropbtn">Dashboard ▼</a>
-                        <div class="dropdown-content">
-                            <a href="{{ url_for('alerts') }}">Alerts</a>
-                            <a href="{{ url_for('leaks') }}">Leaks</a>
-                            <a href="{{ url_for('reports') }}">Reports</a>
-                            <a href="{{ url_for('risk_analysis') }}">Risk Analysis</a>
-                        </div>
-                    </li>
-                    <li><a href="{{ url_for('resources_route') }}">Resources</a></li>
+                    <li><a href="{{ url_for('homepage') }}"><i class="fa-regular fa-house"></i></a></li>
+                    <li><a class="active" href="{{ url_for('dashboard') }}"><i class="fa-regular fa-chart-bar"></i></a></li>
+                    <li><a href="{{ url_for('resources_route') }}"><i class="fa-regular fa-file"></i></a></li>
+                    <li><a href="{{ url_for('account') }}"><i class="fa-regular fa-circle-user"></i></a></li>
                 </ul>
             </nav>
         </aside>
         <main>
+            <div class="section-heading">
+                <h2>Dashboard</h2>
+            </div>
             <div class="columns">
                 <div class="col">
                     <section id="dashboard-section">

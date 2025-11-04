@@ -36,10 +36,10 @@
             </div> -->
             <nav>
                 <ul>
-                <li><a class="active" href="/homepage/homepage.html"><i class="active-link fa-regular fa-house"></i></a></li>
-                    <li><a href="/dashboardpage/dashboard.html"><i class="fa-regular fa-chart-bar"></i></a></li>
-                    <li><a href="/resourcespage/resources.html"><i class="fa-regular fa-file"></i></a></li>
-                    <li><a href="/accountpage/account.html"><i class="fa-regular fa-circle-user"></i></a></li>
+                    <li><a class="active" href="{{ url_for('homepage') }}"><i class="active-link fa-regular fa-house"></i></a></li>
+                    <li><a href="{{ url_for('dashboard') }}"><i class="fa-regular fa-chart-bar"></i></a></li>
+                    <li><a href="{{ url_for('resources_route') }}"><i class="fa-regular fa-file"></i></a></li>
+                    <li><a href="{{ url_for('account') }}"><i class="fa-regular fa-circle-user"></i></a></li>
                 </ul>
             </nav>
         </aside>
@@ -55,26 +55,34 @@
             </div>
            <div class="guide-section">
              <div class="guide-cards">
-                <div class="home-card animate__animated animate__fadeInDown">
-                    <i class="fa-solid fa-spider"></i>
-                    <p><span class="dynamic-highlight">Dark Web Crawler Module</span></p>
-                    <p>Monitors Tor, I2P, paste sites</p>
-                </div>
-                <div class="home-card animate__animated animate__fadeInDown animate__delay-1s">
-                    <i class="fa-regular fa-chart-bar"></i>
-                    <p><span class="dynamic-highlight">Threat Intelligence Dashboard</span></p>
-                    <p>Real time visualization</p>
-                </div>
-                <div class="home-card animate__animated animate__fadeInDown animate__delay-2s">
-                    <i class="fa-regular fa-file-lines"></i>
-                    <p><span class="dynamic-highlight">Compliance Reports</span></p>
-                    <p>Generate customized reports for audits</p>
-                </div>
-                <div class="home-card animate__animated animate__fadeInDown animate__delay-3s">
-                    <i class="fa-solid fa-shield-halved"></i>
-                    <p><span class="dynamic-highlight">Resources</span></p>
-                    <p>How we find and keep your data safe</p>
-                </div>
+                                <a href="{{ url_for('leaks') }}" style="text-decoration:none;color:inherit;">
+                                    <div class="home-card animate__animated animate__fadeInDown" style="cursor:pointer;">
+                                            <i class="fa-solid fa-spider"></i>
+                                            <p><span class="dynamic-highlight">Dark Web Crawler Module</span></p>
+                                            <p>Monitors Tor, I2P, paste sites</p>
+                                    </div>
+                                </a>
+                                <a href="{{ url_for('dashboard') }}" style="text-decoration:none;color:inherit;">
+                                    <div class="home-card animate__animated animate__fadeInDown animate__delay-1s" style="cursor:pointer;">
+                                            <i class="fa-regular fa-chart-bar"></i>
+                                            <p><span class="dynamic-highlight">Threat Intelligence Dashboard</span></p>
+                                            <p>Real time visualization</p>
+                                    </div>
+                                </a>
+                                <a href="{{ url_for('reports') }}" style="text-decoration:none;color:inherit;">
+                                    <div class="home-card animate__animated animate__fadeInDown animate__delay-2s" style="cursor:pointer;">
+                                            <i class="fa-regular fa-file-lines"></i>
+                                            <p><span class="dynamic-highlight">Compliance Reports</span></p>
+                                            <p>Generate customized reports for audits</p>
+                                    </div>
+                                </a>
+                                <a href="{{ url_for('resources_route') }}" style="text-decoration:none;color:inherit;">
+                                    <div class="home-card animate__animated animate__fadeInDown animate__delay-3s" style="cursor:pointer;">
+                                            <i class="fa-solid fa-shield-halved"></i>
+                                            <p><span class="dynamic-highlight">Resources</span></p>
+                                            <p>How we find and keep your data safe</p>
+                                    </div>
+                                </a>
             </div>
            </div>
            <div class="commitment-section">

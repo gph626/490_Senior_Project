@@ -6,20 +6,23 @@
     <meta name="description" content="Homepage with dashboard, resources, and account management for users.">
     <meta name="keywords" content="homepage, dashboard, resources, account, user, web">
     <title>Homepage</title>
-    <link rel="stylesheet" href="/dashboard/base.css">
+    <link rel="stylesheet" href="/dashboard/new.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"
+  />
 </head>
 <body>
-    <header>
+    <!-- <header>
         <div class="header-flex">
             <div class="logo">
                 <img src="../dashboard/logo.png" alt="Site Logo" height="80" width="80" onerror="this.onerror=null;this.src='https://via.placeholder.com/80x80?text=Logo';">
             </div>
             <h1 class="site-heading">DarkWidow</h1>
         </div>
-    </header>
+    </header> -->
     <div class="container">
         <aside class="sidebar">
-            <div class="sidebar-user">
+            <!-- <div class="sidebar-user">
                 <div class="user-info user-dropdown">
                     <span class="user-label">Logged in as</span>
                     <div class="dropdown">
@@ -30,42 +33,55 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </div> -->
             <nav>
                 <ul>
-                <li><a href="{{ url_for('homepage') }}">Home</a></li>
-                <li class="dropdown">
-                    <a href="{{ url_for('dashboard') }}" class="dropbtn">Dashboard ▼</a>
-                        <div class="dropdown-content">
-                            <a href="{{ url_for('alerts') }}">Alerts</a>
-                            <a href="{{ url_for('leaks') }}">Leaks</a>
-                            <a href="{{ url_for('reports') }}">Reports</a>
-                            <a href="{{ url_for('risk_analysis') }}">Risk Analysis</a>
-                        </div>
-                    </li>
-                    <li><a href="{{ url_for('resources_route') }}">Resources</a></li>
+                <li><a class="active" href="/homepage/homepage.html"><i class="active-link fa-regular fa-house"></i></a></li>
+                    <li><a href="/dashboardpage/dashboard.html"><i class="fa-regular fa-chart-bar"></i></a></li>
+                    <li><a href="/resourcespage/resources.html"><i class="fa-regular fa-file"></i></a></li>
+                    <li><a href="/accountpage/account.html"><i class="fa-regular fa-circle-user"></i></a></li>
                 </ul>
             </nav>
         </aside>
         <main>
-            <section id="dashboard-section">
-                <h2>Dashboard</h2>
-                <section class="dashboard-item">
-                    <p>Overview and quick stats for your account.</p>
-                </section>
-            </section>
-            <section id="resources-section">
-                <h2>Resources</h2>
-                <section class="resource-item">
-                    <p>Links and materials to help you get started.</p>
-                </section>
-            </section>
-            <section id="account-section">
-                <h2>Account</h2>
-                <section class="account-item">
-                    <p>Manage your profile and settings here.</p>
-                </section>
-            </section>
+            <div class="section-heading">
+                <h2>Home</h2>
+            </div>
+            <div class="tagline">
+                <div>
+                    <h3 id="tag-cdd">Crawl. <span id="tagline-highlight">Detect.</span> <span id="tagline-highlight2">Defend.</span></h3>
+                    <div><p class="intro-text">Your dark web crawler hub for catching breaches before they occur.</p></div>
+                </div>
+            </div>
+           <div class="guide-section">
+             <div class="guide-cards">
+                <div class="home-card animate__animated animate__fadeInDown">
+                    <i class="fa-solid fa-spider"></i>
+                    <p><span class="dynamic-highlight">Dark Web Crawler Module</span></p>
+                    <p>Monitors Tor, I2P, paste sites</p>
+                </div>
+                <div class="home-card animate__animated animate__fadeInDown animate__delay-1s">
+                    <i class="fa-regular fa-chart-bar"></i>
+                    <p><span class="dynamic-highlight">Threat Intelligence Dashboard</span></p>
+                    <p>Real time visualization</p>
+                </div>
+                <div class="home-card animate__animated animate__fadeInDown animate__delay-2s">
+                    <i class="fa-regular fa-file-lines"></i>
+                    <p><span class="dynamic-highlight">Compliance Reports</span></p>
+                    <p>Generate customized reports for audits</p>
+                </div>
+                <div class="home-card animate__animated animate__fadeInDown animate__delay-3s">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <p><span class="dynamic-highlight">Resources</span></p>
+                    <p>How we find and keep your data safe</p>
+                </div>
+            </div>
+           </div>
+           <div class="commitment-section">
+                <h3>Your security matters</h3>
+                <p>Every second, new data breaches expose sensitive information across underground forums. Our crawler brings that hidden activity 
+                    to light, empowering organizations to respond before real damage is done.</p>
+           </div>
         </main>
     </div>
 </body>

@@ -1,7 +1,6 @@
 import os
 import json
 import datetime
-from sqlalchemy.sql import func
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, UniqueConstraint, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
@@ -9,11 +8,11 @@ from sqlalchemy.types import JSON
 from sqlalchemy import text
 from flask_login import UserMixin
 import sys
-from datetime import timedelta
 import bcrypt
 import secrets
 import logging
 from colorama import Fore, Style
+from typing import Dict, Set, Any
 
 logger = logging.getLogger("database")
 
@@ -225,6 +224,135 @@ def get_assets_for_user(user_id: int):
     session = SessionLocal()
     try:
         return session.query(Asset).filter(Asset.user_id == user_id).all()
+    finally:
+        session.close()
+
+
+def get_asset_sets_for_user(user_id: int) -> Dict[str, Set[str]]:
+    """Return asset values grouped into sets, keyed to match entity names used by severity.
+
+    Keys: emails, domains, ips, btc_wallets, ssns, phone_numbers, passwords, physical_addresses, names
+    Note: Sensitive types are stored hashed in DB (sha256 hex); values are returned as-is for comparison.
+    """
+    rows = get_assets_for_user(user_id) or []
+    out: Dict[str, Set[str]] = {
+        'emails': set(),
+        'domains': set(),
+        'ips': set(),
+        'btc_wallets': set(),
+        'ssns': set(),
+        'phone_numbers': set(),
+        'passwords': set(),
+        'physical_addresses': set(),
+        'names': set(),
+    }
+    for a in rows:
+        t = (a.type or '').strip().lower()
+        v = (a.value or '').strip()
+        if not t or not v:
+            continue
+        if t == 'email':
+            out['emails'].add(v.lower())
+        elif t == 'domain':
+            out['domains'].add(v.lower())
+        elif t == 'ip':
+            out['ips'].add(v.lower())
+        elif t == 'btc':
+            out['btc_wallets'].add(v)
+        elif t == 'ssn':
+            out['ssns'].add(v)
+        elif t == 'phone':
+            out['phone_numbers'].add(v)
+        elif t == 'password':
+            out['passwords'].add(v)
+        elif t == 'address':
+            out['physical_addresses'].add(v)
+        elif t == 'name':
+            out['names'].add(v)
+    return out
+
+
+def _parse_maybe_json_list(val: Any) -> list[str]:
+    if not val:
+        return []
+    if isinstance(val, list):
+        return [str(x) for x in val]
+    s = str(val)
+    try:
+        j = json.loads(s)
+        return [str(x) for x in j] if isinstance(j, list) else [s]
+    except Exception:
+        return [s]
+
+
+def _build_entities_from_leak(leak: Leak) -> Dict[str, Any]:
+    norm = leak.normalized or {}
+    ents = (norm.get('entities') or {}) if isinstance(norm, dict) else {}
+    # Ensure list types are lists; include top-level columns (which are JSON strings)
+    def lower_list(arr):
+        return [str(x).lower() for x in arr]
+
+    emails = lower_list(ents.get('emails') or [])
+    domains = lower_list(ents.get('domains') or [])
+    ips = lower_list(ents.get('ips') or [])
+    btcs = ents.get('btc_wallets') or []
+    entity = {
+        'emails': emails,
+        'domains': domains,
+        'ips': ips,
+        'btc_wallets': btcs,
+        'ssns': _parse_maybe_json_list(leak.ssn),
+        'phone_numbers': _parse_maybe_json_list(leak.phone_numbers),
+        'passwords': _parse_maybe_json_list(leak.passwords),
+        'physical_addresses': _parse_maybe_json_list(leak.physical_addresses),
+        'names': _parse_maybe_json_list(leak.names),
+    }
+    return entity
+
+
+def recompute_severity_for_user_leaks(user_id: int) -> int:
+    """Recompute severity for all leaks of a user based on current assets.
+
+    Returns number of leaks updated.
+    """
+    from backend.severity import compute_severity_with_assets
+    assets_sets = get_asset_sets_for_user(user_id)
+    session = SessionLocal()
+    updated = 0
+    try:
+        leaks = session.query(Leak).filter(Leak.user_id == user_id).all()
+        for lk in leaks:
+            ents = _build_entities_from_leak(lk)
+            new_sev = compute_severity_with_assets(ents, assets_sets)
+            if (lk.severity or '').lower() != new_sev:
+                lk.severity = new_sev
+                updated += 1
+        if updated:
+            session.commit()
+        return updated
+    finally:
+        session.close()
+
+
+def recompute_severity_for_leak(leak_id: int) -> bool:
+    """Recompute severity for a single leak based on current assets.
+
+    Returns True if updated, False otherwise.
+    """
+    from backend.severity import compute_severity_with_assets
+    session = SessionLocal()
+    try:
+        lk = session.query(Leak).get(leak_id)
+        if not lk or not lk.user_id:
+            return False
+        assets_sets = get_asset_sets_for_user(lk.user_id)
+        ents = _build_entities_from_leak(lk)
+        new_sev = compute_severity_with_assets(ents, assets_sets)
+        if (lk.severity or '').lower() != new_sev:
+            lk.severity = new_sev
+            session.commit()
+            return True
+        return False
     finally:
         session.close()
 
@@ -458,6 +586,17 @@ def insert_leak_with_dedupe(
     names = serialize(names)
     phone_numbers = serialize(phone_numbers)
     physical_addresses = serialize(physical_addresses)
+
+    # Compute severity based on user assets (if available). If no user_id, fallback to entity-only.
+    try:
+        from backend.severity import compute_severity_with_assets, compute_severity_from_entities
+        if user_id is not None:
+            assets_sets = get_asset_sets_for_user(user_id)
+            severity = compute_severity_with_assets(entities or {}, assets_sets)
+        else:
+            severity = compute_severity_from_entities(entities)
+    except Exception:
+        pass
 
     # Ensure normalized JSON carries at least title and content_hash
     normalized: dict = {

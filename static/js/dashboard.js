@@ -31,7 +31,7 @@
       if(!leaks.length){ msg.textContent='No leaks data available.'; return; }
       const sources={}; leaks.forEach(l=>{ const s=l.source||l.crawler||'Unknown'; sources[s]=(sources[s]||0)+1; });
       msg.textContent='';
-      new Chart(document.getElementById('leaksChart'), { type:'bar', data:{ labels:Object.keys(sources), datasets:[{ label:'Leaks per Crawler', data:Object.values(sources), backgroundColor:'rgba(54,162,235,.55)', borderRadius:4 }] }, options:{ responsive:true }} );
+      new Chart(document.getElementById('leaksChart'), { type:'bar', data:{ labels:Object.keys(sources), datasets:[{ label:'Leaks per Crawler', data:Object.values(sources), backgroundColor:'#a7001d', borderRadius:4 }] }, options:{ responsive:true }} );
     } catch(e){ msg.textContent='Error loading leaks data.'; }
   }
 

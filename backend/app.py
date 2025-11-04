@@ -31,7 +31,7 @@ try:
     import backend.crawler.tor_crawler as tor_module
     from backend.crawler.i2p_crawler import fetch_and_store as i2p_fetch
     import backend.crawler.i2p_crawler as i2p_module
-    from backend.assets_db import list_assets, upsert_asset, delete_asset
+    from backend.database import Asset, SessionLocal, Base, Leak
     from backend.severity import compute_severity_from_entities
     from backend.analytics import get_critical_leaks, risk_summary
 except ImportError:
@@ -145,10 +145,16 @@ ALIASES = {
 app.secret_key = 'supersecretkey'  # Change this in production
 
 PUBLIC_ROUTES = [
-    '/login', '/register', '/auth/login.html', '/auth/register.html', '/static/', '/favicon.ico', '/dashboard/base.css', '/api/check_email'
+    '/login', '/register', '/auth/login.html', '/auth/register.html', '/static/', '/favicon.ico', '/dashboard/base.css', '/api/check_email',
+    '/v1/config/',  # allow crawlers to fetch config without session
+    '/v1/events'    # allow crawler event ingestion without session; will validate API key inside handler
 ]
 
 def get_current_user_id():
+    # Prefer API key derived identity if middleware set it, else session
+    uid = getattr(g, 'current_user_id', None)
+    if uid:
+        return uid
     return session.get('user_id')
 
 
@@ -184,6 +190,9 @@ def require_login():
     path = request.path
     # Allow public routes without login
     if path in PUBLIC_ROUTES or any(path.startswith(r) for r in PUBLIC_ROUTES):
+        return None
+    # Explicitly allow config endpoint (public JSON for crawlers)
+    if path.startswith('/v1/config/'):
         return None
     # Allow /auth/login.html and /auth/register.html without login
     if path in ['/auth/login.html', '/auth/register.html']:
@@ -400,7 +409,7 @@ def serve_page_dir(page: str):
 # Dashboard leaks endpoint
 @app.route("/api/leaks", methods=["GET"])
 def api_leaks():
-    user_id = session.get("user_id")
+    user_id = get_current_user_id()
     if not user_id:
         return jsonify({"error": "not authenticated"}), 401
 
@@ -453,8 +462,8 @@ def api_leaks_ingest():
     if not (content or (payload.get('attachments'))):
         return jsonify({"code": "validation_error", "message": "content or attachments required"}), 400
 
-    # Auto-compute severity if not provided and entities exist
-    if (not severity) and entities:
+    # Auto-compute severity if not provided (compute even when entities are empty -> 'zero severity')
+    if not severity:
         try:
             severity = compute_severity_from_entities(entities)
         except (TypeError, ValueError, KeyError):
@@ -468,7 +477,7 @@ def api_leaks_ingest():
     phone_numbers = payload.get('phone_numbers')
     physical_addresses = payload.get('physical_addresses')
 
-    user_id = session.get('user_id')
+    user_id = get_current_user_id()
     if not user_id:
         return jsonify({"error": "not authenticated"}), 401
 
@@ -491,6 +500,138 @@ def api_leaks_ingest():
     status = "duplicate" if is_dup else "accepted"
     resp = {"status": status, "id": leak_id}
     return jsonify(resp), 202
+
+
+# Seed five mock leaks: one per crawler type, covering all entity types across them
+@app.route("/api/leaks/mock", methods=["POST"])
+def api_leaks_insert_mock():
+    uid = get_current_user_id()
+    if not uid:
+        return jsonify({"error": "not authenticated"}), 401
+
+    # Define 5 mock leaks (pastebin, github, tor, i2p, freenet)
+    samples = [
+        {
+            "source": "pastebin",
+            "url": "https://pastebin.com/mock/abc123",
+            "title": "Credentials dump for service",
+            "content": "Login for alice@example.com password: hunter2\nSome extra lines...",
+            "entities": {
+                "emails": ["alice@example.com"],
+                "domains": ["example.com"],
+                "ips": [],
+                "btc_wallets": [],
+                "ssns": [],
+                "phone_numbers": [],
+                "passwords": ["hunter2"],
+                "physical_addresses": [],
+                "names": []
+            },
+            "passwords": ["hunter2"]
+        },
+        {
+            "source": "github",
+            "url": "https://github.com/user/repo/blob/main/config.yml",
+            "title": "Config leak with domain and IP",
+            "content": "production: domain: example.com\nadmin_ip: 203.0.113.10",
+            "entities": {
+                "emails": [],
+                "domains": ["example.com"],
+                "ips": ["203.0.113.10"],
+                "btc_wallets": [],
+                "ssns": [],
+                "phone_numbers": [],
+                "passwords": [],
+                "physical_addresses": [],
+                "names": []
+            }
+        },
+        {
+            "source": "tor",
+            "url": "http://exampleonionabcdef.onion/page",
+            "title": "Onion forum post with BTC and name",
+            "content": "Payment to bc1qexampleexampleexampleexamplex0j2z by user John Doe.",
+            "entities": {
+                "emails": [],
+                "domains": [],
+                "ips": [],
+                "btc_wallets": ["bc1qexampleexampleexampleexamplex0j2z"],
+                "ssns": [],
+                "phone_numbers": [],
+                "passwords": [],
+                "physical_addresses": [],
+                "names": ["john doe"]
+            },
+            "names": ["john doe"]
+        },
+        {
+            "source": "i2p",
+            "url": "http://mock.i2p/page",
+            "title": "I2P leak with SSN and phone",
+            "content": "Employee SSN 123-45-6789 and phone (555) 123-4567 recorded.",
+            "entities": {
+                "emails": [],
+                "domains": [],
+                "ips": [],
+                "btc_wallets": [],
+                "ssns": ["123456789"],
+                "phone_numbers": ["5551234567"],
+                "passwords": [],
+                "physical_addresses": [],
+                "names": []
+            },
+            "ssn": ["123456789"],
+            "phone_numbers": ["5551234567"]
+        },
+        {
+            "source": "freenet",
+            "url": "freenet://USK@mock-key/mock-site/0/",
+            "title": "Freenet page with address",
+            "content": "Contact at 123 Main Street for delivery.",
+            "entities": {
+                "emails": [],
+                "domains": [],
+                "ips": [],
+                "btc_wallets": [],
+                "ssns": [],
+                "phone_numbers": [],
+                "passwords": [],
+                "physical_addresses": ["123 Main Street"],
+                "names": []
+            },
+            "physical_addresses": ["123 Main Street"]
+        },
+    ]
+
+    from backend.database import insert_leak_with_dedupe
+    inserted = []
+    dupes = 0
+    for s in samples:
+        try:
+            text = s["content"] or ""
+            ch = "sha256:" + hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()
+            leak_id, is_dup = insert_leak_with_dedupe(
+                source=s["source"],
+                url=s.get("url"),
+                title=s.get("title"),
+                content=text,
+                content_hash=ch,
+                severity=None,
+                entities=s.get("entities") or {},
+                passwords=s.get("passwords"),
+                ssn=s.get("ssn"),
+                names=s.get("names"),
+                phone_numbers=s.get("phone_numbers"),
+                physical_addresses=s.get("physical_addresses"),
+                user_id=uid,
+            )
+            if is_dup:
+                dupes += 1
+            inserted.append(leak_id)
+        except Exception as e:
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+    return jsonify({"status": "ok", "inserted": len(inserted), "ids": inserted, "duplicates": dupes}), 200
 
 
 # Trigger Pastebin crawler from the web app
@@ -768,31 +909,150 @@ def api_crawl_runs():
 
 
 # ---- Assets (watchlist) API ----
-@app.route("/api/assets", methods=["GET"])  # list all assets
+
+# --- Consolidated Asset API using data.sqlite ---
+
+def hash_sensitive_value(value: str) -> str:
+    """Deterministically hash sensitive values for storage/deduplication."""
+    if not value:
+        return value
+    try:
+        import hashlib as _hl
+        return _hl.sha256(value.strip().encode('utf-8')).hexdigest()
+    except Exception:
+        return value
+
+def normalize_asset_value(asset_type: str, value: str) -> str:
+    """Normalize asset values consistently with entity extraction before hashing/storage."""
+    if not value:
+        return value
+    t = (asset_type or '').strip().lower()
+    v = value.strip()
+    if t in ('email', 'domain', 'ip'):
+        return v.lower()
+    if t == 'ssn':
+        # store only digits
+        import re as _re
+        return _re.sub(r"\D", "", v)
+    if t == 'phone':
+        import re as _re
+        return _re.sub(r"\D", "", v)
+    if t == 'name':
+        return v.lower()
+    if t == 'address':
+        # entities are Title Cased; align to that to match hashing comparison
+        return v.title()
+    if t == 'btc':
+        # BTC addresses are case sensitive for bech32 prefix casing, but matching supports hash/plain; keep as-is
+        return v
+    if t == 'password':
+        return v
+    return v
+
+@app.route("/api/assets", methods=["GET"])
 def api_assets_list():
-    return jsonify(list_assets())
+    uid = get_current_user_id()
+    if not uid:
+        return jsonify({"error": "not authenticated"}), 401
+    session = SessionLocal()
+    try:
+        assets = (
+            session.query(Asset)
+            .filter(Asset.user_id == uid)
+            .order_by(Asset.created_at.desc())
+            .all()
+        )
+        return jsonify([
+            {
+                'id': a.id,
+                'type': a.type,
+                'value': a.value,
+                'created_at': a.created_at.isoformat() if a.created_at else None,
+                'user_id': a.user_id
+            } for a in assets
+        ])
+    finally:
+        session.close()
 
-
-@app.route("/api/assets", methods=["POST"])  # add an asset
+@app.route("/api/assets", methods=["POST"])
 def api_assets_add():
     body = request.get_json(silent=True) or {}
     t = (body.get('type') or '').strip().lower()
-    v = (body.get('value') or '').strip().lower()
+    v = (body.get('value') or '').strip()
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
     if not t or not v:
         return jsonify({"code": "validation_error", "message": "type and value required"}), 400
+    # Normalize then hash/encrypt sensitive fields
+    SENSITIVE_TYPES = ['ssn', 'phone', 'btc', 'password', 'name', 'address']
+    if t in SENSITIVE_TYPES:
+        v = hash_sensitive_value(normalize_asset_value(t, v))
+    else:
+        v = normalize_asset_value(t, v)
+    session_db = SessionLocal()
     try:
-        asset_id = upsert_asset(t, v)
-    except ValueError as e:
-        return jsonify({"code": "validation_error", "message": str(e)}), 400
-    return jsonify({"status": "ok", "id": asset_id}), 201
+        # Check for existing asset
+        existing = session_db.query(Asset).filter(Asset.type == t, Asset.value == v, Asset.user_id == user_id).first()
+        if existing:
+            # Recompute severities in case this existing asset just became relevant
+            try:
+                from backend.database import recompute_severity_for_user_leaks
+                updated = recompute_severity_for_user_leaks(user_id)
+            except Exception:
+                updated = 0
+            return jsonify({"status": "ok", "id": existing.id, "updated": updated}), 200
+        obj = Asset(type=t, value=v, user_id=user_id)
+        session_db.add(obj)
+        session_db.commit()
+        session_db.refresh(obj)
+        # After adding an asset, recompute severities for this user's leaks
+        try:
+            from backend.database import recompute_severity_for_user_leaks
+            updated = recompute_severity_for_user_leaks(user_id)
+        except Exception:
+            updated = 0
+        return jsonify({"status": "ok", "id": obj.id, "updated": updated}), 201
+    finally:
+        session_db.close()
 
-
-@app.route("/api/assets/<int:asset_id>", methods=["DELETE"])  # delete an asset
+@app.route("/api/assets/<int:asset_id>", methods=["DELETE"])
 def api_assets_delete(asset_id: int):
-    ok = delete_asset(asset_id)
-    if not ok:
-        return jsonify({"code": "not_found", "message": "asset not found"}), 404
-    return jsonify({"status": "ok"}), 200
+    session_db = SessionLocal()
+    try:
+        obj = session_db.query(Asset).filter(Asset.id == asset_id).first()
+        if not obj:
+            return jsonify({"code": "not_found", "message": "asset not found"}), 404
+        uid = obj.user_id
+        session_db.delete(obj)
+        session_db.commit()
+        # Recompute severities after deletion
+        try:
+            from backend.database import recompute_severity_for_user_leaks
+            updated = recompute_severity_for_user_leaks(uid)
+        except Exception:
+            updated = 0
+        return jsonify({"status": "ok", "updated": updated}), 200
+    finally:
+        session_db.close()
+
+
+# Delete a leak (for the current user)
+@app.route("/api/leaks/<int:leak_id>", methods=["DELETE"])
+def api_leaks_delete(leak_id: int):
+    uid = get_current_user_id()
+    if not uid:
+        return jsonify({"error": "not authenticated"}), 401
+    session_db = SessionLocal()
+    try:
+        lk = session_db.query(Leak).filter(Leak.id == leak_id, Leak.user_id == uid).first()
+        if not lk:
+            return jsonify({"code": "not_found", "message": "leak not found"}), 404
+        session_db.delete(lk)
+        session_db.commit()
+        return jsonify({"status": "ok"}), 200
+    finally:
+        session_db.close()
 
 
     # moved to backend/severity.py
@@ -828,6 +1088,22 @@ def api_account():
 # v1/events endpoint for crawler ingestion (for compatibility with crawler utils)
 @app.route("/v1/events", methods=["POST"])
 def v1_events_ingest():
+    # Allow API key auth for non-/api path
+    try:
+        key = request.headers.get("x-api-key") or request.headers.get("X-API-Key")
+        if not key and request.is_json:
+            body = request.get_json(silent=True) or {}
+            key = body.get("api_key")
+        if key:
+            from backend.utils import get_user_by_api_key as _get_by_key
+            uid = _get_by_key(key)
+            if uid == "EXPIRED":
+                return jsonify({"error": "Expired API key"}), 401
+            if uid:
+                g.current_user_id = uid
+    except Exception:
+        pass
+
     return api_leaks_ingest()
 
 

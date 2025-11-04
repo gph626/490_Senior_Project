@@ -56,6 +56,11 @@
               <option value="domain">domain</option>
               <option value="ip">ip</option>
               <option value="btc">btc</option>
+              <option value="ssn">ssn</option>
+              <option value="password">password</option>
+              <option value="name">name</option>
+              <option value="phone">phone</option>
+              <option value="address">address</option>
             </select>
             <input id="assetValue" placeholder="value (e.g., user@acme.com or acme.com)" style="flex:1; min-width:240px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
             <button id="addAsset" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Add</button>
@@ -90,16 +95,16 @@
             <option value="unknown">unknown</option>
           </select>
           <label class="muted" style="display:flex; gap:6px; align-items:center;">
-            <input type="checkbox" id="entEmails" checked /> emails
+            <input type="checkbox" id="entEmails" /> emails
           </label>
           <label class="muted" style="display:flex; gap:6px; align-items:center;">
-            <input type="checkbox" id="entDomains" checked /> domains
+            <input type="checkbox" id="entDomains" /> domains
           </label>
           <label class="muted" style="display:flex; gap:6px; align-items:center;">
-            <input type="checkbox" id="entIPs" checked /> IPs
+            <input type="checkbox" id="entIPs" /> IPs
           </label>
           <label class="muted" style="display:flex; gap:6px; align-items:center;">
-            <input type="checkbox" id="entBTC" checked /> BTC
+            <input type="checkbox" id="entBTC" /> BTC
           </label>
           <button id="applyFilters" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Apply</button>
         </div>
@@ -112,10 +117,11 @@
                 <th>Entities</th>
                 <th>Severity</th>
                 <th class="nowrap">Timestamp</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              <tr><td colspan="5" class="muted">Loading…</td></tr>
+              <tr><td colspan="6" class="muted">Loading…</td></tr>
             </tbody>
           </table>
         </div>
@@ -135,6 +141,10 @@
                   style="width:80px; padding:6px; border-radius:6px; border:1px solid #444; background:#181B20; color:#ECECEC;" />
             <span class="muted">Limit</span>
             <span id="githubStatus" class="muted"></span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <button id="insertMockLeaksBtn" style="padding:8px 12px; border:none; background:#2d6cdf; color:#fff; border-radius:6px; cursor:pointer;">Insert 5 Mock Leaks</button>
+            <span id="mockInsertStatus" class="muted"></span>
           </div>
           <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <button id="runTorBtn" style="padding:8px 12px; border:none; background:#A7001D; color:#fff; border-radius:6px; cursor:pointer;">Fetch via Tor</button>
@@ -161,8 +171,10 @@
       </section>
     </main>
   </div>
-  <script src="{{ url_for('static', filename='js/leaks.js') }}">
-    window.API_KEY = "{{ api_key or '' }}";
+  <script>
+    // Persist API key for API calls from JS (used by crawlers/assets endpoints)
+    try { if ('{{ api_key or '' }}') { localStorage.setItem('api_key', '{{ api_key or '' }}'); } } catch (e) {}
   </script>
+  <script src="{{ url_for('static', filename='js/leaks.js') }}"></script>
 </body>
 </html>

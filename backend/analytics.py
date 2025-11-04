@@ -7,18 +7,11 @@ but simple in-Python aggregation keeps it easy while prototyping.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Iterable, List, Dict, Any
+from typing import List, Dict, Any
 
-from .database import SessionLocal, Leak
-from .assets_db import get_assets_sets, list_assets
+from .assets_db import get_assets_sets
 from . import database
-from backend.database import SessionLocal, Leak
 
-session = SessionLocal()
-session.query(Leak).delete()
-session.commit()
-session.close()
 
 
 

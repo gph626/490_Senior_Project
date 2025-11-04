@@ -6,81 +6,80 @@
     <meta name="description" content="Homepage with dashboard, resources, and account management for users.">
     <meta name="keywords" content="homepage, dashboard, resources, account, user, web">
     <title>Resources</title>
-    <link rel="stylesheet" href="/dashboard/base.css">
+    <link rel="stylesheet" href="/dashboard/new.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
+    <script src="resources.js"></script>
 </head>
 <body>
-     <header>
+     <!-- <header>
         <div class="header-flex">
-            <div class="logo">
-                <img src="../dashboard/logo.png" alt="Site Logo" height="80" width="80" onerror="this.onerror=null;this.src='https://via.placeholder.com/80x80?text=Logo';">
-            </div>
             <h1 class="site-heading">Resources</h1>
         </div>
-    </header>
+    </header> -->
     <div class="container">
         <aside class="sidebar">
-            <div class="sidebar-user">
-                <div class="user-info user-dropdown">
-                    <span class="user-label">Logged in as</span>
-                    <div class="dropdown">
-                        <a href="#" class="dropbtn user-name user-dropdown-btn">{{ username }} ▼</a>
-                        <div class="dropdown-content user-dropdown-content">
-                            <a href="{{ url_for('account') }}">Account</a>
-                            <a href="/logout">Logout</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
             <nav>
                 <ul>
-                    <li><a href="{{ url_for('homepage') }}">Home</a></li>
-                    <li class="dropdown">
-                        <a href="{{ url_for('dashboard') }}" class="dropbtn">Dashboard ▼</a>
-                        <div class="dropdown-content">
-                            <a href="{{ url_for('alerts') }}">Alerts</a>
-                            <a href="{{ url_for('leaks') }}">Leaks</a>
-                            <a href="{{ url_for('reports') }}">Reports</a>
-                            <a href="{{ url_for('risk_analysis') }}">Risk Analysis</a>
-                        </div>
-                    </li>
-                    <li><a href="{{ url_for('resources_route') }}">Resources</a></li>
+                    <li><a href="/homepage/homepage.html"><i class="fa-regular fa-house"></i></a></li>
+                    <li><a href="/dashboardpage/dashboard.html"><i class="fa-regular fa-chart-bar"></i></a></li>
+                    <li><a href="/resourcespage/resources.html"><i class="fa-regular fa-file"></i></a></li>
+                    <li><a href="/accountpage/account.html"><i class="fa-regular fa-circle-user"></i></a></li>
+                    
                 </ul>
             </nav>
         </aside>
         <main>
+            <div class="section-heading">
+                <h2>Resources</h2>
+            </div>
             <div class="columns">
                 <div class="col">
-                    <section id="resources-section">
-                        <h2>Resources</h2>
-                        <section class="resource-item">
-                            <p>Links and materials to help you get started.</p>
-                        </section>
+                    <section class="resource-item">
+                        <img class="card_img" src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Tor-logo-2011-flat.svg/1200px-Tor-logo-2011-flat.svg.png">
+                        <h3>Tor</h3>
+                            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
                     </section>
                 </div>
                 <div class="col">
-                    <section id="tools-section">
-                        <h2>Tools</h2>
-                        <section class="resource-item">
-                            <ul>
-                                <li><strong>Have I Been Pwned</strong> – Check if your email or password has been exposed in data breaches.</li>
-                                <li><strong>VirusTotal</strong> – Scan files and URLs for viruses and malware.</li>
-                                <li><strong>Tor Browser</strong> – Browse the web anonymously and access the dark web.</li>
-                                <li><strong>Password Manager</strong> – Securely store and manage your passwords.</li>
-                                <li><strong>VPN</strong> – Protect your privacy and encrypt your internet connection.</li>
-                            </ul>
-                        </section>
+                    <section class="resource-item">
+                        <img class="card_img" src="https://hackersonlineclub.com/wp-content/uploads/2019/07/i2P-Network-Layer.png">
+                        <h3>I2P</h3>
+                            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
                     </section>
                 </div>
                 <div class="col">
-                    <section id="about-section">
-                        <h2>About</h2>
-                        <section class="resource-item">
-                            <p><strong>DarkWidow</strong> helps users monitor and protect their personal data from dark web threats. We provide tools and resources to increase cybersecurity awareness and support safe online practices.</p>
-                        </section>
+                     <section class="resource-item">
+                        <img class="card_img" src="https://cwatch.comodo.com/images/pastebin.jpg">
+                        <h3>Pastebin</h3>
+                            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+                    </section>
+                </div>
+                <div class="col">
+                     <section class="resource-item">
+                        <img class="card_img" src="https://haveibeenpwned.com/Images/OpenGraphPreview.jpg">
+                        <h3>Have I Been Pwned?</h3>
+                            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+                    </section>
+                </div>
+                <div class="col">
+                     <section class="resource-item">
+                        <img class="card_img" src="https://cdn.prod.website-files.com/62718f9c6a29172c3f932088/67c4a0448d0c30516780f8f7_Screenshot%202025-03-02%20at%2012.15.15%20PM.png">
+                        <h3>OSINT</h3>
+                            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+                    </section>
+                </div>
+                <div class="col">
+                     <section class="resource-item">
+                        <img class="card_img" src="https://www.goanywhere.com/sites/default/files/goanywhere/ga-the-data-security-lifecycle-blog-850x330.jpg">
+                        <h3>Data Security</h3>
+                            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
                     </section>
                 </div>
             </div>
         </main>
     </div>
+    <script>
+    // No dropdown JS needed
+    </script>
 </body>
 </html>

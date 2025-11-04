@@ -22,8 +22,8 @@ dist/
 backend/__pycache__/
 
 # Ignore SQLite database files. These are generated at runtime and can contain sensitive or machine-specific data.
-.sqlite
-backend/*sqlite
+*.sqlite
+backend/*.sqlite
 backend/data.sqlite
 
 

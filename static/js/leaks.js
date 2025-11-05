@@ -6,7 +6,7 @@
   function renderLeaks(items){
     const tbody = document.querySelector('#leaks-table tbody');
     if (!Array.isArray(items) || items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="muted">No leaks yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="muted">No leaks yet.</td></tr>';
       return;
     }
     const rows = items.map(it => {
@@ -45,11 +45,17 @@
       const entsHtml = labeled.join(' ');
       const src = (it.source || '').toLowerCase();
       const srcLabel = (it.source || '').toUpperCase();
+      // Alert status badge
+      const alerted = it.alerted === 1;
+      const alertBadge = alerted 
+        ? '<span class="badge" style="background:#28a745; color:#fff;">✓ Sent</span>'
+        : '<span class="badge" style="background:#6c757d; color:#fff;">⏳ Pending</span>';
       return `<tr class="leak-row" data-id="${it.id}">
                 <td><span class="chip chip-${src}">${srcLabel}</span></td>
                 <td><span class="wrap-title" title="${title.replaceAll('"','&quot;')}">${title}</span></td>
                 <td style="max-width:380px">${entsHtml || '<span class=\"muted\">—</span>'}</td>
                 <td><span class="badge ${sevClass}">${it.severity || 'unknown'}</span></td>
+                <td class="nowrap">${alertBadge}</td>
                 <td class="nowrap"><button data-id="${it.id}" class="delLeak" style="padding:4px 8px; border:none; border-radius:6px; cursor:pointer;">Delete</button></td>
               </tr>`;
     }).join('');

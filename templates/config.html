@@ -42,28 +42,122 @@
                 <div id="watchlist-tab" class="tab-content active">
                     <section class="dashboard-item">
                         <h3>Watchlist Configuration</h3>
-                        <p class="muted" style="margin-bottom: 16px;">Define domains, emails, and keywords to monitor across all crawlers.</p>
+                        <p class="muted" style="margin-bottom: 16px;">
+                            Define your organization's critical assets to monitor. Sensitive data (SSNs, passwords, etc.) will be automatically hashed for security.
+                        </p>
                         
-                        <div style="display: flex; flex-direction: column; gap: 16px;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                            <!-- Non-sensitive entities -->
                             <div>
-                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Domains (comma-separated)</label>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">
+                                    <i class="fa-solid fa-globe"></i> Domains
+                                </label>
                                 <textarea id="watchlistDomains" class="input-wide" rows="3" 
                                     placeholder="example.com, test.org, mycompany.com"
-                                    style="width: 100%; max-width: 600px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;"></textarea>
+                                    style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;"></textarea>
+                                <small class="muted">Comma-separated domain names</small>
                             </div>
                             
                             <div>
-                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Emails (comma-separated)</label>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">
+                                    <i class="fa-solid fa-envelope"></i> Email Addresses
+                                </label>
                                 <textarea id="watchlistEmails" class="input-wide" rows="3" 
                                     placeholder="admin@example.com, security@company.com"
-                                    style="width: 100%; max-width: 600px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;"></textarea>
+                                    style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;"></textarea>
+                                <small class="muted">Comma-separated email addresses</small>
                             </div>
                             
                             <div>
-                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Keywords (comma-separated)</label>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">
+                                    <i class="fa-solid fa-network-wired"></i> IP Addresses
+                                </label>
+                                <textarea id="watchlistIPs" class="input-wide" rows="3" 
+                                    placeholder="192.168.1.1, 10.0.0.1"
+                                    style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;"></textarea>
+                                <small class="muted">Comma-separated IP addresses</small>
+                            </div>
+                            
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">
+                                    <i class="fa-brands fa-bitcoin"></i> Bitcoin Wallets
+                                </label>
+                                <textarea id="watchlistBTC" class="input-wide" rows="3" 
+                                    placeholder="bc1qxyz..., 1A1zP1eP5..."
+                                    style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;"></textarea>
+                                <small class="muted">Comma-separated Bitcoin addresses</small>
+                            </div>
+                            
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">
+                                    <i class="fa-solid fa-user"></i> Names
+                                </label>
+                                <textarea id="watchlistNames" class="input-wide" rows="3" 
+                                    placeholder="John Doe, Jane Smith"
+                                    style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;"></textarea>
+                                <small class="muted">Comma-separated full names (auto-hashed)</small>
+                            </div>
+                            
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">
+                                    <i class="fa-solid fa-magnifying-glass"></i> Keywords
+                                </label>
                                 <textarea id="watchlistKeywords" class="input-wide" rows="3" 
-                                    placeholder="password, login, credentials, breach, dump"
-                                    style="width: 100%; max-width: 600px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;"></textarea>
+                                    placeholder="password, login, credentials, breach"
+                                    style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;"></textarea>
+                                <small class="muted">Comma-separated search terms</small>
+                            </div>
+                        </div>
+                        
+                        <!-- Sensitive data section -->
+                        <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #3D4754;">
+                            <h4 style="color: #FF9800; margin-bottom: 12px;">
+                                <i class="fa-solid fa-shield-halved"></i> Sensitive Data (Stored Hashed)
+                            </h4>
+                            <p class="muted" style="margin-bottom: 16px;">
+                                The following fields will be automatically hashed (SHA-256) before storage for security. We'll still be able to detect matches.
+                            </p>
+                            
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 6px; font-weight: 600;">
+                                        <i class="fa-solid fa-id-card"></i> Social Security Numbers
+                                    </label>
+                                    <textarea id="watchlistSSNs" class="input-wide" rows="2" 
+                                        placeholder="123-45-6789, 987-65-4321"
+                                        style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #FF9800; background: #1a1d23; color: #fff;"></textarea>
+                                    <small style="color: #FF9800;">⚠ Auto-hashed for security</small>
+                                </div>
+                                
+                                <div>
+                                    <label style="display: block; margin-bottom: 6px; font-weight: 600;">
+                                        <i class="fa-solid fa-key"></i> Passwords
+                                    </label>
+                                    <textarea id="watchlistPasswords" class="input-wide" rows="2" 
+                                        placeholder="password123, MySecurePass!"
+                                        style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #FF9800; background: #1a1d23; color: #fff;"></textarea>
+                                    <small style="color: #FF9800;">⚠ Auto-hashed for security</small>
+                                </div>
+                                
+                                <div>
+                                    <label style="display: block; margin-bottom: 6px; font-weight: 600;">
+                                        <i class="fa-solid fa-phone"></i> Phone Numbers
+                                    </label>
+                                    <textarea id="watchlistPhones" class="input-wide" rows="2" 
+                                        placeholder="555-123-4567, (555) 987-6543"
+                                        style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #FF9800; background: #1a1d23; color: #fff;"></textarea>
+                                    <small style="color: #FF9800;">⚠ Auto-hashed for security</small>
+                                </div>
+                                
+                                <div>
+                                    <label style="display: block; margin-bottom: 6px; font-weight: 600;">
+                                        <i class="fa-solid fa-location-dot"></i> Physical Addresses
+                                    </label>
+                                    <textarea id="watchlistAddresses" class="input-wide" rows="2" 
+                                        placeholder="123 Main St, Anytown, CA 12345"
+                                        style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #FF9800; background: #1a1d23; color: #fff;"></textarea>
+                                    <small style="color: #FF9800;">⚠ Auto-hashed for security</small>
+                                </div>
                             </div>
                         </div>
                     </section>
@@ -199,12 +293,28 @@
                                 <label style="display: block; margin-bottom: 6px; font-weight: 600;">Alert Threshold</label>
                                 <select id="alertThreshold" class="input-compact" 
                                     style="width: 100%; max-width: 300px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
-                                    <option value="critical">Critical Only</option>
-                                    <option value="high">High and Above</option>
-                                    <option value="medium">Medium and Above</option>
-                                    <option value="low">All Severities</option>
+                                    <option value="critical">Critical Only (Severity ≥ 70)</option>
+                                    <option value="high">High & Critical (Severity ≥ 50)</option>
+                                    <option value="medium">Medium & Above (Severity ≥ 30)</option>
                                 </select>
                                 <small class="muted">Minimum severity level to trigger alerts</small>
+                            </div>
+                            
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Notification Mode</label>
+                                <select id="notificationMode" class="input-compact" 
+                                    style="width: 100%; max-width: 300px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
+                                    <option value="immediate">Immediate (Batch sent on leak detection)</option>
+                                    <option value="batch">Periodic (Batch sent at intervals)</option>
+                                </select>
+                                <small class="muted">Both modes batch non-alerted leaks. Immediate sends on detection, Periodic sends on schedule.</small>
+                            </div>
+                            
+                            <div id="batchIntervalSection" style="display: none;">
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Batch Check Interval (minutes)</label>
+                                <input type="number" id="alertInterval" class="input-compact" min="5" max="1440" value="15" 
+                                    style="width: 100%; max-width: 300px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
+                                <small class="muted">How often to send batch summaries (5-1440 minutes)</small>
                             </div>
 
                             <div>
@@ -216,16 +326,9 @@
 
                             <div>
                                 <label style="display: block; margin-bottom: 6px; font-weight: 600;">Webhook URL (Optional)</label>
-                                <input type="url" id="alertWebhook" class="input-wide" placeholder="https://hooks.slack.com/services/..." 
+                                <input type="url" id="alertWebhook" class="input-wide" placeholder="https://discord.com/api/webhooks/..." 
                                     style="width: 100%; max-width: 600px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
-                                <small class="muted">Slack, Discord, or custom webhook URL</small>
-                            </div>
-
-                            <div>
-                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Check Interval (minutes)</label>
-                                <input type="number" id="alertInterval" class="input-compact" min="1" max="1440" value="15" 
-                                    style="width: 100%; max-width: 300px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
-                                <small class="muted">How often to check for new critical leaks</small>
+                                <small class="muted">Discord, Slack, or custom webhook URL for JSON POST requests</small>
                             </div>
                         </div>
                     </section>

@@ -672,8 +672,85 @@ table.data tr:hover {
     cursor: pointer;
 }
 .tab-btn.active { background: #A7001D; color: #fff; border-color: transparent; }
+
+/* Professional tab buttons for alerts page */
+.tab-button {
+    background: #23272F;
+    color: #9aa2ac;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 14px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 8px 8px 0 0;
+}
+.tab-button:hover {
+    background: #2e3143;
+    color: #ECECEC;
+}
+.tab-button.active {
+    background: #2e3143;
+    color: #ECECEC;
+    border-bottom-color: #A7001D;
+}
+
 .tab-content { display: none; width: 100%; max-width: 100%; }
 .tab-content.active { display: block; width: 100%; max-width: 100%; }
+
+/* Severity badges for alerts */
+.severity-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.severity-critical {
+    background: rgba(244, 67, 54, 0.15);
+    color: #f44336;
+    border: 1px solid rgba(244, 67, 54, 0.3);
+}
+.severity-high {
+    background: rgba(255, 152, 0, 0.15);
+    color: #FF9800;
+    border: 1px solid rgba(255, 152, 0, 0.3);
+}
+.severity-medium {
+    background: rgba(255, 235, 59, 0.15);
+    color: #FFEB3B;
+    border: 1px solid rgba(255, 235, 59, 0.3);
+}
+.severity-low {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4CAF50;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+.severity-info {
+    background: rgba(33, 150, 243, 0.15);
+    color: #2196F3;
+    border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+/* Alert status badges */
+.status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.status-sent {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4CAF50;
+}
+.status-failed {
+    background: rgba(244, 67, 54, 0.15);
+    color: #f44336;
+}
 
 /* Modal styles */
 .modal-backdrop {

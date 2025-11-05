@@ -46,6 +46,7 @@ class Leak(Base):
     names = Column(Text, nullable=True)
     phone_numbers = Column(Text, nullable=True)
     physical_addresses = Column(Text, nullable=True)
+    alerted = Column(Integer, default=0)  # 0 = not alerted, 1 = alerted
 
 class CrawlRun(Base):
     __tablename__ = "crawl_runs"
@@ -348,8 +349,12 @@ def recompute_severity_for_user_leaks(user_id: int) -> int:
             ents = _build_entities_from_leak(lk)
             new_sev = compute_severity_with_assets(ents, assets_sets)
             if (lk.severity or '').lower() != new_sev:
+                old_severity = lk.severity
                 lk.severity = new_sev
+                # Reset alerted status when severity changes so it can be re-alerted
+                lk.alerted = 0
                 updated += 1
+                logger.info(f"Leak {lk.id}: severity changed from '{old_severity}' to '{new_sev}', reset alerted=0")
         if updated:
             session.commit()
         return updated
@@ -372,8 +377,12 @@ def recompute_severity_for_leak(leak_id: int) -> bool:
         ents = _build_entities_from_leak(lk)
         new_sev = compute_severity_with_assets(ents, assets_sets)
         if (lk.severity or '').lower() != new_sev:
+            old_severity = lk.severity
             lk.severity = new_sev
+            # Reset alerted status when severity changes so it can be re-alerted
+            lk.alerted = 0
             session.commit()
+            logger.info(f"Leak {leak_id}: severity changed from '{old_severity}' to '{new_sev}', reset alerted=0")
             return True
         return False
     finally:
@@ -672,6 +681,7 @@ def leak_to_dict(leak: Leak) -> dict:
         'names': leak.names,
         'phone_numbers': leak.phone_numbers,
         'physical_addresses': leak.physical_addresses,
+        'alerted': leak.alerted if hasattr(leak, 'alerted') else 0,
 
     }
     return out

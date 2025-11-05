@@ -45,10 +45,38 @@
     const sources = config.sources || {};
     const alerts = config.alerts || {};
 
-    // Watchlist
+    // Watchlist - All entity types
     document.getElementById('watchlistDomains').value = (watchlist.domains || []).join(', ');
     document.getElementById('watchlistEmails').value = (watchlist.emails || []).join(', ');
+    document.getElementById('watchlistIPs').value = (watchlist.ips || []).join(', ');
+    document.getElementById('watchlistBTC').value = (watchlist.btc_wallets || []).join(', ');
+    document.getElementById('watchlistNames').value = (watchlist.names || []).join(', ');
     document.getElementById('watchlistKeywords').value = (watchlist.keywords || []).join(', ');
+    
+    // Sensitive watchlist fields (hashed in DB, show placeholder if entries exist)
+    const ssnCount = (watchlist.ssns || []).length;
+    const pwdCount = (watchlist.passwords || []).length;
+    const phoneCount = (watchlist.phone_numbers || []).length;
+    const addrCount = (watchlist.physical_addresses || []).length;
+    
+    document.getElementById('watchlistSSNs').placeholder = ssnCount > 0 
+      ? `🔒 ${ssnCount} SSN(s) stored (hashed) - enter new values to replace or "CLEAR" to remove`
+      : '123-45-6789, 987-65-4321';
+    document.getElementById('watchlistPasswords').placeholder = pwdCount > 0 
+      ? `🔒 ${pwdCount} password(s) stored (hashed) - enter new values to replace or "CLEAR" to remove`
+      : 'password123, MySecurePass!';
+    document.getElementById('watchlistPhones').placeholder = phoneCount > 0 
+      ? `🔒 ${phoneCount} phone(s) stored (hashed) - enter new values to replace or "CLEAR" to remove`
+      : '555-123-4567, (555) 987-6543';
+    document.getElementById('watchlistAddresses').placeholder = addrCount > 0 
+      ? `🔒 ${addrCount} address(es) stored (hashed) - enter new values to replace or "CLEAR" to remove`
+      : '123 Main St, Anytown, CA 12345';
+    
+    // Leave fields empty (user must re-enter to update)
+    document.getElementById('watchlistSSNs').value = '';
+    document.getElementById('watchlistPasswords').value = '';
+    document.getElementById('watchlistPhones').value = '';
+    document.getElementById('watchlistAddresses').value = '';
 
     // Pastebin
     const pastebin = sources.pastebin || {};
@@ -79,9 +107,25 @@
     // Alerts
     document.getElementById('alertsEnabled').checked = alerts.enabled !== false;
     document.getElementById('alertThreshold').value = alerts.threshold || 'critical';
+    document.getElementById('notificationMode').value = alerts.notification_mode || 'immediate';
     document.getElementById('alertEmail').value = alerts.email || '';
     document.getElementById('alertWebhook').value = alerts.webhook || '';
     document.getElementById('alertInterval').value = alerts.check_interval_min || 15;
+    
+    // Show/hide batch interval based on mode
+    updateBatchIntervalVisibility();
+  }
+  
+  // Show/hide batch interval section based on notification mode
+  function updateBatchIntervalVisibility() {
+    const mode = document.getElementById('notificationMode').value;
+    const section = document.getElementById('batchIntervalSection');
+    // Only show for batch mode (periodic)
+    if (mode === 'batch') {
+      section.style.display = 'block';
+    } else {
+      section.style.display = 'none';
+    }
   }
 
   // Save configuration
@@ -91,12 +135,42 @@
     status.style.color = '#666';
 
     try {
+      // Helper to split and clean comma-separated values
+      const splitClean = (value) => value.split(',').map(s => s.trim()).filter(Boolean);
+      
+      // Get current config to preserve existing hashed values
+      const orgId = localStorage.getItem('org_id') || '123';
+      const currentRes = await fetch(`/v1/config/org/${orgId}`, {
+        headers: { 'X-API-Key': API_KEY }
+      });
+      const currentConfig = await currentRes.json();
+      const currentWatchlist = currentConfig.watchlist || {};
+      
+      // Build watchlist - only include sensitive fields if user entered new values
+      const watchlist = {
+        // Non-sensitive entities
+        domains: splitClean(document.getElementById('watchlistDomains').value),
+        emails: splitClean(document.getElementById('watchlistEmails').value),
+        ips: splitClean(document.getElementById('watchlistIPs').value),
+        btc_wallets: splitClean(document.getElementById('watchlistBTC').value),
+        names: splitClean(document.getElementById('watchlistNames').value),
+        keywords: splitClean(document.getElementById('watchlistKeywords').value)
+      };
+      
+      // Sensitive entities - only send if user entered values, otherwise preserve existing
+      const ssnInput = document.getElementById('watchlistSSNs').value.trim();
+      const pwdInput = document.getElementById('watchlistPasswords').value.trim();
+      const phoneInput = document.getElementById('watchlistPhones').value.trim();
+      const addrInput = document.getElementById('watchlistAddresses').value.trim();
+      
+      // Check for special "CLEAR" keyword to allow removal
+      watchlist.ssns = ssnInput === 'CLEAR' ? [] : (ssnInput ? splitClean(ssnInput) : currentWatchlist.ssns || []);
+      watchlist.passwords = pwdInput === 'CLEAR' ? [] : (pwdInput ? splitClean(pwdInput) : currentWatchlist.passwords || []);
+      watchlist.phone_numbers = phoneInput === 'CLEAR' ? [] : (phoneInput ? splitClean(phoneInput) : currentWatchlist.phone_numbers || []);
+      watchlist.physical_addresses = addrInput === 'CLEAR' ? [] : (addrInput ? splitClean(addrInput) : currentWatchlist.physical_addresses || []);
+      
       const config = {
-        watchlist: {
-          domains: document.getElementById('watchlistDomains').value.split(',').map(s => s.trim()).filter(Boolean),
-          emails: document.getElementById('watchlistEmails').value.split(',').map(s => s.trim()).filter(Boolean),
-          keywords: document.getElementById('watchlistKeywords').value.split(',').map(s => s.trim()).filter(Boolean)
-        },
+        watchlist: watchlist,
         sources: {
           pastebin: {
             limit: parseInt(document.getElementById('pastebinLimit').value) || 5,
@@ -124,13 +198,13 @@
         alerts: {
           enabled: document.getElementById('alertsEnabled').checked,
           threshold: document.getElementById('alertThreshold').value,
+          notification_mode: document.getElementById('notificationMode').value,
           email: document.getElementById('alertEmail').value,
           webhook: document.getElementById('alertWebhook').value,
           check_interval_min: parseInt(document.getElementById('alertInterval').value) || 15
         }
       };
 
-      const orgId = localStorage.getItem('org_id') || '123';
       const res = await fetch(`/v1/config/org/${orgId}`, {
         method: 'POST',
         headers: {
@@ -141,6 +215,10 @@
       });
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      // Save notification mode to localStorage for timer visibility
+      const notificationMode = document.getElementById('notificationMode').value;
+      localStorage.setItem('notification_mode', notificationMode);
 
       status.textContent = 'Configuration saved successfully!';
       status.style.color = '#4CAF50';
@@ -186,5 +264,6 @@
     loadConfig();
     document.getElementById('saveConfigBtn')?.addEventListener('click', saveConfig);
     document.getElementById('resetConfigBtn')?.addEventListener('click', resetConfig);
+    document.getElementById('notificationMode')?.addEventListener('change', updateBatchIntervalVisibility);
   });
 })();

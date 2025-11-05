@@ -32,6 +32,11 @@
                 <h2>Alerts & Notifications</h2>
             </div>
             
+            <!-- Timer Display -->
+            <div class="alert-timer" style="padding: 12px 40px; margin: 0 40px 20px; background: #23272F; border-radius: 8px; color: #9aa2ac; font-size: 14px; text-align: center; border: 1px solid #3D4754;">
+                <i class="fa-solid fa-clock"></i> Loading timer...
+            </div>
+            
             <!-- Professional Tabs Layout -->
             <div style="max-width: 1400px; margin: 0 auto; padding: 0 40px;">
                 <div class="tabs" style="margin-bottom: 30px;">
@@ -128,6 +133,34 @@
                                 </label>
                             </div>
                             
+                            <!-- Notification Mode -->
+                            <div style="margin-bottom: 24px;">
+                                <label style="display: block; font-weight: 600; color: #ECECEC; margin-bottom: 8px;">
+                                    <i class="fa-solid fa-bell"></i> Notification Mode
+                                </label>
+                                <select id="notificationMode" name="notification_mode"
+                                        style="width: 100%; padding: 12px; background: #23272F; border: 1px solid #3D4754; border-radius: 6px; color: #ECECEC; font-size: 14px; cursor: pointer;">
+                                    <option value="immediate">Immediate (Batch sent on leak detection)</option>
+                                    <option value="batch">Periodic (Batch sent at intervals)</option>
+                                </select>
+                                <small style="display: block; margin-top: 6px; color: #9aa2ac; font-size: 13px;">
+                                    <i class="fa-solid fa-circle-info"></i> Both modes batch non-alerted leaks. Immediate sends on detection, Periodic sends on schedule.
+                                </small>
+                            </div>
+                            
+                            <!-- Batch Check Interval (shown only for batch/both modes) -->
+                            <div id="batchIntervalSection" style="margin-bottom: 24px; display: none;">
+                                <label style="display: block; font-weight: 600; color: #ECECEC; margin-bottom: 8px;">
+                                    <i class="fa-solid fa-clock"></i> Periodic Check Interval
+                                </label>
+                                <input type="number" id="checkInterval" name="check_interval_min" 
+                                       placeholder="15" min="5" max="1440" value="15"
+                                       style="width: 100%; padding: 12px; background: #23272F; border: 1px solid #3D4754; border-radius: 6px; color: #ECECEC; font-size: 14px;">
+                                <small style="display: block; margin-top: 6px; color: #9aa2ac; font-size: 13px;">
+                                    <i class="fa-solid fa-circle-info"></i> How often (in minutes) to check for and batch non-alerted leaks (5-1440)
+                                </small>
+                            </div>
+                            
                             <!-- Webhook URL -->
                             <div style="margin-bottom: 24px;">
                                 <label style="display: block; font-weight: 600; color: #ECECEC; margin-bottom: 8px;">
@@ -175,6 +208,9 @@
                                 <button type="button" id="testWebhook" class="btn-secondary" style="padding: 14px 24px; font-size: 15px; font-weight: 600;">
                                     <i class="fa-solid fa-flask"></i> Test Webhook
                                 </button>
+                                <button type="button" id="testBatchWebhook" class="btn-secondary" style="padding: 14px 24px; font-size: 15px; font-weight: 600;">
+                                    <i class="fa-solid fa-layer-group"></i> Test Batch
+                                </button>
                             </div>
                             
                             <!-- Status Message -->
@@ -185,6 +221,7 @@
             </div>
         </main>
     </div>
+    <script src="{{ url_for('static', filename='js/alert_timer.js') }}"></script>
     <script src="{{ url_for('static', filename='js/alerts.js') }}"></script>
 </body>
 </html>

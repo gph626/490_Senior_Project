@@ -29,6 +29,12 @@
     <div class="section-heading">
       <h2>Leaks</h2>
     </div>
+    
+    <!-- Timer Display -->
+    <div class="alert-timer" style="padding: 12px 20px; margin: 0 40px 20px; background: #23272F; border-radius: 8px; color: #9aa2ac; font-size: 14px; text-align: center; border: 1px solid #3D4754; max-width: 1200px; margin-left: auto; margin-right: auto;">
+        <i class="fa-solid fa-clock"></i> Loading timer...
+    </div>
+    
     <section style="width:100%; max-width:1200px; margin:0 auto;">
 
         <!-- Toolbar: crawler run buttons moved to the top -->
@@ -98,14 +104,15 @@
               <thead>
                 <tr>
                   <th style="width: 10%;">Source</th>
-                  <th style="width: 35%;">Title</th>
-                  <th style="width: 40%;">Entities</th>
+                  <th style="width: 30%;">Title</th>
+                  <th style="width: 35%;">Entities</th>
                   <th style="width: 10%;">Severity</th>
+                  <th style="width: 10%;">Alert Status</th>
                   <th style="width: 5%;"></th>
                 </tr>
               </thead>
               <tbody>
-                <tr><td colspan="5" class="muted">Loading…</td></tr>
+                <tr><td colspan="6" class="muted">Loading…</td></tr>
               </tbody>
             </table>
           </div>
@@ -127,6 +134,7 @@
     // Persist API key for API calls from JS (used by crawlers/assets endpoints)
     try { if ('{{ api_key or '' }}') { localStorage.setItem('api_key', '{{ api_key or '' }}'); } } catch (e) {}
   </script>
+  <script src="{{ url_for('static', filename='js/alert_timer.js') }}"></script>
   <script src="{{ url_for('static', filename='js/leaks.js') }}"></script>
 </body>
 </html>

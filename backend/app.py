@@ -12,9 +12,10 @@ from collections import defaultdict, deque
 import json
 from backend.utils import get_user_by_api_key
 from flask_login import login_required, current_user, LoginManager, login_user
-from backend.database import SessionLocal, APIKey, User
+from backend.database import SessionLocal, APIKey, User, Config, AlertHistory
 import secrets
 from datetime import datetime, timedelta
+import requests
 
 load_dotenv()
 
@@ -338,6 +339,18 @@ def reports():
     username = session.get('username', 'User')
     return render_template('reports.html', username=username)
 
+# Config page routes
+@app.route('/config')
+def config_noext():
+    return redirect('/config/')
+
+
+@app.route('/config/')
+@login_required
+def config():
+    username = session.get('username', 'User')
+    return render_template('config.html', username=username)
+
 # Leaks page routes
 @app.route('/leaks')
 def leaks_noext():
@@ -432,6 +445,30 @@ def api_alerts():
     crits = get_critical_leaks(limit=limit, user_id=user_id)
     return jsonify(crits)
 
+
+# Alert history endpoint
+@app.route("/api/alerts/history", methods=["GET"])
+def api_alert_history():
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
+    
+    db = SessionLocal()
+    try:
+        alerts = db.query(AlertHistory).filter_by(user_id=user_id).order_by(AlertHistory.sent_at.desc()).limit(100).all()
+        return jsonify([{
+            'id': alert.id,
+            'leak_id': alert.leak_id,
+            'alert_type': alert.alert_type,
+            'destination': alert.destination,
+            'status': alert.status,
+            'error_message': alert.error_message,
+            'sent_at': alert.sent_at.isoformat() if alert.sent_at else None
+        } for alert in alerts])
+    finally:
+        db.close()
+
+
 # Risk summary aggregation
 @app.route("/api/risk/summary", methods=["GET"])
 def api_risk_summary():
@@ -440,6 +477,109 @@ def api_risk_summary():
         return jsonify({"error": "not authenticated"}), 401
 
     return jsonify(risk_summary(user_id=user_id))
+
+
+# Webhook alerting function
+def send_webhook_alert(leak_id: int, user_id: int, severity: int, title: str, source: str):
+    """Send webhook notification for critical leaks"""
+    import threading
+    
+    def _send_async():
+        db = SessionLocal()
+        try:
+            # Get user's webhook config
+            # Using org_id = user_id for simplicity (can be changed to proper org mapping)
+            config_obj = db.query(Config).filter_by(org_id=user_id).first()
+            if not config_obj:
+                return
+            
+            config_data = config_obj.config_data
+            alerts_config = config_data.get('alerts', {})
+            
+            if not alerts_config.get('enabled', False):
+                return
+            
+            webhook_url = alerts_config.get('webhook', '').strip()
+            if not webhook_url:
+                return
+            
+            # Prepare webhook payload
+            # Check if it's a Discord webhook (contains discord.com/api/webhooks)
+            is_discord = 'discord.com/api/webhooks' in webhook_url.lower()
+            
+            if is_discord:
+                # Discord-specific format (strict requirements)
+                webhook_payload = {
+                    'username': 'DarkWidow Alert',
+                    'avatar_url': 'https://i.imgur.com/4M34hi2.png',  # Optional
+                    'embeds': [{
+                        'title': '🚨 Critical Leak Detected',
+                        'description': title[:2048] if title else 'Untitled leak',  # Max 2048 chars
+                        'color': 15158332,  # Red color (0xE74C3C in decimal)
+                        'fields': [
+                            {'name': 'Source', 'value': source or 'unknown', 'inline': True},
+                            {'name': 'Severity', 'value': str(severity), 'inline': True},
+                            {'name': 'Leak ID', 'value': str(leak_id), 'inline': True},
+                        ],
+                        'timestamp': datetime.utcnow().isoformat() + 'Z',  # ISO 8601 format with Z suffix
+                        'footer': {
+                            'text': 'DarkWidow Security Platform'
+                        }
+                    }]
+                }
+            else:
+                # Generic webhook format
+                webhook_payload = {
+                    'leak_id': leak_id,
+                    'severity': severity,
+                    'title': title,
+                    'source': source,
+                    'timestamp': datetime.utcnow().isoformat(),
+                    'alert_type': 'critical_leak'
+                }
+            
+            # Send webhook
+            try:
+                response = requests.post(
+                    webhook_url,
+                    json=webhook_payload,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=10
+                )
+                
+                # Log alert history
+                alert_record = AlertHistory(
+                    leak_id=leak_id,
+                    user_id=user_id,
+                    alert_type='webhook',
+                    destination=webhook_url,
+                    status='sent' if response.status_code < 400 else 'failed',
+                    error_message=None if response.status_code < 400 else f"HTTP {response.status_code}"
+                )
+                db.add(alert_record)
+                db.commit()
+                
+            except Exception as e:
+                # Log failed alert
+                alert_record = AlertHistory(
+                    leak_id=leak_id,
+                    user_id=user_id,
+                    alert_type='webhook',
+                    destination=webhook_url,
+                    status='failed',
+                    error_message=str(e)
+                )
+                db.add(alert_record)
+                db.commit()
+                
+        finally:
+            db.close()
+    
+    # Send webhook asynchronously to avoid blocking the request
+    thread = threading.Thread(target=_send_async)
+    thread.daemon = True
+    thread.start()
+
 
 # Ingest endpoint to support crawler/mock posting leaks now; minimal validation and dedupe
 @app.route("/api/leaks", methods=["POST"])
@@ -497,6 +637,10 @@ def api_leaks_ingest():
         physical_addresses=json.dumps(physical_addresses) if physical_addresses else None,
         user_id=user_id,
     )
+
+    # Send webhook alert if this is a new critical leak
+    if not is_dup and severity and severity >= 70:  # Critical threshold
+        send_webhook_alert(leak_id, user_id, severity, title or "Untitled", source)
 
     status = "duplicate" if is_dup else "accepted"
     resp = {"status": status, "id": leak_id}
@@ -1098,16 +1242,59 @@ def v1_events_ingest():
                 return jsonify({"error": "Expired API key"}), 401
             if uid:
                 g.current_user_id = uid
+        else:
+            # If no API key provided, use first available user as fallback for crawler events
+            # This allows crawlers to function without explicit API key configuration
+            db = SessionLocal()
+            try:
+                first_user = db.query(User).order_by(User.id).first()
+                if first_user:
+                    g.current_user_id = first_user.id
+            finally:
+                db.close()
     except Exception:
         pass
 
     return api_leaks_ingest()
 
 
-# Config route to backend
-@app.route("/v1/config/org/<int:org_id>", methods=["GET"])
+# Config routes with database persistence
+@app.route("/v1/config/org/<int:org_id>", methods=["GET", "POST"])
 def get_config(org_id):
-    # TODO: Replace with real org-specific logic later
+    if request.method == "POST":
+        # Save config
+        user_id = get_current_user_id()
+        if not user_id:
+            return jsonify({"error": "not authenticated"}), 401
+        
+        try:
+            config_data = request.json or {}
+            db = SessionLocal()
+            try:
+                config_obj = db.query(Config).filter_by(org_id=org_id).first()
+                if config_obj:
+                    config_obj.config_data = config_data
+                    config_obj.updated_at = datetime.utcnow()
+                else:
+                    config_obj = Config(org_id=org_id, config_data=config_data)
+                    db.add(config_obj)
+                db.commit()
+                return jsonify({"status": "saved", "config": config_data})
+            finally:
+                db.close()
+        except Exception as e:
+            return jsonify({"error": str(e)}), 400
+    
+    # GET: Return stored config or defaults
+    db = SessionLocal()
+    try:
+        config_obj = db.query(Config).filter_by(org_id=org_id).first()
+        if config_obj:
+            return jsonify(config_obj.config_data)
+    finally:
+        db.close()
+    
+    # Default config
     return jsonify({
         "api": {
             "events_url": "http://127.0.0.1:5000/v1/events"
@@ -1139,11 +1326,36 @@ def get_config(org_id):
                 "timeout_sec": 20,
                 "limit": 10,
                 "keywords": [
-                    "password", "apikey", "secret", "aws_access_key_id", "private_key, api_key, token, database, credential, access_key"
+                    "password", "apikey", "secret", "aws_access_key_id", "private_key", "api_key", "token", "database", "credential", "access_key"
                 ]
             }
+        },
+        "alerts": {
+            "enabled": True,
+            "threshold": "critical",
+            "email": "",
+            "webhook": "",
+            "check_interval_min": 15
         }
     })
+
+@app.route("/v1/config/org/<int:org_id>/reset", methods=["POST"])
+def reset_config(org_id):
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
+    
+    # Remove custom config to force defaults
+    db = SessionLocal()
+    try:
+        config_obj = db.query(Config).filter_by(org_id=org_id).first()
+        if config_obj:
+            db.delete(config_obj)
+            db.commit()
+    finally:
+        db.close()
+    
+    return jsonify({"status": "reset"})
 
 # Serve frontend static files (HTML/CSS/JS/images) from project root.
 # Only handle paths that map to existing files under the project root and do not

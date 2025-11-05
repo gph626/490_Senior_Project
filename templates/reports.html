@@ -13,10 +13,15 @@
         <aside class="sidebar">
             <nav>
                 <ul>
-                    <li><a href="{{ url_for('homepage') }}"><i class="fa-regular fa-house"></i></a></li>
-                    <li><a href="{{ url_for('dashboard') }}"><i class="fa-regular fa-chart-bar"></i></a></li>
-                    <li><a href="{{ url_for('resources_route') }}"><i class="fa-regular fa-file"></i></a></li>
-                    <li><a href="{{ url_for('account') }}"><i class="fa-regular fa-circle-user"></i></a></li>
+                    <li><a href="{{ url_for('homepage') }}" data-tooltip="Home"><i class="fa-regular fa-house"></i></a></li>
+                    <li><a href="{{ url_for('leaks') }}" data-tooltip="Leaks"><i class="fa-solid fa-spider"></i></a></li>
+                    <li><a href="{{ url_for('alerts') }}" data-tooltip="Alerts"><i class="fa-regular fa-bell"></i></a></li>
+                    <li><a href="{{ url_for('risk_analysis') }}" data-tooltip="Risk Analysis"><i class="fa-solid fa-shield-halved"></i></a></li>
+                    <li><a href="{{ url_for('dashboard') }}" data-tooltip="Dashboard"><i class="fa-regular fa-chart-bar"></i></a></li>
+                    <li><a class="active" href="{{ url_for('reports') }}" data-tooltip="Reports"><i class="fa-regular fa-file-lines"></i></a></li>
+                    <li><a href="{{ url_for('config') }}" data-tooltip="Settings"><i class="fa-solid fa-gear"></i></a></li>
+                    <li><a href="{{ url_for('resources_route') }}" data-tooltip="Resources"><i class="fa-regular fa-file"></i></a></li>
+                    <li><a href="{{ url_for('account') }}" data-tooltip="Account"><i class="fa-regular fa-circle-user"></i></a></li>
                 </ul>
             </nav>
         </aside>

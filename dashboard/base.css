@@ -194,6 +194,36 @@
     transition: transform 0.2s;
 }
 
+/* Sidebar tooltip styles */
+.sidebar nav ul li {
+    position: relative;
+}
+
+.sidebar nav ul li a::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 75px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #23272F;
+    color: #ECECEC;
+    padding: 8px 12px;
+    border-radius: 6px;
+    white-space: nowrap;
+    font-size: 0.9rem;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, left 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    z-index: 9999;
+}
+
+.sidebar nav ul li a:hover::after {
+    opacity: 1;
+    left: 85px;
+}
+
 body {
     font-family: Montserrat;
     margin: 0;
@@ -507,6 +537,30 @@ table.data {
 #leaks-table,
 #assets-table {
     margin-left: 0 !important;
+}
+
+/* Make the leaks table section wider for better readability */
+#leaksSection {
+    max-width: 100% !important;
+    width: 100% !important;
+    overflow: visible;
+}
+
+#leaksSection .table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+#leaksSection table.data {
+    width: 100%;
+    table-layout: fixed;
+}
+
+/* Prevent table cells from overflowing */
+#leaks-table td {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
 }
 
 table.data th, table.data td {

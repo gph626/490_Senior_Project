@@ -349,7 +349,7 @@ main {
     align-items: flex-start;
     background-color: var(--primary-color);
     /* create a small black cushion around the gray page area */
-    margin: 12px 12px 12px 92px; /* left accounts for 65px sidebar + cushion */
+    margin: 12px 12px 12px 77px; /* left accounts for 65px sidebar + cushion */
     border-radius: 12px;
     overflow-x: hidden;
 }
@@ -383,7 +383,7 @@ header {
     margin-top: 10px; 
     padding-top: 10px;
     padding-bottom: 20px;
-    margin-left: 125px;
+    margin-left: 40px;
     margin-bottom: 50px;
     border-bottom: 1px solid var(--secondary-color);
     box-shadow: 0 10px 8px -8px rgb(106, 3, 3);

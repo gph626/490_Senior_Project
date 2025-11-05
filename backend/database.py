@@ -93,6 +93,29 @@ class APIKey(Base):
     user = relationship("User", back_populates="api_keys")
 
 
+class Config(Base):
+    __tablename__ = "configs"
+    id = Column(Integer, primary_key=True)
+    org_id = Column(Integer, unique=True, index=True, nullable=False)
+    config_data = Column(JSON, nullable=False)  # Store entire config as JSON
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+
+class AlertHistory(Base):
+    __tablename__ = "alert_history"
+    id = Column(Integer, primary_key=True)
+    leak_id = Column(Integer, ForeignKey("leaks.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    alert_type = Column(String, nullable=False)  # 'webhook' or 'email'
+    destination = Column(String, nullable=False)  # webhook URL or email address
+    status = Column(String, nullable=False)  # 'sent', 'failed', 'pending'
+    error_message = Column(Text, nullable=True)
+    sent_at = Column(DateTime, default=datetime.datetime.utcnow)
+    leak = relationship("Leak")
+    user = relationship("User")
+
+
 def init_db():
     # Refresh engine in case DB_PATH changed 
     global ENGINE, SessionLocal

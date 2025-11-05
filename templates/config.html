@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crawler Configuration</title>
+    <link rel="stylesheet" href="/dashboard/new.css">
+    <link rel="stylesheet" href="/dashboard/base.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('homepage') }}" data-tooltip="Home"><i class="fa-regular fa-house"></i></a></li>
+                    <li><a href="{{ url_for('leaks') }}" data-tooltip="Leaks"><i class="fa-solid fa-spider"></i></a></li>
+                    <li><a href="{{ url_for('alerts') }}" data-tooltip="Alerts"><i class="fa-regular fa-bell"></i></a></li>
+                    <li><a href="{{ url_for('risk_analysis') }}" data-tooltip="Risk Analysis"><i class="fa-solid fa-shield-halved"></i></a></li>
+                    <li><a href="{{ url_for('dashboard') }}" data-tooltip="Dashboard"><i class="fa-regular fa-chart-bar"></i></a></li>
+                    <li><a href="{{ url_for('reports') }}" data-tooltip="Reports"><i class="fa-regular fa-file-lines"></i></a></li>
+                    <li><a class="active" href="{{ url_for('config') }}" data-tooltip="Settings"><i class="fa-solid fa-gear"></i></a></li>
+                    <li><a href="{{ url_for('resources_route') }}" data-tooltip="Resources"><i class="fa-regular fa-file"></i></a></li>
+                    <li><a href="{{ url_for('account') }}" data-tooltip="Account"><i class="fa-regular fa-circle-user"></i></a></li>
+                </ul>
+            </nav>
+        </aside>
+        <main>
+            <div class="section-heading">
+                <h2>Crawler Configuration</h2>
+            </div>
+            
+            <section id="config">
+                <!-- Tabs for different config sections -->
+                <div class="tabs" style="margin-bottom: 20px;">
+                    <button class="tab-btn active" data-tab="watchlist-tab">Watchlist</button>
+                    <button class="tab-btn" data-tab="crawlers-tab">Crawlers</button>
+                    <button class="tab-btn" data-tab="alerts-tab">Alerts</button>
+                </div>
+
+                <!-- Watchlist Configuration -->
+                <div id="watchlist-tab" class="tab-content active">
+                    <section class="dashboard-item">
+                        <h3>Watchlist Configuration</h3>
+                        <p class="muted" style="margin-bottom: 16px;">Define domains, emails, and keywords to monitor across all crawlers.</p>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 16px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Domains (comma-separated)</label>
+                                <textarea id="watchlistDomains" class="input-wide" rows="3" 
+                                    placeholder="example.com, test.org, mycompany.com"
+                                    style="width: 100%; max-width: 600px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;"></textarea>
+                            </div>
+                            
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Emails (comma-separated)</label>
+                                <textarea id="watchlistEmails" class="input-wide" rows="3" 
+                                    placeholder="admin@example.com, security@company.com"
+                                    style="width: 100%; max-width: 600px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;"></textarea>
+                            </div>
+                            
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Keywords (comma-separated)</label>
+                                <textarea id="watchlistKeywords" class="input-wide" rows="3" 
+                                    placeholder="password, login, credentials, breach, dump"
+                                    style="width: 100%; max-width: 600px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;"></textarea>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Crawler Configuration -->
+                <div id="crawlers-tab" class="tab-content">
+                    <!-- Pastebin Config -->
+                    <section class="dashboard-item" style="margin-bottom: 20px;">
+                        <h3><i class="fa-solid fa-clipboard" style="margin-right: 8px;"></i>Pastebin</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-top: 12px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Limit</label>
+                                <input type="number" id="pastebinLimit" class="input-compact" min="1" max="100" value="5" 
+                                    style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
+                                <small class="muted">Max pastes to fetch per run</small>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Rate Limit (ms)</label>
+                                <input type="number" id="pastebinRateLimit" class="input-compact" min="0" max="5000" value="500" 
+                                    style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
+                                <small class="muted">Wait time between requests</small>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Timeout (sec)</label>
+                                <input type="number" id="pastebinTimeout" class="input-compact" min="5" max="60" value="15" 
+                                    style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
+                                <small class="muted">Request timeout</small>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Tor Config -->
+                    <section class="dashboard-item" style="margin-bottom: 20px;">
+                        <h3><i class="fa-solid fa-user-secret" style="margin-right: 8px;"></i>Tor</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-top: 12px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">SOCKS Port</label>
+                                <input type="number" id="torPort" class="input-compact" min="1024" max="65535" value="9050" 
+                                    style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
+                                <small class="muted">Tor proxy port (9050 or 9150)</small>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Timeout (sec)</label>
+                                <input type="number" id="torTimeout" class="input-compact" min="10" max="120" value="40" 
+                                    style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
+                                <small class="muted">Request timeout (Tor is slow)</small>
+                            </div>
+                        </div>
+                        <div style="margin-top: 12px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 600;">Keywords (comma-separated)</label>
+                            <textarea id="torKeywords" rows="2" 
+                                placeholder="dump, breach, login, database, leak"
+                                style="width: 100%; max-width: 600px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;"></textarea>
+                        </div>
+                    </section>
+
+                    <!-- I2P Config -->
+                    <section class="dashboard-item" style="margin-bottom: 20px;">
+                        <h3><i class="fa-solid fa-network-wired" style="margin-right: 8px;"></i>I2P</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-top: 12px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Proxy Host</label>
+                                <input type="text" id="i2pHost" class="input-wide" value="127.0.0.1" 
+                                    style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Proxy Port</label>
+                                <input type="number" id="i2pPort" class="input-compact" min="1024" max="65535" value="4444" 
+                                    style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Timeout (sec)</label>
+                                <input type="number" id="i2pTimeout" class="input-compact" min="10" max="120" value="40" 
+                                    style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
+                            </div>
+                        </div>
+                        <div style="margin-top: 12px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 600;">Keywords (comma-separated)</label>
+                            <textarea id="i2pKeywords" rows="2" 
+                                placeholder="credential, compromised, breach, account"
+                                style="width: 100%; max-width: 600px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;"></textarea>
+                        </div>
+                    </section>
+
+                    <!-- GitHub Config -->
+                    <section class="dashboard-item">
+                        <h3><i class="fa-brands fa-github" style="margin-right: 8px;"></i>GitHub</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-top: 12px;">
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">API Token</label>
+                                <input type="password" id="githubToken" class="input-wide" placeholder="ghp_xxxxxxxxxxxx" 
+                                    style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
+                                <small class="muted">GitHub personal access token</small>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Limit</label>
+                                <input type="number" id="githubLimit" class="input-compact" min="1" max="100" value="10" 
+                                    style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
+                                <small class="muted">Max results per search</small>
+                            </div>
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Timeout (sec)</label>
+                                <input type="number" id="githubTimeout" class="input-compact" min="5" max="60" value="20" 
+                                    style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
+                            </div>
+                        </div>
+                        <div style="margin-top: 12px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 600;">Keywords (comma-separated)</label>
+                            <textarea id="githubKeywords" rows="2" 
+                                placeholder="password, apikey, secret, aws_access_key_id, private_key"
+                                style="width: 100%; max-width: 600px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;"></textarea>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Alerts Configuration -->
+                <div id="alerts-tab" class="tab-content">
+                    <section class="dashboard-item">
+                        <h3>Alert Settings</h3>
+                        <p class="muted" style="margin-bottom: 16px;">Configure when and how you receive notifications about critical findings.</p>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 20px;">
+                            <div>
+                                <label style="display: flex; align-items: center; cursor: pointer;">
+                                    <input type="checkbox" id="alertsEnabled" checked style="margin-right: 8px; width: 18px; height: 18px;">
+                                    <span style="font-weight: 600;">Enable Automated Alerts</span>
+                                </label>
+                                <small class="muted" style="margin-left: 26px;">Receive notifications when critical leaks are detected</small>
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Alert Threshold</label>
+                                <select id="alertThreshold" class="input-compact" 
+                                    style="width: 100%; max-width: 300px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
+                                    <option value="critical">Critical Only</option>
+                                    <option value="high">High and Above</option>
+                                    <option value="medium">Medium and Above</option>
+                                    <option value="low">All Severities</option>
+                                </select>
+                                <small class="muted">Minimum severity level to trigger alerts</small>
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Email Notifications</label>
+                                <input type="email" id="alertEmail" class="input-wide" placeholder="security@yourcompany.com" 
+                                    style="width: 100%; max-width: 600px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
+                                <small class="muted">Email address to receive alert notifications</small>
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Webhook URL (Optional)</label>
+                                <input type="url" id="alertWebhook" class="input-wide" placeholder="https://hooks.slack.com/services/..." 
+                                    style="width: 100%; max-width: 600px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
+                                <small class="muted">Slack, Discord, or custom webhook URL</small>
+                            </div>
+
+                            <div>
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Check Interval (minutes)</label>
+                                <input type="number" id="alertInterval" class="input-compact" min="1" max="1440" value="15" 
+                                    style="width: 100%; max-width: 300px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
+                                <small class="muted">How often to check for new critical leaks</small>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap;">
+                    <button id="saveConfigBtn" class="btn-primary" style="padding: 10px 24px;">
+                        <i class="fa-solid fa-floppy-disk" style="margin-right: 6px;"></i>Save Configuration
+                    </button>
+                    <button id="resetConfigBtn" class="btn-secondary" style="padding: 10px 24px;">
+                        <i class="fa-solid fa-rotate-left" style="margin-right: 6px;"></i>Reset to Defaults
+                    </button>
+                    <span id="configStatus" class="muted" style="padding: 10px 0;"></span>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="{{ url_for('static', filename='js/config.js') }}"></script>
+</body>
+</html>

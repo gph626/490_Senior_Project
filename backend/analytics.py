@@ -180,3 +180,118 @@ def risk_summary(user_id: int | None = None) -> Dict[str, Any]:
         'total_leaks_indexed': sum(counts.values()),
     }
 
+
+def risk_time_series(days: int = 7, user_id: int | None = None) -> List[Dict[str, Any]]:
+    """Return a daily time series of an overall risk score for the past `days` days.
+
+    Simple scoring heuristic:
+      critical -> 10, high -> 5, medium -> 2, low -> 1, unknown/other -> 0
+
+    Returns a list of {"date": "YYYY-MM-DD", "score": <number>} ordered by date ascending.
+    """
+    from datetime import datetime, timedelta
+
+    # Build date buckets
+    today = datetime.utcnow().date()
+    start_date = today - timedelta(days=max(0, int(days) - 1))
+    buckets: Dict[str, int] = {}
+    date_list: List[str] = []
+    for i in range(0, int(days)):
+        d = start_date + timedelta(days=i)
+        ds = d.isoformat()
+        buckets[ds] = 0
+        date_list.append(ds)
+
+    # Severity weights
+    weights = {
+        'critical': 10,
+        'high': 5,
+        'medium': 2,
+        'low': 1,
+    }
+
+    try:
+        leaks_iter = database._iter_recent_leaks(limit=None, user_id=user_id)
+    except TypeError:
+        leaks_iter = database._iter_recent_leaks()
+
+    for leak in leaks_iter:
+        if user_id is not None and getattr(leak, 'user_id', None) != user_id:
+            continue
+        ts = getattr(leak, 'timestamp', None)
+        if not ts:
+            continue
+        try:
+            leak_date = ts.date().isoformat()
+        except Exception:
+            # If timestamp is a string, try slicing
+            try:
+                leak_date = str(ts)[:10]
+            except Exception:
+                continue
+        if leak_date < start_date.isoformat() or leak_date > today.isoformat():
+            continue
+        sev = (leak.severity or 'unknown').lower()
+        w = weights.get(sev, 0)
+        buckets[leak_date] = buckets.get(leak_date, 0) + w
+
+    # Build ordered list
+    out: List[Dict[str, Any]] = []
+    for ds in date_list:
+        out.append({'date': ds, 'score': buckets.get(ds, 0)})
+    return out
+
+
+def severity_time_series(days: int = 7, user_id: int | None = None) -> List[Dict[str, Any]]:
+    """Return daily counts per severity for the past `days` days.
+
+    Returns a list of {"date": "YYYY-MM-DD", "critical": n, "high": n, "medium": n, "low": n, "unknown": n}
+    ordered by date ascending.
+    """
+    from datetime import datetime, timedelta
+
+    today = datetime.utcnow().date()
+    start_date = today - timedelta(days=max(0, int(days) - 1))
+
+    # Initialize buckets
+    buckets: Dict[str, Dict[str, int]] = {}
+    date_list: List[str] = []
+    sev_keys = ['critical', 'high', 'medium', 'low', 'unknown']
+    for i in range(0, int(days)):
+        d = start_date + timedelta(days=i)
+        ds = d.isoformat()
+        buckets[ds] = {k: 0 for k in sev_keys}
+        date_list.append(ds)
+
+    try:
+        leaks_iter = database._iter_recent_leaks(limit=None, user_id=user_id)
+    except TypeError:
+        leaks_iter = database._iter_recent_leaks()
+
+    for leak in leaks_iter:
+        if user_id is not None and getattr(leak, 'user_id', None) != user_id:
+            continue
+        ts = getattr(leak, 'timestamp', None)
+        if not ts:
+            continue
+        try:
+            leak_date = ts.date().isoformat()
+        except Exception:
+            try:
+                leak_date = str(ts)[:10]
+            except Exception:
+                continue
+        if leak_date < start_date.isoformat() or leak_date > today.isoformat():
+            continue
+        sev = (leak.severity or 'unknown').lower()
+        if sev not in sev_keys:
+            sev = 'unknown'
+        buckets[leak_date][sev] = buckets[leak_date].get(sev, 0) + 1
+
+    out: List[Dict[str, Any]] = []
+    for ds in date_list:
+        row = {'date': ds}
+        row.update(buckets.get(ds, {k: 0 for k in sev_keys}))
+        out.append(row)
+    return out
+

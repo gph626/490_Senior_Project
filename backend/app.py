@@ -137,7 +137,6 @@ ALIASES = {
     'resources': 'resourcespage/resources.html',
     'account': 'accountpage/account.html',
     'alerts': 'dashboardpage/alerts.html',
-    'risk_analysis': 'dashboardpage/risk_analysis.html',
     'reports': 'dashboardpage/reports.html',
     'leaks': 'dashboardpage/leaks.html',
     'login': 'auth/login.html',
@@ -316,18 +315,6 @@ def alerts():
     return render_template('alerts.html', username=username)
 
 
-# Risk Analysis page routes
-@app.route('/risk_analysis')
-def risk_analysis_noext():
-    return redirect('/risk_analysis/')
-
-
-@app.route('/risk_analysis/')
-def risk_analysis():
-    username = session.get('username', 'User')
-    return render_template('risk_analysis.html', username=username)
-
-
 # Reports page routes
 @app.route('/reports')
 def reports_noext():
@@ -377,7 +364,6 @@ def serve_page_dir(page: str):
         'resources': 'resourcespage/resources.html',
         'account': 'accountpage/account.html',
         'alerts': 'dashboardpage/alerts.html',
-        'risk_analysis': 'dashboardpage/risk_analysis.html',
         'reports': 'dashboardpage/reports.html',
         'leaks': 'dashboardpage/leaks.html',
         'index': 'homepage/homepage.html',  

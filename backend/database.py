@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, U
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.types import JSON
-from sqlalchemy import text
+from sqlalchemy import text, func
 from flask_login import UserMixin
 import sys
 import bcrypt
@@ -224,9 +224,11 @@ def get_user_by_username_or_email(login: str) -> User | None:
     login_norm = login.strip().lower()
     session = SessionLocal()
     try:
+        # Do a case-insensitive match for both username and email so users
+        # can login using either value regardless of case.
         user = (
             session.query(User)
-            .filter((User.username == login_norm) | (User.email == login_norm))
+            .filter((func.lower(User.username) == login_norm) | (func.lower(User.email) == login_norm))
             .first()
         )
         return user

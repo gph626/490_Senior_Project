@@ -3,7 +3,6 @@
 :root {
     --primary-color: #1C1E2B; /*#23272F*/
     --secondary-color: #a7001d;
-    --secondary-color-dark: #6e0d10;
     --background-color: #1c1e2b;
     --card-background-color: #2e3143;
     --card-hover-shadow: rgba(0,0,0,0.18);
@@ -33,7 +32,55 @@
     background: linear-gradient(90deg, #C80024 0%, #A7001D 100%);
     box-shadow: 0 4px 16px rgba(167,0,29,0.18);
 }
-
+/* Dropdown styles for sidebar navigation */
+.dropdown {
+    position: relative;
+    display: block;
+    width: auto;
+}
+.dropbtn {
+    background: #23272F;
+    color: #fff;
+    padding: 10px 16px;
+    font-size: 1rem;
+    border: none;
+    border-radius: 0;
+    cursor: pointer;
+    width: auto;
+    text-align: left;
+    margin: 0;
+}
+.dropdown-content {
+    display: none;
+    position: absolute;
+    left: 0;
+    background-color: #23272F;
+    min-width: 160px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.18);
+    z-index: 1;
+    border-radius: 0 0 8px 8px;
+    width: 100%;
+}
+.dropdown-content a {
+    color: #fff;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    font-size: 0.98rem;
+    border-bottom: 1px solid #3D4754;
+}
+.dropdown-content a:last-child {
+    border-bottom: none;
+}
+.dropdown-content a:hover {
+    background-color: #3D4754;
+}
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+.dropdown:hover .dropbtn {
+    background: #3D4754;
+}
 /* Modern Auth Page Styles */
 .modern-auth-bg {
     min-height: 100vh;
@@ -172,10 +219,6 @@ body {
     background-color: #000000;
 }
 
-.container {
-    position: relative;
-}
-
 .sidebar {
     background: var(--primary-color);
     color: #ECECEC;
@@ -198,30 +241,6 @@ body {
     padding: 18px 0 12px 0;
     margin-bottom: 24px;
     width: 80%;
-}
-
-.user-display {
-    position: absolute;
-    top: 10px;
-    right: 20px;
-    color: #ECECEC;
-    z-index: 5;
-}
-
-#user-display {
-    position: absolute;
-    top: 12px;
-    right: 20px;
-    margin: 0;
-    color: var(--text-color);
-    z-index: 6;
-    font-size: 1.05rem;
-}
-
-@media (max-width: 900px) {
-    /* on small screens the sidebar becomes full-width; let the user-display flow with content */
-    .container { position: static; }
-    #user-display, .user-display { position: static; text-align: center; margin: 8px 0; }
 }
 .user-info {
     text-align: center;
@@ -330,7 +349,7 @@ main {
     align-items: flex-start;
     background-color: var(--primary-color);
     /* create a small black cushion around the gray page area */
-    margin: 45px 12px 12px 92px; /* left accounts for 65px sidebar + cushion */
+    margin: 12px 12px 12px 77px; /* left accounts for 65px sidebar + cushion */
     border-radius: 12px;
     overflow-x: hidden;
 }
@@ -364,7 +383,7 @@ header {
     margin-top: 10px; 
     padding-top: 10px;
     padding-bottom: 20px;
-    margin-left: 125px;
+    margin-left: 40px;
     margin-bottom: 50px;
     border-bottom: 1px solid var(--secondary-color);
     box-shadow: 0 10px 8px -8px rgb(106, 3, 3);
@@ -519,9 +538,6 @@ section.report-section {
     }
 }
 
-#alerts {
-    margin: auto;
-}
 /* ----- Data table styles ----- */
 .table-wrap {
     overflow-x: auto;
@@ -700,18 +716,4 @@ ul li a.active {
     box-shadow: 0 10px 8px -8px rgb(106, 3, 3);
     max-width: 400px;
     padding-bottom: 10px;
-}
-
-#refreshAlerts {
-    background-color: var(--secondary-color);
-    border-style: none;
-    color: var(--text-color);
-    padding: 8px;
-    border-radius: 5px;
-    transition: background-color 0.3s;
-}
-
-#refreshAlerts:hover {
-    cursor: pointer;
-    background-color: var(--secondary-color-dark);
 }

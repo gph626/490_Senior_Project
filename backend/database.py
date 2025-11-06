@@ -46,6 +46,7 @@ class Leak(Base):
     names = Column(Text, nullable=True)
     phone_numbers = Column(Text, nullable=True)
     physical_addresses = Column(Text, nullable=True)
+    alerted = Column(Integer, default=0)  # 0 = not alerted, 1 = alerted
 
 class CrawlRun(Base):
     __tablename__ = "crawl_runs"
@@ -91,6 +92,29 @@ class APIKey(Base):
     expires_at = Column(DateTime, nullable=True)
     revoked = Column(Boolean, default=False)
     user = relationship("User", back_populates="api_keys")
+
+
+class Config(Base):
+    __tablename__ = "configs"
+    id = Column(Integer, primary_key=True)
+    org_id = Column(Integer, unique=True, index=True, nullable=False)
+    config_data = Column(JSON, nullable=False)  # Store entire config as JSON
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+
+class AlertHistory(Base):
+    __tablename__ = "alert_history"
+    id = Column(Integer, primary_key=True)
+    leak_id = Column(Integer, ForeignKey("leaks.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    alert_type = Column(String, nullable=False)  # 'webhook' or 'email'
+    destination = Column(String, nullable=False)  # webhook URL or email address
+    status = Column(String, nullable=False)  # 'sent', 'failed', 'pending'
+    error_message = Column(Text, nullable=True)
+    sent_at = Column(DateTime, default=datetime.datetime.utcnow)
+    leak = relationship("Leak")
+    user = relationship("User")
 
 
 def init_db():
@@ -325,8 +349,12 @@ def recompute_severity_for_user_leaks(user_id: int) -> int:
             ents = _build_entities_from_leak(lk)
             new_sev = compute_severity_with_assets(ents, assets_sets)
             if (lk.severity or '').lower() != new_sev:
+                old_severity = lk.severity
                 lk.severity = new_sev
+                # Reset alerted status when severity changes so it can be re-alerted
+                lk.alerted = 0
                 updated += 1
+                logger.info(f"Leak {lk.id}: severity changed from '{old_severity}' to '{new_sev}', reset alerted=0")
         if updated:
             session.commit()
         return updated
@@ -349,8 +377,12 @@ def recompute_severity_for_leak(leak_id: int) -> bool:
         ents = _build_entities_from_leak(lk)
         new_sev = compute_severity_with_assets(ents, assets_sets)
         if (lk.severity or '').lower() != new_sev:
+            old_severity = lk.severity
             lk.severity = new_sev
+            # Reset alerted status when severity changes so it can be re-alerted
+            lk.alerted = 0
             session.commit()
+            logger.info(f"Leak {leak_id}: severity changed from '{old_severity}' to '{new_sev}', reset alerted=0")
             return True
         return False
     finally:
@@ -649,6 +681,7 @@ def leak_to_dict(leak: Leak) -> dict:
         'names': leak.names,
         'phone_numbers': leak.phone_numbers,
         'physical_addresses': leak.physical_addresses,
+        'alerted': leak.alerted if hasattr(leak, 'alerted') else 0,
 
     }
     return out

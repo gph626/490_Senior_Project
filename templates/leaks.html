@@ -10,15 +10,18 @@
 </head>
 <body>
   <div class="container">
-    <h3 id="user-display">Hello, {{ username }}</h3>
     <aside class="sidebar">
       <nav>
         <ul>
-          <li><a href="{{ url_for('homepage') }}"><i class="fa-regular fa-house"></i></a></li>
-          <li><a href="{{ url_for('dashboard') }}"><i class="fa-regular fa-chart-bar"></i></a></li>
-          <li><a href="{{ url_for('reports') }}"><i class="fa-regular fa-file"></i></a></li>
-          <li><a href="{{ url_for('resources_route') }}"><i class="fa-regular fa-file"></i></a></li>
-          <li><a href="{{ url_for('account') }}"><i class="fa-regular fa-circle-user"></i></a></li>
+          <li><a href="{{ url_for('homepage') }}" data-tooltip="Home"><i class="fa-regular fa-house"></i></a></li>
+          <li><a class="active" href="{{ url_for('leaks') }}" data-tooltip="Leaks"><i class="fa-solid fa-spider"></i></a></li>
+          <li><a href="{{ url_for('alerts') }}" data-tooltip="Alerts"><i class="fa-regular fa-bell"></i></a></li>
+          <li><a href="{{ url_for('risk_analysis') }}" data-tooltip="Risk Analysis"><i class="fa-solid fa-shield-halved"></i></a></li>
+          <li><a href="{{ url_for('dashboard') }}" data-tooltip="Dashboard"><i class="fa-regular fa-chart-bar"></i></a></li>
+          <li><a href="{{ url_for('reports') }}" data-tooltip="Reports"><i class="fa-regular fa-file-lines"></i></a></li>
+          <li><a href="{{ url_for('config') }}" data-tooltip="Settings"><i class="fa-solid fa-gear"></i></a></li>
+          <li><a href="{{ url_for('resources_route') }}" data-tooltip="Resources"><i class="fa-regular fa-file"></i></a></li>
+          <li><a href="{{ url_for('account') }}" data-tooltip="Account"><i class="fa-regular fa-circle-user"></i></a></li>
         </ul>
       </nav>
     </aside>
@@ -26,46 +29,52 @@
     <div class="section-heading">
       <h2>Leaks</h2>
     </div>
+    
+    <!-- Timer Display -->
+    <div class="alert-timer" style="padding: 12px 20px; margin: 0 40px 20px; background: #23272F; border-radius: 8px; color: #9aa2ac; font-size: 14px; text-align: center; border: 1px solid #3D4754; max-width: 1200px; margin-left: auto; margin-right: auto;">
+        <i class="fa-solid fa-clock"></i> Loading timer...
+    </div>
+    
     <section style="width:100%; max-width:1200px; margin:0 auto;">
 
         <!-- Toolbar: crawler run buttons moved to the top -->
         <div class="dashboard-item" style="margin-bottom:12px;">
-          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-            <button id="runPastebinBtn" class="btn-primary">Run Pastebin</button>
-            <input id="pasteLimit" type="number" min="1" max="100" value="10" class="input-compact" />
-            <span class="muted">Limit</span>
-            <span id="runStatus" class="muted"></span>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content: space-between;">
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; flex: 1;">
+              <button id="runPastebinBtn" class="btn-primary">Run Pastebin</button>
+              <span id="runStatus" class="muted"></span>
 
-            <button id="runGithubBtn" class="btn-primary">Run GitHub</button>
-            <input id="githubLimit" type="number" min="1" max="50" value="5" class="input-compact" />
-            <span class="muted">Limit</span>
-            <span id="githubStatus" class="muted"></span>
+              <button id="runGithubBtn" class="btn-primary">Run GitHub</button>
+              <span id="githubStatus" class="muted"></span>
 
-            <button id="runTorBtn" class="btn-primary">Fetch via Tor</button>
-            <input id="torPort" type="number" placeholder="9150" value="9150" class="input-compact" />
-            <span id="torStatus" class="muted"></span>
+              <button id="runTorBtn" class="btn-primary">Fetch via Tor</button>
+              <input id="torPort" type="number" placeholder="9150" value="9150" class="input-compact" style="width: 80px;" />
+              <span id="torStatus" class="muted"></span>
 
-            <button id="runI2PBtn" class="btn-primary">Fetch via I2P</button>
-            <input id="i2pUrl" placeholder="http://zzz.i2p/" class="input-wide" />
-            <input id="i2pPort" type="number" placeholder="4444" class="input-compact" />
-            <span id="i2pStatus" class="muted"></span>
+              <button id="runI2PBtn" class="btn-primary">Fetch via I2P</button>
+              <input id="i2pUrl" placeholder="http://zzz.i2p/" class="input-wide" style="width: 180px;" />
+              <input id="i2pPort" type="number" placeholder="4444" class="input-compact" style="width: 80px;" />
+              <span id="i2pStatus" class="muted"></span>
 
-            <button id="insertMockLeaksBtn" class="btn-secondary">Insert Mock Leaks</button>
-            <span id="mockInsertStatus" class="muted"></span>
+              <button id="insertMockLeaksBtn" class="btn-secondary">Insert Mock Leaks</button>
+              <span id="mockInsertStatus" class="muted"></span>
+            </div>
+            
+            <!-- Settings Button -->
+            <a href="{{ url_for('config') }}" style="text-decoration: none;">
+              <button class="btn-secondary" style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
+                <i class="fa-solid fa-gear"></i>
+                <span>Crawler Settings</span>
+              </button>
+            </a>
           </div>
           <div class="muted" style="font-size: 12px; margin-top:6px;">
             Note: Tor requires a local SOCKS proxy (127.0.0.1:9050 or 9150). I2P requires a local HTTP proxy (127.0.0.1:4444).
           </div>
         </div>
 
-        <!-- Tabs: Leaks and Watchlist -->
-        <div class="tabs">
-          <button class="tab-btn active" data-tab="leaksTab">Leaks</button>
-          <button class="tab-btn" data-tab="watchlistTab">Watchlist</button>
-        </div>
-
-        <!-- Leaks tab content -->
-        <section id="leaksTab" class="tab-content active">
+        <!-- Leaks section (no tabs, just content) -->
+        <section id="leaksSection" style="margin-top: 20px;">
           <div class="align-left-tight" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0 12px 0;">
             <select id="srcFilter" title="Source" class="input-compact">
               <option value="">any source</option>
@@ -90,55 +99,20 @@
             <span id="pageInfo" class="muted">Showing 0 of 0</span>
             <button id="nextPage" class="btn-primary" title="Next" style="padding:4px 10px;">›</button>
           </div>
-          <div class="table-wrap align-left-tight">
-            <table class="data" id="leaks-table">
+          <div class="table-wrap align-left-tight" style="overflow-x: auto; max-width: 100%;">
+            <table class="data" id="leaks-table" style="width: 100%; table-layout: fixed;">
               <thead>
                 <tr>
-                  <th>Source</th>
-                  <th>Title</th>
-                  <th>Entities</th>
-                  <th>Severity</th>
-                  <th></th>
+                  <th style="width: 10%;">Source</th>
+                  <th style="width: 30%;">Title</th>
+                  <th style="width: 35%;">Entities</th>
+                  <th style="width: 10%;">Severity</th>
+                  <th style="width: 10%;">Alert Status</th>
+                  <th style="width: 5%;"></th>
                 </tr>
               </thead>
               <tbody>
-                <tr><td colspan="5" class="muted">Loading…</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- Watchlist tab content -->
-        <section id="watchlistTab" class="tab-content">
-          <h3 style="margin-top:0">Watchlist (affects severity)</h3>
-          <div class="align-left-tight" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:8px;">
-            <select id="assetType" class="input-compact">
-              <option value="email">email</option>
-              <option value="domain">domain</option>
-              <option value="ip">ip</option>
-              <option value="btc">btc</option>
-              <option value="ssn">ssn</option>
-              <option value="password">password</option>
-              <option value="name">name</option>
-              <option value="phone">phone</option>
-              <option value="address">address</option>
-            </select>
-            <input id="assetValue" placeholder="value (e.g., user@acme.com or acme.com)" class="input-wide" />
-            <button id="addAsset" class="btn-primary">Add</button>
-            <span id="assetStatus" class="muted"></span>
-          </div>
-          <div class="table-wrap align-left-tight">
-            <table class="data" id="assets-table">
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Value</th>
-                  <th>Added</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr><td colspan="4" class="muted">Loading…</td></tr>
+                <tr><td colspan="6" class="muted">Loading…</td></tr>
               </tbody>
             </table>
           </div>
@@ -160,6 +134,7 @@
     // Persist API key for API calls from JS (used by crawlers/assets endpoints)
     try { if ('{{ api_key or '' }}') { localStorage.setItem('api_key', '{{ api_key or '' }}'); } } catch (e) {}
   </script>
+  <script src="{{ url_for('static', filename='js/alert_timer.js') }}"></script>
   <script src="{{ url_for('static', filename='js/leaks.js') }}"></script>
 </body>
 </html>

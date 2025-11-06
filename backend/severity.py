@@ -189,3 +189,26 @@ def compute_severity_with_assets(
     if score >= 1:
         return 'low'
     return 'zero severity'
+
+
+def severity_label_to_score(severity_label: str) -> int:
+    """Convert a severity label to a numeric score for threshold filtering.
+    
+    Args:
+        severity_label: Severity string like 'critical', 'high', 'medium', 'low', 'zero severity'
+    
+    Returns:
+        Numeric score: critical=100, high=75, medium=50, low=25, zero/unknown=0
+    """
+    label = (severity_label or 'info').lower().strip()
+    
+    if label == 'critical':
+        return 100
+    elif label == 'high':
+        return 75
+    elif label == 'medium':
+        return 50
+    elif label == 'low':
+        return 25
+    else:  # zero severity, info, unknown, etc.
+        return 0

@@ -6,7 +6,7 @@
   function renderLeaks(items){
     const tbody = document.querySelector('#leaks-table tbody');
     if (!Array.isArray(items) || items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="muted">No leaks yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="muted">No leaks yet.</td></tr>';
       return;
     }
     const rows = items.map(it => {
@@ -45,11 +45,17 @@
       const entsHtml = labeled.join(' ');
       const src = (it.source || '').toLowerCase();
       const srcLabel = (it.source || '').toUpperCase();
+      // Alert status badge
+      const alerted = it.alerted === 1;
+      const alertBadge = alerted 
+        ? '<span class="badge" style="background:#28a745; color:#fff;">✓ Sent</span>'
+        : '<span class="badge" style="background:#6c757d; color:#fff;">⏳ Pending</span>';
       return `<tr class="leak-row" data-id="${it.id}">
                 <td><span class="chip chip-${src}">${srcLabel}</span></td>
                 <td><span class="wrap-title" title="${title.replaceAll('"','&quot;')}">${title}</span></td>
                 <td style="max-width:380px">${entsHtml || '<span class=\"muted\">—</span>'}</td>
                 <td><span class="badge ${sevClass}">${it.severity || 'unknown'}</span></td>
+                <td class="nowrap">${alertBadge}</td>
                 <td class="nowrap"><button data-id="${it.id}" class="delLeak" style="padding:4px 8px; border:none; border-radius:6px; cursor:pointer;">Delete</button></td>
               </tr>`;
     }).join('');
@@ -141,7 +147,6 @@
   async function runPastebin(){
     const runStatus = document.getElementById('runStatus');
     runStatus.textContent = 'Running…';
-    const limit = parseInt(document.getElementById('pasteLimit').value || '10', 10);
     try {
       const res = await fetch('/api/crawlers/pastebin/run', {
         method: 'POST',
@@ -149,7 +154,7 @@
           'Content-Type': 'application/json',
           'X-API-Key': API_KEY
         },
-        body: JSON.stringify({ limit })
+        body: JSON.stringify({})  // Use defaults from config
       });
 
       const data = await res.json();
@@ -248,7 +253,6 @@
   async function runGithub(){
     const status = document.getElementById('githubStatus');
     status.textContent = 'Running…';
-    const limit = parseInt(document.getElementById('githubLimit').value || '5', 10);
     try {
       const res = await fetch('/api/crawlers/github/run', {
         method: 'POST',
@@ -256,7 +260,7 @@
           'Content-Type': 'application/json',
           'X-API-Key': API_KEY
         },
-        body: JSON.stringify({ limit })
+        body: JSON.stringify({})  // Use defaults from config
       });
 
       const data = await res.json();
@@ -269,77 +273,19 @@
   }
 
 
-  // Freenet functionality removed
+  // Removed assets/watchlist management - now handled in config page
 
-
-  async function loadAssets(){
-    const res = await fetch('/api/assets', { headers: { 'X-API-Key': API_KEY } });
-    const items = await res.json();
-    const tbody = document.querySelector('#assets-table tbody');
-    if (!Array.isArray(items) || items.length === 0){
-      tbody.innerHTML = '<tr><td colspan="4" class="muted">No items yet.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = items.map(a => `
-      <tr>
-        <td>${a.type}</td>
-        <td><span class="truncate" title="${a.value}">${a.value}</span></td>
-        <td class="nowrap">${a.created_at ? new Date(a.created_at).toLocaleString() : ''}</td>
-        <td><button data-id="${a.id}" class="delAsset" style="padding:4px 8px; border:none; border-radius:6px; cursor:pointer;">Delete</button></td>
-      </tr>
-    `).join('');
-    document.querySelectorAll('.delAsset').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const id = btn.getAttribute('data-id');
-        await fetch('/api/assets/' + id, { method: 'DELETE', headers: { 'X-API-Key': API_KEY } });
-        await loadAssets();
-      });
-    });
-  }
-
-  async function addAsset(){
-    const type = (document.getElementById('assetType').value || '').trim();
-    const value = (document.getElementById('assetValue').value || '').trim();
-    const status = document.getElementById('assetStatus');
-    status.textContent = '';
-    if (!type || !value){
-      status.textContent = 'Type and value required';
-      return;
-    }
-    const res = await fetch('/api/assets', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
-      body: JSON.stringify({ type, value })
-    });
-    if (!res.ok){
-      const err = await res.json().catch(() => ({}));
-      status.textContent = err.message || 'Error';
-      return;
-    }
-    document.getElementById('assetValue').value = '';
-    await loadAssets();
-    status.textContent = 'Saved';
-  }
 
   document.addEventListener('DOMContentLoaded', () => {
     loadLeaks();
-    // tabs behavior
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const target = btn.getAttribute('data-tab');
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        btn.classList.add('active');
-        document.getElementById(target)?.classList.add('active');
-      });
-    });
+    // Removed tab switching - no longer using tabs on leaks page
     document.getElementById('runPastebinBtn')?.addEventListener('click', runPastebin);
     document.getElementById('runTorBtn')?.addEventListener('click', runTor);
     document.getElementById('runI2PBtn')?.addEventListener('click', runI2P);
-  document.getElementById('applyFilters')?.addEventListener('click', () => applyAndRender(true));
-  document.getElementById('prevPage')?.addEventListener('click', () => { CURRENT_PAGE -= 1; applyAndRender(false); });
-  document.getElementById('nextPage')?.addEventListener('click', () => { CURRENT_PAGE += 1; applyAndRender(false); });
-    loadAssets();
-    document.getElementById('addAsset')?.addEventListener('click', addAsset);
+    document.getElementById('applyFilters')?.addEventListener('click', () => applyAndRender(true));
+    document.getElementById('prevPage')?.addEventListener('click', () => { CURRENT_PAGE -= 1; applyAndRender(false); });
+    document.getElementById('nextPage')?.addEventListener('click', () => { CURRENT_PAGE += 1; applyAndRender(false); });
+    // Removed watchlist/assets code - now managed in config page
     document.getElementById('runGithubBtn')?.addEventListener('click', runGithub);
     document.getElementById('insertMockLeaksBtn')?.addEventListener('click', async () => {
       const status = document.getElementById('mockInsertStatus');

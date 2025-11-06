@@ -194,6 +194,36 @@
     transition: transform 0.2s;
 }
 
+/* Sidebar tooltip styles */
+.sidebar nav ul li {
+    position: relative;
+}
+
+.sidebar nav ul li a::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 75px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #23272F;
+    color: #ECECEC;
+    padding: 8px 12px;
+    border-radius: 6px;
+    white-space: nowrap;
+    font-size: 0.9rem;
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, left 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    z-index: 9999;
+}
+
+.sidebar nav ul li a:hover::after {
+    opacity: 1;
+    left: 85px;
+}
+
 body {
     font-family: Montserrat;
     margin: 0;
@@ -509,6 +539,30 @@ table.data {
     margin-left: 0 !important;
 }
 
+/* Make the leaks table section wider for better readability */
+#leaksSection {
+    max-width: 100% !important;
+    width: 100% !important;
+    overflow: visible;
+}
+
+#leaksSection .table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+#leaksSection table.data {
+    width: 100%;
+    table-layout: fixed;
+}
+
+/* Prevent table cells from overflowing */
+#leaks-table td {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+}
+
 table.data th, table.data td {
     padding: 10px 12px;
     text-align: left;
@@ -618,8 +672,85 @@ table.data tr:hover {
     cursor: pointer;
 }
 .tab-btn.active { background: #A7001D; color: #fff; border-color: transparent; }
+
+/* Professional tab buttons for alerts page */
+.tab-button {
+    background: #23272F;
+    color: #9aa2ac;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 14px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 8px 8px 0 0;
+}
+.tab-button:hover {
+    background: #2e3143;
+    color: #ECECEC;
+}
+.tab-button.active {
+    background: #2e3143;
+    color: #ECECEC;
+    border-bottom-color: #A7001D;
+}
+
 .tab-content { display: none; width: 100%; max-width: 100%; }
 .tab-content.active { display: block; width: 100%; max-width: 100%; }
+
+/* Severity badges for alerts */
+.severity-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.severity-critical {
+    background: rgba(244, 67, 54, 0.15);
+    color: #f44336;
+    border: 1px solid rgba(244, 67, 54, 0.3);
+}
+.severity-high {
+    background: rgba(255, 152, 0, 0.15);
+    color: #FF9800;
+    border: 1px solid rgba(255, 152, 0, 0.3);
+}
+.severity-medium {
+    background: rgba(255, 235, 59, 0.15);
+    color: #FFEB3B;
+    border: 1px solid rgba(255, 235, 59, 0.3);
+}
+.severity-low {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4CAF50;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+.severity-info {
+    background: rgba(33, 150, 243, 0.15);
+    color: #2196F3;
+    border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+/* Alert status badges */
+.status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.status-sent {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4CAF50;
+}
+.status-failed {
+    background: rgba(244, 67, 54, 0.15);
+    color: #f44336;
+}
 
 /* Modal styles */
 .modal-backdrop {

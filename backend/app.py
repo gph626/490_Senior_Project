@@ -65,6 +65,15 @@ app = Flask(
 )
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
 
+# Session and cookie configuration
+# - PERMANENT_SESSION_LIFETIME controls how long a "permanent" session lives.
+# - We default to 30 minutes but allow override via env var SESSION_TIMEOUT_MINUTES.
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=int(os.environ.get("SESSION_TIMEOUT_MINUTES", "30")))
+# Cookie security flags; allow overriding secure flag via env var for local dev if needed.
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get("SESSION_COOKIE_SECURE", "False").lower() in ("1", "true", "yes")
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
 # --- Simple in-memory rate limiting (IP based) ---
 RATE_LIMIT_WINDOW = 60  # seconds
 RATE_LIMIT_MAX = 15     # max attempts per window
@@ -81,6 +90,23 @@ def load_user(user_id):
     user = session.get(User, int(user_id))
     session.close()
     return user
+
+
+@app.before_request
+def refresh_session_expiry():
+    """Refresh the expiry for permanent sessions on activity.
+
+    When session.permanent is True, setting session.modified=True will cause
+    Flask to issue a Set-Cookie with an updated expiry (based on
+    PERMANENT_SESSION_LIFETIME). This implements an inactivity timeout.
+    """
+    try:
+        if current_user.is_authenticated and getattr(session, 'permanent', False):
+            # mark modified so the cookie expiry will be refreshed
+            session.modified = True
+    except Exception:
+        # be conservative — don't break requests on any session issues
+        pass
 
 @app.before_request
 def api_key_auth_middleware():
@@ -142,8 +168,7 @@ ALIASES = {
     'login': 'auth/login.html',
     'register': 'auth/register.html',
 }
-# Secret key for session management
-app.secret_key = 'supersecretkey'  # Change this in production
+# Secret key for session management is set from environment earlier. Do not hard-code here.
 
 PUBLIC_ROUTES = [
     '/login', '/register', '/auth/login.html', '/auth/register.html', '/static/', '/favicon.ico', '/dashboard/base.css', '/api/check_email',
@@ -156,6 +181,17 @@ def get_current_user_id():
     uid = getattr(g, 'current_user_id', None)
     if uid:
         return uid
+    # Prefer Flask-Login's current_user when available
+    try:
+        if current_user.is_authenticated:
+            # current_user.get_id() is usually a str; try to return int when possible
+            cid = current_user.get_id()
+            try:
+                return int(cid)
+            except Exception:
+                return cid
+    except Exception:
+        pass
     return session.get('user_id')
 
 
@@ -178,9 +214,14 @@ def check_api_key():
             return
 
         # Allow session fallback ONLY for safe (GET) routes, not crawler runs
-        if request.method == "GET" and session.get("logged_in") and session.get("user_id"):
-            g.current_user_id = session["user_id"]
-            return
+        if request.method == "GET" and current_user.is_authenticated:
+            try:
+                cid = current_user.get_id()
+                g.current_user_id = int(cid) if cid is not None else None
+            except Exception:
+                g.current_user_id = current_user.get_id()
+            if g.current_user_id:
+                return
 
         # No API key and not a safe session fallback → reject
         return jsonify({"error": "Invalid or missing API key"}), 401
@@ -198,9 +239,9 @@ def require_login():
     # Allow /auth/login.html and /auth/register.html without login
     if path in ['/auth/login.html', '/auth/register.html']:
         return None
-    if path.startswith("/api") and not session.get("logged_in"):
+    if path.startswith("/api") and not current_user.is_authenticated:
         return redirect("/login")
-    if not session.get('logged_in'):
+    if not current_user.is_authenticated:
         return redirect('/auth/login.html')
     return None
 
@@ -1484,7 +1525,11 @@ def login():
         return render_template('login.html', login_val=username_or_email)
     
     login_user(user)
-    
+    # Use permanent sessions so PERMANENT_SESSION_LIFETIME is applied.
+    session.permanent = True
+    # mark modified so cookie expiry is refreshed immediately
+    session.modified = True
+
     session['logged_in'] = True
     session['username'] = user.username
     session['user_id'] = user.id

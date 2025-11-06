@@ -201,3 +201,38 @@ Tables in DB: [('leaks',)]
 ---
 
 For further README changes or contributor instructions, let me know!
+
+## Session & Authentication (developer note)
+
+The application uses Flask sessions (signed cookies) and Flask-Login for authentication. A few environment variables control session behavior; set them in your environment or a .env file when running the app in development or production:
+
+- `FLASK_SECRET_KEY` (required in production) — the secret used to sign session cookies. Do NOT hard-code this; set a long random value in prod.
+- `SESSION_TIMEOUT_MINUTES` (default: 30) — inactivity timeout for "permanent" sessions. The app sets `PERMANENT_SESSION_LIFETIME` from this value.
+- `SESSION_COOKIE_SECURE` (default: false) — set to `true` in production (ensures the session cookie is marked Secure and only sent over HTTPS).
+
+Recommended auth/session pattern used in this codebase:
+
+- Use `Flask-Login` and check `current_user.is_authenticated` in request handlers and templates rather than relying on a custom `session['logged_in']` flag.
+- On successful login call `login_user(user)` and set `session.permanent = True` to apply the configured `PERMANENT_SESSION_LIFETIME`.
+- To implement an inactivity timeout that refreshes on user activity, set `session.modified = True` during `before_request` when `current_user.is_authenticated`.
+- For persistent "remember me" behavior use `login_user(user, remember=True)` and configure `REMEMBER_COOKIE_DURATION` if desired.
+
+Example (already applied in `backend/app.py`):
+
+```py
+# in backend/app.py (app config)
+from datetime import timedelta
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=int(os.environ.get('SESSION_TIMEOUT_MINUTES', '30')))
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'False').lower() in ('1','true','yes')
+
+# on successful login
+login_user(user)
+session.permanent = True
+session.modified = True  # refresh cookie expiry immediately
+
+# before_request (refresh expiry on activity)
+if current_user.is_authenticated and getattr(session, 'permanent', False):
+  session.modified = True
+```
+
+If you need server-side session invalidation (revoke sessions on password reset, etc.), consider a server-side session store (Redis or DB-backed sessions) or track active session IDs in a table so you can expire them centrally.

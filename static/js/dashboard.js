@@ -72,6 +72,47 @@
     return String(dateStr);
   }
 
+  // Format date for crawl runs to MM/DD/YY (e.g. 11/05/25)
+  function formatDateSlash(dateStr){
+    if(!dateStr) return '';
+    const d = new Date(dateStr);
+    if(!isNaN(d.getTime())){
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const dd = String(d.getDate()).padStart(2,'0');
+      const yy = String(d.getFullYear()).slice(-2);
+      return `${mm}/${dd}/${yy}`;
+    }
+    // fallback parse YYYY-MM-DD
+    const m = String(dateStr).match(/(\d{4})-(\d{2})-(\d{2})/);
+    if(m){ return `${m[2]}/${m[3]}/${m[1].slice(-2)}`; }
+    return String(dateStr);
+  }
+
+  // Format time for crawl runs to HH:MM (24-hour, zero-padded)
+  function formatTimeHM(dateStr){
+    if(!dateStr) return '';
+    const d = new Date(dateStr);
+    if(!isNaN(d.getTime())){
+      // Use toLocaleTimeString to format in the user's local timezone
+      // and include a short timezone name (e.g. "1:05 PM PST").
+      try {
+        // Localized 12-hour time without timezone (e.g. "1:05 PM").
+        return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
+      } catch (e) {
+        // Fallback to manual 12-hour formatting if locale options unsupported
+        let hours = d.getHours();
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        if (hours === 0) hours = 12;
+        return `${hours}:${minutes} ${ampm}`;
+      }
+    }
+    // fallback to locale short time trimmed to HH:MM
+    const t = String(dateStr).match(/(\d{1,2}:\d{2})/);
+    return t ? t[1] : String(dateStr);
+  }
+
   async function fetchJson(url){
     const res = await fetch(url);
     if(!res.ok) throw new Error('HTTP '+res.status);
@@ -302,15 +343,17 @@
       runs.forEach(run => {
         const tr = document.createElement('tr');
 
-        const finished = run.finished_at ? formatDateTime(run.finished_at) : '-';
-        const started = run.started_at ? formatDateTime(run.started_at) : '-';
+        const started = run.started_at ? run.started_at : null;
+        const finished = run.finished_at ? run.finished_at : null;
+        const dateCell = started ? formatDateSlash(started) : '-';
+        const startCell = started ? formatTimeHM(started) : '-';
+        const finishedCell = finished ? formatTimeHM(finished) : '-';
 
         tr.innerHTML = `
-          <td>${run.id}</td>
           <td>${run.source}</td>
-          <td>${run.status}</td>
-          <td>${started}</td>
-          <td>${finished}</td>
+          <td>${dateCell}</td>
+          <td>${startCell}</td>
+          <td>${finishedCell}</td>
         `;
         tableBody.appendChild(tr);
       });

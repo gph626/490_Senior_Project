@@ -12,12 +12,14 @@
 </head>
 <body>
     <div class="container">
+        <h3 id="user-display">Hello, {{ username }}</h3>
         <aside class="sidebar">
             <nav>
                 <ul>
                     <li><a href="{{ url_for('homepage') }}"><i class="fa-regular fa-house"></i></a></li>
                     <li><a class="active" href="{{ url_for('dashboard') }}"><i class="fa-regular fa-chart-bar"></i></a></li>
-                    <li><a href="{{ url_for('resources_route') }}"><i class="fa-regular fa-file"></i></a></li>
+                    <li><a href="{{ url_for('reports') }}"><i class="fa-regular fa-file"></i></a></li>
+                    <li><a href="{{ url_for('resources_route') }}"><i class="fa-solid fa-shield-halved"></i></a></li>
                     <li><a href="{{ url_for('account') }}"><i class="fa-regular fa-circle-user"></i></a></li>
                 </ul>
             </nav>

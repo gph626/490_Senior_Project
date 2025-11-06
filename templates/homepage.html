@@ -21,24 +21,14 @@
         </div>
     </header> -->
     <div class="container">
+        <h3 id="user-display">Hello, {{ username }}</h3>
         <aside class="sidebar">
-            <!-- <div class="sidebar-user">
-                <div class="user-info user-dropdown">
-                    <span class="user-label">Logged in as</span>
-                    <div class="dropdown">
-                        <a href="#" class="dropbtn user-name user-dropdown-btn">{{ username }} ▼</a>
-                        <div class="dropdown-content user-dropdown-content">
-                            <a href="{{ url_for('account') }}">Account</a>
-                            <a href="/logout">Logout</a>
-                        </div>
-                    </div>
-                </div>
-            </div> -->
             <nav>
                 <ul>
                     <li><a class="active" href="{{ url_for('homepage') }}"><i class="active-link fa-regular fa-house"></i></a></li>
                     <li><a href="{{ url_for('dashboard') }}"><i class="fa-regular fa-chart-bar"></i></a></li>
-                    <li><a href="{{ url_for('resources_route') }}"><i class="fa-regular fa-file"></i></a></li>
+                    <li><a href="{{ url_for('reports') }}"><i class="fa-regular fa-file"></i></a></li>
+                    <li><a href="{{ url_for('resources_route') }}"><i class="fa-solid fa-shield-halved"></i></a></li>
                     <li><a href="{{ url_for('account') }}"><i class="fa-regular fa-circle-user"></i></a></li>
                 </ul>
             </nav>
@@ -59,7 +49,7 @@
                                     <div class="home-card animate__animated animate__fadeInDown" style="cursor:pointer;">
                                             <i class="fa-solid fa-spider"></i>
                                             <p><span class="dynamic-highlight">Dark Web Crawler Module</span></p>
-                                            <p>Monitors Tor, I2P, paste sites</p>
+                                            <p>Monitors high risk dark web environments</p>
                                     </div>
                                 </a>
                                 <a href="{{ url_for('dashboard') }}" style="text-decoration:none;color:inherit;">

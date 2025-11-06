@@ -45,6 +45,9 @@
                         fetch('/api/account/delete', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
+                            // Ensure the session cookie is sent for same-origin requests
+                            credentials: 'same-origin',
+                            body: JSON.stringify({ csrf_token: '{{ csrf_token() }}' })
                         })
                         .then(res => res.json())
                         .then(data => {

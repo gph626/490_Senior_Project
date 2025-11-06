@@ -197,7 +197,8 @@ def get_current_user_id():
 
 @app.before_request
 def check_api_key():
-    exempt_paths = ["/login", "/register", "/api/keys/new"]
+    # Allow certain endpoints to use session-based auth (no API key required)
+    exempt_paths = ["/login", "/register", "/api/keys/new", "/api/account/delete", "/api/reset_password"]
     if any(request.path.startswith(p) for p in exempt_paths):
         return
 
@@ -239,9 +240,10 @@ def require_login():
     # Allow /auth/login.html and /auth/register.html without login
     if path in ['/auth/login.html', '/auth/register.html']:
         return None
-    if path.startswith("/api") and not current_user.is_authenticated:
+    # Allow session-based auth (session['user_id']) for both API and normal routes
+    if path.startswith("/api") and not (current_user.is_authenticated or session.get('user_id')):
         return redirect("/login")
-    if not current_user.is_authenticated:
+    if not (current_user.is_authenticated or session.get('user_id')):
         return redirect('/auth/login.html')
     return None
 
@@ -1656,11 +1658,29 @@ def register_trailing():
 # Delete account endpoint
 @app.route("/api/account/delete", methods=["POST"])
 def api_account_delete():
+    # Debug: log session information to help diagnose why deletion may fail
+    try:
+        print(f"[DEBUG] /api/account/delete called, session_keys={list(session.keys())}, user_id={session.get('user_id')}")
+    except Exception:
+        print("[DEBUG] /api/account/delete called, unable to read session keys")
+
+    # CSRF protection: expect token in JSON body or X-CSRF-Token header
+    data = request.get_json(silent=True) or {}
+    token = data.get('csrf_token') or request.headers.get('X-CSRF-Token')
+    if not validate_csrf(token):
+        return jsonify({"status": "error", "message": "Invalid CSRF token"}), 400
+
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"status": "error", "message": "Not authenticated"}), 401
     from backend.database import delete_user
-    ok = delete_user(user_id)
+    try:
+        ok = delete_user(user_id)
+    except Exception as e:
+        # Log the exception for debugging and return error to client
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": "Server error during deletion."}), 500
     if ok:
         session.clear()
         return jsonify({"status": "deleted"}), 200

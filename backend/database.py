@@ -501,6 +501,15 @@ def delete_user(user_id: int) -> bool:
         user = session.query(User).filter(User.id == user_id).first()
         if not user:
             return False
+        # Explicitly remove related API keys to avoid foreign-key constraint
+        # issues in databases that enforce FKs. Use a bulk delete for efficiency.
+        try:
+            session.query(APIKey).filter(APIKey.user_id == user_id).delete(synchronize_session=False)
+        except Exception:
+            # If something goes wrong deleting API keys, rollback and re-raise
+            session.rollback()
+            raise
+        # Delete the user (assets have ORM cascade configured)
         session.delete(user)
         session.commit()
         return True

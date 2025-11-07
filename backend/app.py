@@ -422,7 +422,6 @@ def serve_page_dir(page: str):
             'resources': 'resources.html',
             'account': 'account.html',
             'alerts': 'alerts.html',
-            'risk_analysis': 'risk_analysis.html',
             'reports': 'reports.html',
             'leaks': 'leaks.html',
         }

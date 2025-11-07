@@ -16,7 +16,6 @@
           <li><a href="{{ url_for('homepage') }}" data-tooltip="Home"><i class="fa-regular fa-house"></i></a></li>
           <li><a class="active" href="{{ url_for('leaks') }}" data-tooltip="Leaks"><i class="fa-solid fa-spider"></i></a></li>
           <li><a href="{{ url_for('alerts') }}" data-tooltip="Alerts"><i class="fa-regular fa-bell"></i></a></li>
-          <li><a href="{{ url_for('risk_analysis') }}" data-tooltip="Risk Analysis"><i class="fa-solid fa-shield-halved"></i></a></li>
           <li><a href="{{ url_for('dashboard') }}" data-tooltip="Dashboard"><i class="fa-regular fa-chart-bar"></i></a></li>
           <li><a href="{{ url_for('reports') }}" data-tooltip="Reports"><i class="fa-regular fa-file-lines"></i></a></li>
           <li><a href="{{ url_for('config') }}" data-tooltip="Settings"><i class="fa-solid fa-gear"></i></a></li>
@@ -132,7 +131,12 @@
   </div>
   <script>
     // Persist API key for API calls from JS (used by crawlers/assets endpoints)
-    try { if ('{{ api_key or '' }}') { localStorage.setItem('api_key', '{{ api_key or '' }}'); } } catch (e) {}
+    try { 
+      var apiKey = '{{ api_key if api_key else "" }}';
+      if (apiKey) { 
+        localStorage.setItem('api_key', apiKey); 
+      } 
+    } catch (e) {}
   </script>
   <script src="{{ url_for('static', filename='js/alert_timer.js') }}"></script>
   <script src="{{ url_for('static', filename='js/leaks.js') }}"></script>

@@ -1593,6 +1593,9 @@ def register():
         api_key = APIKey(user_id=user_id, key=api_key_value)
         session_db.add(api_key)
         session_db.commit()
+        
+        # Get the user object for Flask-Login
+        user = session_db.query(User).filter_by(id=user_id).first()
         session_db.close()
 
         print(f"[DEBUG] Created API key for user {username}: {api_key_value}")
@@ -1608,10 +1611,18 @@ def register():
             error_msg = "Registration failed. Please try again."
         flash(error_msg, "error")
         return render_template('register.html', username_val=username, email_val=email, error=error_msg)
+    
+    # Log in the user using Flask-Login
+    login_user(user)
+    # Use permanent sessions so PERMANENT_SESSION_LIFETIME is applied
+    session.permanent = True
+    # Mark modified so cookie expiry is refreshed immediately
+    session.modified = True
+    
     session['logged_in'] = True
     session['username'] = username
     session['user_id'] = user_id
-    flash("Registration successful!", "success")
+    flash("Registration successful! Welcome, {}!".format(username), "success")
     return redirect('/homepage/')
 
 @app.route('/api/check_email')

@@ -507,6 +507,482 @@ def api_risk_summary():
 
     return jsonify(risk_summary(user_id=user_id))
 
+
+@app.route("/api/risk/time_series", methods=["GET"])
+def api_risk_time_series():
+    """Return a daily overall risk score time series for the requesting user.
+
+    Query params:
+      - days: number of days back to include (default 90)
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    days = request.args.get('days', default=7, type=int)
+    try:
+        series = risk_time_series(days=days, user_id=user_id)
+    except Exception as e:
+        return jsonify({"error": "failed to compute time series", "message": str(e)}), 500
+    return jsonify(series)
+
+
+@app.route("/api/risk/severity_time_series", methods=["GET"])
+def api_risk_severity_time_series():
+    """Return daily severity counts for the requesting user.
+
+    Query params:
+      - days: number of days back to include (default 7)
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    days = request.args.get('days', default=7, type=int)
+    try:
+        series = severity_time_series(days=days, user_id=user_id)
+    except Exception as e:
+        return jsonify({"error": "failed to compute severity time series", "message": str(e)}), 500
+    return jsonify(series)
+
+
+@app.route("/api/risk/top_assets", methods=["GET"])
+def api_risk_top_assets():
+    """Return top-N risky assets for the requesting user.
+
+    Query params:
+      - limit: number of assets to return (default 10)
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    limit = request.args.get('limit', default=10, type=int)
+    try:
+        session_db = SessionLocal()
+        try:
+            user_assets = session_db.query(Asset).filter(Asset.user_id == user_id).all()
+        finally:
+            session_db.close()
+
+        # If no user watchlist assets, return empty list
+        if not user_assets:
+            return jsonify([])
+
+        # Fetch all leaks for this user to compute counts
+        leaks = get_leaks_for_user(user_id)
+
+        results = []
+        for a in user_assets:
+            a_type = (a.type or '').lower()
+            a_value = a.value
+            leak_count = 0
+            crit_hit = False
+
+            for leak in leaks:
+                norm = getattr(leak, 'normalized', {}) or {}
+                ents = (norm or {}).get('entities') or {}
+
+                matched = False
+                # Non-sensitive direct comparisons
+                if a_type in ('email', 'domain', 'ip', 'btc'):
+                    key_map = {
+                        'email': 'emails',
+                        'domain': 'domains',
+                        'ip': 'ips',
+                        'btc': 'btc_wallets'
+                    }
+                    vals = ents.get(key_map.get(a_type, ''), []) or []
+                    for v in vals:
+                        if isinstance(v, str) and v.lower().strip() == a_value:
+                            matched = True
+                            break
+
+                # Sensitive types: compare by hashing the normalized leak value
+                if not matched and a_type in ('ssn', 'phone', 'name', 'address', 'btc'):
+                    # handle ssn
+                    if a_type == 'ssn' and leak.ssn:
+                        candidate = normalize_asset_value('ssn', str(leak.ssn))
+                        if hash_sensitive_value(candidate) == a_value:
+                            matched = True
+                    if a_type == 'phone' and leak.phone_numbers:
+                        try:
+                            import json as _json
+                            parsed = _json.loads(leak.phone_numbers) if isinstance(leak.phone_numbers, str) else leak.phone_numbers
+                        except Exception:
+                            parsed = [leak.phone_numbers]
+                        for p in (parsed or []):
+                            cand = normalize_asset_value('phone', str(p))
+                            if hash_sensitive_value(cand) == a_value:
+                                matched = True
+                                break
+                    if a_type == 'name' and leak.names:
+                        try:
+                            import json as _json
+                            parsed = _json.loads(leak.names) if isinstance(leak.names, str) else leak.names
+                        except Exception:
+                            parsed = [leak.names]
+                        for n in (parsed or []):
+                            cand = normalize_asset_value('name', str(n))
+                            if hash_sensitive_value(cand) == a_value:
+                                matched = True
+                                break
+                    if a_type == 'address' and leak.physical_addresses:
+                        try:
+                            import json as _json
+                            parsed = _json.loads(leak.physical_addresses) if isinstance(leak.physical_addresses, str) else leak.physical_addresses
+                        except Exception:
+                            parsed = [leak.physical_addresses]
+                        for addr in (parsed or []):
+                            cand = normalize_asset_value('address', str(addr))
+                            if hash_sensitive_value(cand) == a_value:
+                                matched = True
+                                break
+
+                if matched:
+                    leak_count += 1
+                    if (leak.severity or '').lower() == 'critical':
+                        crit_hit = True
+
+            # Derive simple risk tier
+            if crit_hit:
+                risk = 'high'
+            elif leak_count >= 5:
+                risk = 'medium'
+            elif leak_count >= 1:
+                risk = 'low'
+            else:
+                risk = 'none'
+
+            results.append({'type': a_type, 'value': a_value, 'risk': risk, 'leak_count': leak_count})
+
+        # Sort and return top-N
+        order = {'high': 0, 'medium': 1, 'low': 2, 'none': 3}
+        results.sort(key=lambda r: (order.get(r['risk'], 9), -r['leak_count'], r['value']))
+        return jsonify(results[:limit])
+    except Exception as e:
+        return jsonify({"error": "failed to fetch top assets", "message": str(e)}), 500
+
+
+# Batch webhook notification (manual trigger or can be scheduled)
+@app.route("/api/alerts/send_batch", methods=["POST"])
+def api_send_batch_webhook():
+    """Send a single batch notification summarizing non-alerted leaks above threshold"""
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
+    
+    db = SessionLocal()
+    try:
+        # Get user's webhook config (use user_id as org_id)
+        config_obj = db.query(Config).filter_by(org_id=user_id).first()
+        if not config_obj:
+            # Try with default org_id 123 (fallback for testing)
+            config_obj = db.query(Config).filter_by(org_id=123).first()
+            if not config_obj:
+                return jsonify({"error": "no config found - please save your alert settings first"}), 404
+        
+        config_data = config_obj.config_data
+        alerts_config = config_data.get('alerts', {})
+        
+        if not alerts_config.get('enabled', False):
+            return jsonify({"error": "alerts not enabled"}), 400
+        
+        webhook_url = alerts_config.get('webhook', '').strip()
+        if not webhook_url:
+            return jsonify({"error": "no webhook URL configured"}), 400
+        
+        # Get threshold setting
+        threshold = alerts_config.get('threshold', 'critical')
+        # Map threshold label to minimum score
+        # critical=100, high=75, medium=50, low=25, zero=0
+        threshold_map = {'critical': 100, 'high': 75, 'medium': 50, 'low': 25}
+        min_severity_score = threshold_map.get(threshold, 100)
+        
+        # Find all non-alerted leaks above threshold (excluding zero severity)
+        from backend.severity import severity_label_to_score
+        
+        # Get all user's non-alerted leaks
+        all_leaks = db.query(Leak).filter(
+            Leak.user_id == user_id,
+            Leak.alerted == 0
+        ).all()
+        
+        # Filter by severity threshold
+        leaks_to_alert = []
+        for leak in all_leaks:
+            severity_score = severity_label_to_score(leak.severity or 'info')
+            if severity_score >= min_severity_score and severity_score > 0:
+                leaks_to_alert.append(leak)
+        
+        if not leaks_to_alert:
+            return jsonify({"status": "no new leaks to report above threshold"})
+        
+        # Group by severity
+        severity_counts = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0}
+        for leak in leaks_to_alert:
+            sev_label = (leak.severity or 'info').lower()
+            if sev_label in severity_counts:
+                severity_counts[sev_label] += 1
+        
+        # Check if it's a Discord webhook
+        is_discord = 'discord.com/api/webhooks' in webhook_url.lower()
+        
+        if is_discord:
+            # Build fields array for non-zero severities
+            fields = []
+            severity_emoji = {
+                'critical': '🔴',
+                'high': '🟠',
+                'medium': '🟡',
+                'low': '🟢'
+            }
+            for sev in ['critical', 'high', 'medium', 'low']:
+                count = severity_counts.get(sev, 0)
+                if count > 0:
+                    fields.append({
+                        'name': f'{severity_emoji[sev]} {sev.capitalize()}',
+                        'value': f'{count} leak(s)',
+                        'inline': True
+                    })
+            
+            total_count = len(leaks_to_alert)
+            webhook_payload = {
+                'username': 'DarkWidow Alert Digest',
+                'avatar_url': 'https://i.imgur.com/4M34hi2.png',
+                'embeds': [{
+                    'title': '📊 Leak Detection Summary',
+                    'description': f'**{total_count}** leak(s) detected above {threshold} threshold.',
+                    'color': 15158332 if severity_counts.get('critical', 0) > 0 else 16744192,  # Red if critical, orange otherwise
+                    'fields': fields,
+                    'timestamp': datetime.utcnow().isoformat() + 'Z',
+                    'footer': {
+                        'text': 'DarkWidow Security Platform - Batch Digest'
+                    }
+                }]
+            }
+        else:
+            # Generic webhook format
+            webhook_payload = {
+                'alert_type': 'batch_summary',
+                'threshold': threshold,
+                'timestamp': datetime.utcnow().isoformat(),
+                'total_leaks': len(leaks_to_alert),
+                'severity_breakdown': severity_counts
+            }
+        
+        # Send webhook
+        try:
+            response = requests.post(
+                webhook_url,
+                json=webhook_payload,
+                headers={'Content-Type': 'application/json'},
+                timeout=10
+            )
+            
+            if response.status_code < 400:
+                # Mark all alerted leaks as alerted and save to history
+                for leak in leaks_to_alert:
+                    leak.alerted = 1
+                    # Add to alert history
+                    history_entry = AlertHistory(
+                        leak_id=leak.id,
+                        user_id=user_id,
+                        alert_type='webhook',
+                        destination=webhook_url,
+                        status='sent',
+                        error_message=None,
+                        sent_at=datetime.utcnow()
+                    )
+                    db.add(history_entry)
+                db.commit()
+                
+                return jsonify({
+                    "status": "sent",
+                    "leaks_count": len(leaks_to_alert),
+                    "severity_breakdown": severity_counts
+                })
+            else:
+                return jsonify({
+                    "status": "failed",
+                    "leaks_count": len(leaks_to_alert),
+                    "severity_breakdown": severity_counts,
+                    "error": f"HTTP {response.status_code}"
+                })
+            
+        except Exception as e:
+            return jsonify({
+                "status": "failed",
+                "error": str(e)
+            }), 500
+            
+    finally:
+        db.close()
+
+
+# Webhook alerting function
+def send_webhook_alert(leak_id: int, user_id: int, severity: int, title: str, source: str):
+    """Send immediate batch webhook notification for newly detected leaks"""
+    import threading
+    
+    def _send_async():
+        db = SessionLocal()
+        try:
+            # Get user's webhook config
+            config_obj = db.query(Config).filter_by(org_id=user_id).first()
+            if not config_obj:
+                return
+            
+            config_data = config_obj.config_data
+            alerts_config = config_data.get('alerts', {})
+            
+            if not alerts_config.get('enabled', False):
+                return
+            
+            # Check notification mode - skip if periodic batch mode
+            notification_mode = alerts_config.get('notification_mode', 'immediate')
+            if notification_mode != 'immediate':
+                return  # Periodic batch mode will handle this via scheduled checks
+            
+            # In immediate mode, trigger batch webhook for all non-alerted leaks above threshold
+            webhook_url = alerts_config.get('webhook', '').strip()
+            if not webhook_url:
+                return
+            
+            # Get threshold setting
+            threshold = alerts_config.get('threshold', 'critical')
+            # Map threshold label to minimum score
+            # critical=100, high=75, medium=50, low=25, zero=0
+            threshold_map = {'critical': 100, 'high': 75, 'medium': 50, 'low': 25}
+            min_severity_score = threshold_map.get(threshold, 100)
+            
+            # Find all non-alerted leaks above threshold
+            from backend.severity import severity_label_to_score
+            
+            all_leaks = db.query(Leak).filter(
+                Leak.user_id == user_id,
+                Leak.alerted == 0
+            ).all()
+            
+            leaks_to_alert = []
+            for leak in all_leaks:
+                severity_score = severity_label_to_score(leak.severity or 'info')
+                if severity_score >= min_severity_score and severity_score > 0:
+                    leaks_to_alert.append(leak)
+            
+            if not leaks_to_alert:
+                return
+            
+            # Group by severity
+            severity_counts = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0}
+            for leak in leaks_to_alert:
+                sev_label = (leak.severity or 'info').lower()
+                if sev_label in severity_counts:
+                    severity_counts[sev_label] += 1
+            
+            # Check if it's a Discord webhook
+            is_discord = 'discord.com/api/webhooks' in webhook_url.lower()
+            
+            if is_discord:
+                fields = []
+                severity_emoji = {'critical': '🔴', 'high': '🟠', 'medium': '🟡', 'low': '🟢'}
+                for sev in ['critical', 'high', 'medium', 'low']:
+                    count = severity_counts.get(sev, 0)
+                    if count > 0:
+                        fields.append({
+                            'name': f'{severity_emoji[sev]} {sev.capitalize()}',
+                            'value': f'{count} leak(s)',
+                            'inline': True
+                        })
+                
+                total_count = len(leaks_to_alert)
+                webhook_payload = {
+                    'username': 'DarkWidow Alert',
+                    'avatar_url': 'https://i.imgur.com/4M34hi2.png',
+                    'embeds': [{
+                        'title': '🚨 New Leaks Detected',
+                        'description': f'**{total_count}** new leak(s) detected above {threshold} threshold.',
+                        'color': 15158332 if severity_counts.get('critical', 0) > 0 else 16744192,
+                        'fields': fields,
+                        'timestamp': datetime.utcnow().isoformat() + 'Z',
+                        'footer': {
+                            'text': 'DarkWidow Security Platform - Immediate Alert'
+                        }
+                    }]
+                }
+            else:
+                webhook_payload = {
+                    'alert_type': 'immediate_batch',
+                    'threshold': threshold,
+                    'timestamp': datetime.utcnow().isoformat(),
+                    'total_leaks': len(leaks_to_alert),
+                    'severity_breakdown': severity_counts
+                }
+            
+            # Send webhook
+            try:
+                response = requests.post(
+                    webhook_url,
+                    json=webhook_payload,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=10
+                )
+                
+                if response.status_code < 400:
+                    # Mark all alerted leaks as alerted and add to history
+                    for leak in leaks_to_alert:
+                        leak.alerted = 1
+                        # Log alert history for each leak
+                        alert_record = AlertHistory(
+                            leak_id=leak.id,
+                            user_id=user_id,
+                            alert_type='webhook',
+                            destination=webhook_url,
+                            status='sent',
+                            error_message=None,
+                            sent_at=datetime.utcnow()
+                        )
+                        db.add(alert_record)
+                    db.commit()
+                else:
+                    # Log failed alert for each leak
+                    for leak in leaks_to_alert:
+                        alert_record = AlertHistory(
+                            leak_id=leak.id,
+                            user_id=user_id,
+                            alert_type='webhook',
+                            destination=webhook_url,
+                            status='failed',
+                            error_message=f"HTTP {response.status_code}",
+                            sent_at=datetime.utcnow()
+                        )
+                        db.add(alert_record)
+                    db.commit()
+                
+            except Exception as e:
+                # Log failed alert for each leak
+                for leak in leaks_to_alert:
+                    alert_record = AlertHistory(
+                        leak_id=leak.id,
+                        user_id=user_id,
+                        alert_type='webhook',
+                        destination=webhook_url,
+                        status='failed',
+                        error_message=str(e),
+                        sent_at=datetime.utcnow()
+                    )
+                    db.add(alert_record)
+                db.commit()
+                
+        finally:
+            db.close()
+    
+    # Send webhook asynchronously to avoid blocking the request
+    thread = threading.Thread(target=_send_async)
+    thread.daemon = True
+    thread.start()
+
+
 # Ingest endpoint to support crawler/mock posting leaks now; minimal validation and dedupe
 @app.route("/api/leaks", methods=["POST"])
 def api_leaks_ingest():

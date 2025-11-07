@@ -171,7 +171,7 @@ ALIASES = {
 # Secret key for session management is set from environment earlier. Do not hard-code here.
 
 PUBLIC_ROUTES = [
-    '/login', '/register', '/auth/login.html', '/auth/register.html', '/static/', '/favicon.ico', '/dashboard/base.css', '/api/check_email',
+    '/login', '/register', '/auth/login.html', '/auth/register.html', '/static/', '/favicon.ico', '/dashboard/base.css', '/api/check_email', '/api/check_username',
     '/v1/config/',  # allow crawlers to fetch config without session
     '/v1/events'    # allow crawler event ingestion without session; will validate API key inside handler
 ]
@@ -198,7 +198,7 @@ def get_current_user_id():
 @app.before_request
 def check_api_key():
     # Allow certain endpoints to use session-based auth (no API key required)
-    exempt_paths = ["/login", "/register", "/api/keys/new", "/api/account/delete", "/api/reset_password"]
+    exempt_paths = ["/login", "/register", "/api/keys/new", "/api/account/delete", "/api/reset_password", "/api/check_email", "/api/check_username"]
     if any(request.path.startswith(p) for p in exempt_paths):
         return
 
@@ -1624,6 +1624,20 @@ def api_check_email():
     session_db = SessionLocal()
     try:
         exists = session_db.query(User.id).filter(User.email == email).first() is not None
+    finally:
+        session_db.close()
+    return jsonify({"available": not exists})
+
+@app.route('/api/check_username')
+def api_check_username():
+    # lightweight availability check for username
+    from backend.database import SessionLocal, User  # local import to avoid circular
+    username = (request.args.get('username') or '').strip()
+    if not username:
+        return jsonify({"available": False, "error": "username required"}), 400
+    session_db = SessionLocal()
+    try:
+        exists = session_db.query(User.id).filter(User.username == username).first() is not None
     finally:
         session_db.close()
     return jsonify({"available": not exists})

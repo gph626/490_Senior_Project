@@ -204,10 +204,16 @@ def create_user(username: str, email: str, password: str) -> int:
         raise ValueError("username, email, password required")
     session = SessionLocal()
     try:
-        # Uniqueness checks
-        existing = session.query(User).filter((User.username == username_clean) | (User.email == email_clean)).first()
-        if existing:
-            raise ValueError("username or email already exists")
+        # Check username uniqueness
+        existing_username = session.query(User).filter(User.username == username_clean).first()
+        if existing_username:
+            raise ValueError("username already exists")
+        
+        # Check email uniqueness
+        existing_email = session.query(User).filter(User.email == email_clean).first()
+        if existing_email:
+            raise ValueError("email already exists")
+        
         pw_hash = hash_password(password)
         user = User(username=username_clean, email=email_clean, password_hash=pw_hash)
         session.add(user)

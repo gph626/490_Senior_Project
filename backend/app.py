@@ -36,7 +36,7 @@ try:
     import backend.crawler.i2p_crawler as i2p_module
     from backend.database import Asset, SessionLocal, Base, Leak
     from backend.severity import compute_severity_from_entities
-    from backend.analytics import get_critical_leaks, risk_summary
+    from backend.analytics import get_critical_leaks, risk_summary, risk_time_series, severity_time_series, asset_risk
 except ImportError:
     # Fallback: running directly in the backend/ directory
     from database import (
@@ -65,6 +65,15 @@ app = Flask(
 )
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-change-me")
 
+# Session and cookie configuration
+# - PERMANENT_SESSION_LIFETIME controls how long a "permanent" session lives.
+# - We default to 30 minutes but allow override via env var SESSION_TIMEOUT_MINUTES.
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=int(os.environ.get("SESSION_TIMEOUT_MINUTES", "30")))
+# Cookie security flags; allow overriding secure flag via env var for local dev if needed.
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get("SESSION_COOKIE_SECURE", "False").lower() in ("1", "true", "yes")
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
 # --- Simple in-memory rate limiting (IP based) ---
 RATE_LIMIT_WINDOW = 60  # seconds
 RATE_LIMIT_MAX = 15     # max attempts per window
@@ -81,6 +90,23 @@ def load_user(user_id):
     user = session.get(User, int(user_id))
     session.close()
     return user
+
+
+@app.before_request
+def refresh_session_expiry():
+    """Refresh the expiry for permanent sessions on activity.
+
+    When session.permanent is True, setting session.modified=True will cause
+    Flask to issue a Set-Cookie with an updated expiry (based on
+    PERMANENT_SESSION_LIFETIME). This implements an inactivity timeout.
+    """
+    try:
+        if current_user.is_authenticated and getattr(session, 'permanent', False):
+            # mark modified so the cookie expiry will be refreshed
+            session.modified = True
+    except Exception:
+        # be conservative — don't break requests on any session issues
+        pass
 
 @app.before_request
 def api_key_auth_middleware():
@@ -137,17 +163,15 @@ ALIASES = {
     'resources': 'resourcespage/resources.html',
     'account': 'accountpage/account.html',
     'alerts': 'dashboardpage/alerts.html',
-    'risk_analysis': 'dashboardpage/risk_analysis.html',
     'reports': 'dashboardpage/reports.html',
     'leaks': 'dashboardpage/leaks.html',
     'login': 'auth/login.html',
     'register': 'auth/register.html',
 }
-# Secret key for session management
-app.secret_key = 'supersecretkey'  # Change this in production
+# Secret key for session management is set from environment earlier. Do not hard-code here.
 
 PUBLIC_ROUTES = [
-    '/login', '/register', '/auth/login.html', '/auth/register.html', '/static/', '/favicon.ico', '/dashboard/base.css', '/api/check_email',
+    '/login', '/register', '/auth/login.html', '/auth/register.html', '/static/', '/favicon.ico', '/dashboard/base.css', '/api/check_email', '/api/check_username',
     '/v1/config/',  # allow crawlers to fetch config without session
     '/v1/events'    # allow crawler event ingestion without session; will validate API key inside handler
 ]
@@ -157,12 +181,24 @@ def get_current_user_id():
     uid = getattr(g, 'current_user_id', None)
     if uid:
         return uid
+    # Prefer Flask-Login's current_user when available
+    try:
+        if current_user.is_authenticated:
+            # current_user.get_id() is usually a str; try to return int when possible
+            cid = current_user.get_id()
+            try:
+                return int(cid)
+            except Exception:
+                return cid
+    except Exception:
+        pass
     return session.get('user_id')
 
 
 @app.before_request
 def check_api_key():
-    exempt_paths = ["/login", "/register", "/api/keys/new"]
+    # Allow certain endpoints to use session-based auth (no API key required)
+    exempt_paths = ["/login", "/register", "/api/keys/new", "/api/account/delete", "/api/reset_password", "/api/check_email", "/api/check_username"]
     if any(request.path.startswith(p) for p in exempt_paths):
         return
 
@@ -179,9 +215,14 @@ def check_api_key():
             return
 
         # Allow session fallback ONLY for safe (GET) routes, not crawler runs
-        if request.method == "GET" and session.get("logged_in") and session.get("user_id"):
-            g.current_user_id = session["user_id"]
-            return
+        if request.method == "GET" and current_user.is_authenticated:
+            try:
+                cid = current_user.get_id()
+                g.current_user_id = int(cid) if cid is not None else None
+            except Exception:
+                g.current_user_id = current_user.get_id()
+            if g.current_user_id:
+                return
 
         # No API key and not a safe session fallback → reject
         return jsonify({"error": "Invalid or missing API key"}), 401
@@ -199,9 +240,10 @@ def require_login():
     # Allow /auth/login.html and /auth/register.html without login
     if path in ['/auth/login.html', '/auth/register.html']:
         return None
-    if path.startswith("/api") and not session.get("logged_in"):
+    # Allow session-based auth (session['user_id']) for both API and normal routes
+    if path.startswith("/api") and not (current_user.is_authenticated or session.get('user_id')):
         return redirect("/login")
-    if not session.get('logged_in'):
+    if not (current_user.is_authenticated or session.get('user_id')):
         return redirect('/auth/login.html')
     return None
 
@@ -316,18 +358,6 @@ def alerts():
     return render_template('alerts.html', username=username)
 
 
-# Risk Analysis page routes
-@app.route('/risk_analysis')
-def risk_analysis_noext():
-    return redirect('/risk_analysis/')
-
-
-@app.route('/risk_analysis/')
-def risk_analysis():
-    username = session.get('username', 'User')
-    return render_template('risk_analysis.html', username=username)
-
-
 # Reports page routes
 @app.route('/reports')
 def reports_noext():
@@ -377,7 +407,6 @@ def serve_page_dir(page: str):
         'resources': 'resourcespage/resources.html',
         'account': 'accountpage/account.html',
         'alerts': 'dashboardpage/alerts.html',
-        'risk_analysis': 'dashboardpage/risk_analysis.html',
         'reports': 'dashboardpage/reports.html',
         'leaks': 'dashboardpage/leaks.html',
         'index': 'homepage/homepage.html',  
@@ -393,7 +422,6 @@ def serve_page_dir(page: str):
             'resources': 'resources.html',
             'account': 'account.html',
             'alerts': 'alerts.html',
-            'risk_analysis': 'risk_analysis.html',
             'reports': 'reports.html',
             'leaks': 'leaks.html',
         }
@@ -477,6 +505,162 @@ def api_risk_summary():
         return jsonify({"error": "not authenticated"}), 401
 
     return jsonify(risk_summary(user_id=user_id))
+
+
+@app.route("/api/risk/time_series", methods=["GET"])
+def api_risk_time_series():
+    """Return a daily overall risk score time series for the requesting user.
+
+    Query params:
+      - days: number of days back to include (default 90)
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    days = request.args.get('days', default=7, type=int)
+    try:
+        series = risk_time_series(days=days, user_id=user_id)
+    except Exception as e:
+        return jsonify({"error": "failed to compute time series", "message": str(e)}), 500
+    return jsonify(series)
+
+
+@app.route("/api/risk/severity_time_series", methods=["GET"])
+def api_risk_severity_time_series():
+    """Return daily severity counts for the requesting user.
+
+    Query params:
+      - days: number of days back to include (default 7)
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    days = request.args.get('days', default=7, type=int)
+    try:
+        series = severity_time_series(days=days, user_id=user_id)
+    except Exception as e:
+        return jsonify({"error": "failed to compute severity time series", "message": str(e)}), 500
+    return jsonify(series)
+
+
+@app.route("/api/risk/top_assets", methods=["GET"])
+def api_risk_top_assets():
+    """Return top-N risky assets for the requesting user.
+
+    Query params:
+      - limit: number of assets to return (default 10)
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({"error": "not authenticated"}), 401
+
+    limit = request.args.get('limit', default=10, type=int)
+    try:
+        session_db = SessionLocal()
+        try:
+            user_assets = session_db.query(Asset).filter(Asset.user_id == user_id).all()
+        finally:
+            session_db.close()
+
+        # If no user watchlist assets, return empty list
+        if not user_assets:
+            return jsonify([])
+
+        # Fetch all leaks for this user to compute counts
+        leaks = get_leaks_for_user(user_id)
+
+        results = []
+        for a in user_assets:
+            a_type = (a.type or '').lower()
+            a_value = a.value
+            leak_count = 0
+            crit_hit = False
+
+            for leak in leaks:
+                norm = getattr(leak, 'normalized', {}) or {}
+                ents = (norm or {}).get('entities') or {}
+
+                matched = False
+                # Non-sensitive direct comparisons
+                if a_type in ('email', 'domain', 'ip', 'btc'):
+                    key_map = {
+                        'email': 'emails',
+                        'domain': 'domains',
+                        'ip': 'ips',
+                        'btc': 'btc_wallets'
+                    }
+                    vals = ents.get(key_map.get(a_type, ''), []) or []
+                    for v in vals:
+                        if isinstance(v, str) and v.lower().strip() == a_value:
+                            matched = True
+                            break
+
+                # Sensitive types: compare by hashing the normalized leak value
+                if not matched and a_type in ('ssn', 'phone', 'name', 'address', 'btc'):
+                    # handle ssn
+                    if a_type == 'ssn' and leak.ssn:
+                        candidate = normalize_asset_value('ssn', str(leak.ssn))
+                        if hash_sensitive_value(candidate) == a_value:
+                            matched = True
+                    if a_type == 'phone' and leak.phone_numbers:
+                        try:
+                            import json as _json
+                            parsed = _json.loads(leak.phone_numbers) if isinstance(leak.phone_numbers, str) else leak.phone_numbers
+                        except Exception:
+                            parsed = [leak.phone_numbers]
+                        for p in (parsed or []):
+                            cand = normalize_asset_value('phone', str(p))
+                            if hash_sensitive_value(cand) == a_value:
+                                matched = True
+                                break
+                    if a_type == 'name' and leak.names:
+                        try:
+                            import json as _json
+                            parsed = _json.loads(leak.names) if isinstance(leak.names, str) else leak.names
+                        except Exception:
+                            parsed = [leak.names]
+                        for n in (parsed or []):
+                            cand = normalize_asset_value('name', str(n))
+                            if hash_sensitive_value(cand) == a_value:
+                                matched = True
+                                break
+                    if a_type == 'address' and leak.physical_addresses:
+                        try:
+                            import json as _json
+                            parsed = _json.loads(leak.physical_addresses) if isinstance(leak.physical_addresses, str) else leak.physical_addresses
+                        except Exception:
+                            parsed = [leak.physical_addresses]
+                        for addr in (parsed or []):
+                            cand = normalize_asset_value('address', str(addr))
+                            if hash_sensitive_value(cand) == a_value:
+                                matched = True
+                                break
+
+                if matched:
+                    leak_count += 1
+                    if (leak.severity or '').lower() == 'critical':
+                        crit_hit = True
+
+            # Derive simple risk tier
+            if crit_hit:
+                risk = 'high'
+            elif leak_count >= 5:
+                risk = 'medium'
+            elif leak_count >= 1:
+                risk = 'low'
+            else:
+                risk = 'none'
+
+            results.append({'type': a_type, 'value': a_value, 'risk': risk, 'leak_count': leak_count})
+
+        # Sort and return top-N
+        order = {'high': 0, 'medium': 1, 'low': 2, 'none': 3}
+        results.sort(key=lambda r: (order.get(r['risk'], 9), -r['leak_count'], r['value']))
+        return jsonify(results[:limit])
+    except Exception as e:
+        return jsonify({"error": "failed to fetch top assets", "message": str(e)}), 500
 
 
 # Batch webhook notification (manual trigger or can be scheduled)
@@ -1818,7 +2002,11 @@ def login():
         return render_template('login.html', login_val=username_or_email)
     
     login_user(user)
-    
+    # Use permanent sessions so PERMANENT_SESSION_LIFETIME is applied.
+    session.permanent = True
+    # mark modified so cookie expiry is refreshed immediately
+    session.modified = True
+
     session['logged_in'] = True
     session['username'] = user.username
     session['user_id'] = user.id
@@ -1880,6 +2068,9 @@ def register():
         api_key = APIKey(user_id=user_id, key=api_key_value)
         session_db.add(api_key)
         session_db.commit()
+        
+        # Get the user object for Flask-Login
+        user = session_db.query(User).filter_by(id=user_id).first()
         session_db.close()
 
         print(f"[DEBUG] Created API key for user {username}: {api_key_value}")
@@ -1895,10 +2086,18 @@ def register():
             error_msg = "Registration failed. Please try again."
         flash(error_msg, "error")
         return render_template('register.html', username_val=username, email_val=email, error=error_msg)
+    
+    # Log in the user using Flask-Login
+    login_user(user)
+    # Use permanent sessions so PERMANENT_SESSION_LIFETIME is applied
+    session.permanent = True
+    # Mark modified so cookie expiry is refreshed immediately
+    session.modified = True
+    
     session['logged_in'] = True
     session['username'] = username
     session['user_id'] = user_id
-    flash("Registration successful!", "success")
+    flash("Registration successful! Welcome, {}!".format(username), "success")
     return redirect('/homepage/')
 
 @app.route('/api/check_email')
@@ -1911,6 +2110,20 @@ def api_check_email():
     session_db = SessionLocal()
     try:
         exists = session_db.query(User.id).filter(User.email == email).first() is not None
+    finally:
+        session_db.close()
+    return jsonify({"available": not exists})
+
+@app.route('/api/check_username')
+def api_check_username():
+    # lightweight availability check for username
+    from backend.database import SessionLocal, User  # local import to avoid circular
+    username = (request.args.get('username') or '').strip()
+    if not username:
+        return jsonify({"available": False, "error": "username required"}), 400
+    session_db = SessionLocal()
+    try:
+        exists = session_db.query(User.id).filter(User.username == username).first() is not None
     finally:
         session_db.close()
     return jsonify({"available": not exists})
@@ -1945,11 +2158,29 @@ def register_trailing():
 # Delete account endpoint
 @app.route("/api/account/delete", methods=["POST"])
 def api_account_delete():
+    # Debug: log session information to help diagnose why deletion may fail
+    try:
+        print(f"[DEBUG] /api/account/delete called, session_keys={list(session.keys())}, user_id={session.get('user_id')}")
+    except Exception:
+        print("[DEBUG] /api/account/delete called, unable to read session keys")
+
+    # CSRF protection: expect token in JSON body or X-CSRF-Token header
+    data = request.get_json(silent=True) or {}
+    token = data.get('csrf_token') or request.headers.get('X-CSRF-Token')
+    if not validate_csrf(token):
+        return jsonify({"status": "error", "message": "Invalid CSRF token"}), 400
+
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"status": "error", "message": "Not authenticated"}), 401
     from backend.database import delete_user
-    ok = delete_user(user_id)
+    try:
+        ok = delete_user(user_id)
+    except Exception as e:
+        # Log the exception for debugging and return error to client
+        import traceback
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": "Server error during deletion."}), 500
     if ok:
         session.clear()
         return jsonify({"status": "deleted"}), 200

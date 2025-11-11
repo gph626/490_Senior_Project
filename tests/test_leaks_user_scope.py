@@ -42,7 +42,8 @@ def test_api_leaks_only_returns_logged_in_users_leaks(client):
 
     # Simulate login as user 1
     with client.session_transaction() as sess:
-        sess['logged_in'] = True
+        # Use Flask-Login session key so current_user is populated in tests
+        sess['_user_id'] = str(1)
         sess['user_id'] = 1
         sess['username'] = "user1"
 
@@ -59,7 +60,7 @@ def test_api_alerts_user_scope(client):
     leak_b = create_user_leak(user_id=2, severity="critical")
 
     with client.session_transaction() as sess:
-        sess['logged_in'] = True
+        sess['_user_id'] = str(1)
         sess['user_id'] = 1
         sess['username'] = "user1"
 

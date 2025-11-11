@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, U
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.types import JSON
-from sqlalchemy import text
+from sqlalchemy import text, func
 from flask_login import UserMixin
 import sys
 import bcrypt
@@ -204,10 +204,16 @@ def create_user(username: str, email: str, password: str) -> int:
         raise ValueError("username, email, password required")
     session = SessionLocal()
     try:
-        # Uniqueness checks
-        existing = session.query(User).filter((User.username == username_clean) | (User.email == email_clean)).first()
-        if existing:
-            raise ValueError("username or email already exists")
+        # Check username uniqueness
+        existing_username = session.query(User).filter(User.username == username_clean).first()
+        if existing_username:
+            raise ValueError("username already exists")
+        
+        # Check email uniqueness
+        existing_email = session.query(User).filter(User.email == email_clean).first()
+        if existing_email:
+            raise ValueError("email already exists")
+        
         pw_hash = hash_password(password)
         user = User(username=username_clean, email=email_clean, password_hash=pw_hash)
         session.add(user)
@@ -224,9 +230,11 @@ def get_user_by_username_or_email(login: str) -> User | None:
     login_norm = login.strip().lower()
     session = SessionLocal()
     try:
+        # Do a case-insensitive match for both username and email so users
+        # can login using either value regardless of case.
         user = (
             session.query(User)
-            .filter((User.username == login_norm) | (User.email == login_norm))
+            .filter((func.lower(User.username) == login_norm) | (func.lower(User.email) == login_norm))
             .first()
         )
         return user
@@ -499,6 +507,15 @@ def delete_user(user_id: int) -> bool:
         user = session.query(User).filter(User.id == user_id).first()
         if not user:
             return False
+        # Explicitly remove related API keys to avoid foreign-key constraint
+        # issues in databases that enforce FKs. Use a bulk delete for efficiency.
+        try:
+            session.query(APIKey).filter(APIKey.user_id == user_id).delete(synchronize_session=False)
+        except Exception:
+            # If something goes wrong deleting API keys, rollback and re-raise
+            session.rollback()
+            raise
+        # Delete the user (assets have ORM cascade configured)
         session.delete(user)
         session.commit()
         return True

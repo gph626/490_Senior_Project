@@ -8,7 +8,8 @@ def test_i2p_mock_inserts_user_leak():
 
     # Simulate login
     with client.session_transaction() as sess:
-        sess['logged_in'] = True
+        # Use Flask-Login session key so current_user is populated in tests
+        sess['_user_id'] = str(5)
         sess['user_id'] = 5
         sess['username'] = "i2puser"
 

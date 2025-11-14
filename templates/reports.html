@@ -31,15 +31,17 @@
             <section id="reports"></section>
             <section class="report-section">
                 <h3>Weekly Security Summary</h3>
-                <a class="report-link" href="#">Download PDF</a>
+                <a class="report-link" href="{{ url_for('download_report', report_type='weekly') }}">Download PDF</a>
             </section>
+
             <section class="report-section">
                 <h3>Incident Response Report</h3>
-                <a class="report-link" href="#">Download PDF</a>
+                <a class="report-link" href="{{ url_for('download_report', report_type='incident') }}">Download PDF</a>
             </section>
+
             <section class="report-section">
                 <h3>Risk Assessment Overview</h3>
-                <a class="report-link" href="#">Download PDF</a>
+                <a class="report-link" href="{{ url_for('download_report', report_type='risk') }}">Download PDF</a>
             </section>
         </main>
     </div>

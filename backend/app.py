@@ -1,8 +1,11 @@
 import os
+from backend.database import Leak, CrawlRun, Asset, AlertHistory
+from backend.database import SessionLocal
+DBSession = SessionLocal
 import random
 import string
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, send_from_directory, abort, redirect, session, render_template, flash, g
+from flask import Flask, jsonify, request, send_from_directory, abort, redirect, session, render_template, flash, g, make_response
 from flask import current_app as app
 import socket
 import re
@@ -10,12 +13,25 @@ import hashlib
 import time
 from collections import defaultdict, deque
 import json
+from textwrap import wrap
 from backend.utils import get_user_by_api_key
 from flask_login import login_required, current_user, LoginManager, login_user
 from backend.database import SessionLocal, APIKey, User, Config, AlertHistory
 import secrets
 from datetime import datetime, timedelta
 import requests
+import io
+from reportlab.lib.utils import ImageReader
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+import base64
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from sqlalchemy import func
+from flask_login import current_user
+from sqlalchemy import or_
+
 
 load_dotenv()
 
@@ -368,6 +384,628 @@ def reports_noext():
 def reports():
     username = session.get('username', 'User')
     return render_template('reports.html', username=username)
+
+
+@app.route("/reports/download/<report_type>")
+def download_report(report_type):
+    db_session = SessionLocal()
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    username = getattr(current_user, "username", "User")
+
+    if not user_id:
+        return "Unauthorized - please log in first", 401
+
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    pdf.setTitle(f"{report_type.capitalize()} Report")
+
+    # Call correct report generator
+    if report_type == "weekly":
+        generate_weekly_report(pdf, db_session, user_id)
+    elif report_type == "incident":
+        generate_incident_report(pdf, db_session, user_id)
+    elif report_type == "risk":
+        generate_risk_report(pdf, db_session, user_id)
+    else:
+        pdf.drawString(80, 740, "Invalid report type requested.")
+
+    db_session.close()
+    pdf.save()
+    buffer.seek(0)
+
+    response = make_response(buffer.read())
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = f"attachment; filename={username}_{report_type}_Report.pdf"
+    return response
+
+
+# -----------------------------------------------------------
+# WEEKLY SECURITY SUMMARY
+# -----------------------------------------------------------
+def generate_weekly_report(pdf, db_session, user_id):
+    start_date = datetime.now() - timedelta(days=7)
+    end_date = datetime.now()
+
+    # Query leaks for the last 7 days
+    leaks = (
+        db_session.query(Leak)
+        .filter(Leak.user_id == user_id, Leak.timestamp >= start_date)
+        .order_by(Leak.timestamp.desc())
+        .all()
+    )
+
+    # Title + Date Range
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(
+        80,
+        740,
+        f"Weekly Security Summary — {start_date.strftime('%b %d')}–{end_date.strftime('%b %d, %Y')}"
+    )
+    y = 710
+
+    total = len(leaks)
+
+    # --- Count severities ---
+    severities = {"low": 0, "medium": 0, "high": 0, "critical": 0, "zero": 0}
+    for leak in leaks:
+        sev = (leak.severity or "").lower().strip()
+        if sev in ("zero", "zero severity", "none", "unclassified"):
+            sev = "zero"
+        if sev not in severities:
+            sev = "zero"
+        severities[sev] += 1
+
+
+    # --- Summary Header ---
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(80, y, "Summary of Detected Leaks")
+    y -= 20
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(80, y, f"Total leaks detected this week: {total}")
+    y -= 20
+
+    # --- Organized Severity Breakdown ---
+    pdf.setFont("Helvetica", 10)
+    col_x1, col_x2 = 100, 300
+    line_height = 15
+    levels = list(severities.items())
+    half = (len(levels) + 1) // 2  # split into 2 columns
+    left_col = levels[:half]
+    right_col = levels[half:]
+
+    for i in range(max(len(left_col), len(right_col))):
+        if i < len(left_col):
+            level, count = left_col[i]
+            color = (
+                "#4cffd0" if level == "low"
+                else "#ffd84c" if level == "medium"
+                else "#ff914c" if level == "high"
+                else "#ff4c4c" if level == "critical"
+                else "#808080"
+            )
+            pdf.setFillColor(color)
+            pdf.circle(col_x1 - 10, y + 3, 3, stroke=0, fill=1)
+            pdf.setFillColorRGB(0, 0, 0)
+            label = "Unclassified" if level == "zero" else level.capitalize()
+            pdf.drawString(col_x1, y, f"{label:<12}: {count}")
+
+        if i < len(right_col):
+            level, count = right_col[i]
+            color = (
+                "#4cffd0" if level == "low"
+                else "#ffd84c" if level == "medium"
+                else "#ff914c" if level == "high"
+                else "#ff4c4c" if level == "critical"
+                else "#808080"
+            )
+            pdf.setFillColor(color)
+            pdf.circle(col_x2 - 10, y + 3, 3, stroke=0, fill=1)
+            pdf.setFillColorRGB(0, 0, 0)
+            label = "Unclassified" if level == "zero" else level.capitalize()
+            pdf.drawString(col_x2, y, f"{label:<12}: {count}")
+
+        y -= line_height
+    y -= 10
+
+    # --- Severity Distribution Chart ---
+    if total > 0:
+        order = ["critical", "high", "medium", "low", "zero"]
+        display_labels = ["Critical", "High", "Medium", "Low", "Unclassified"]
+        values = [severities.get(k, 0) for k in order]
+
+        fig, ax = plt.subplots(figsize=(4.5, 2.5))
+        ax.bar(display_labels, values, color=["#ff4c4c", "#ff914c", "#ffd84c", "#4cffd0", "#808080"])
+        ax.set_title("Severity Distribution (Past 7 Days)")
+        ax.set_xlabel("Severity Level")
+        ax.set_ylabel("Number of Leaks")
+
+        # Y-axis scaling: make it dynamic
+        max_y = max(values) if any(values) else 1
+        ax.set_ylim(0, max_y + 1)
+        plt.tight_layout()
+
+        img_buf = io.BytesIO()
+        plt.savefig(img_buf, format="png")
+        plt.close(fig)
+        img_buf.seek(0)
+        pdf.drawImage(ImageReader(img_buf), 80, y - 230, width=400, height=200)
+        y -= 250
+
+
+    # --- Chart 2: Leaks per Source ---
+    if leaks:
+        leak_sources = {}
+        for leak in leaks:
+            src = leak.source or "Unknown"
+            leak_sources[src] = leak_sources.get(src, 0) + 1
+
+        fig, ax = plt.subplots(figsize=(4, 2.5))
+        ax.bar(leak_sources.keys(), leak_sources.values(), color="#004c99")
+        ax.set_title("Leaks by Source (Past 7 Days)")
+        ax.set_xlabel("Source")
+        ax.set_ylabel("Count")
+        plt.tight_layout()
+        src_buf = io.BytesIO()
+        plt.savefig(src_buf, format="png")
+        plt.close(fig)
+        src_buf.seek(0)
+        pdf.drawImage(ImageReader(src_buf), 80, y - 220, width=400, height=200)
+        y -= 250
+
+    # --- Table of leaks ---
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.drawString(80, y, "Recent Leaks (Top 10):")
+    y -= 18
+
+    if leaks:
+        # Table Header
+        pdf.setFont("Helvetica-Bold", 9)
+        pdf.drawString(80, y, "Timestamp")
+        pdf.drawString(180, y, "Source")
+        pdf.drawString(240, y, "Severity")
+        pdf.drawString(340, y, "Snippet")
+        y -= 10
+        pdf.line(80, y, 520, y)
+        y -= 13
+
+        pdf.setFont("Helvetica", 9)
+        for leak in leaks[:10]:
+            ts = leak.timestamp.strftime("%Y-%m-%d %H:%M")
+            snippet = (leak.data or "")[:40].replace("\n", " ") + "..."
+            pdf.drawString(80, y, ts)
+            pdf.drawString(180, y, (leak.source or "Unknown")[:10])
+            pdf.drawString(240, y, (leak.severity or "Unclassified")[:10])
+            pdf.drawString(340, y, snippet)
+            y -= 12
+            if y < 100:
+                pdf.showPage()
+                y = 740
+    else:
+        pdf.setFont("Helvetica", 9)
+        pdf.drawString(100, y, "No new leaks found this week.")
+        y -= 15
+
+    # --- High-Risk Leaks Table (Medium and Above) ---
+    high_risk_leaks = [
+        leak for leak in leaks
+        if (leak.severity or "").lower() in ("medium", "high", "critical")
+    ]
+
+    if high_risk_leaks:
+        y -= 25
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(80, y, "High-Risk Leaks (Medium and Above):")
+        y -= 15
+        pdf.setFont("Helvetica-Bold", 9)
+        pdf.drawString(80, y, "Timestamp")
+        pdf.drawString(180, y, "Source")
+        pdf.drawString(280, y, "Severity")
+        pdf.drawString(360, y, "Snippet")
+        y -= 12
+        pdf.setFont("Helvetica", 9)
+        for leak in high_risk_leaks[:10]:
+            ts = leak.timestamp.strftime('%Y-%m-%d %H:%M')
+            snippet = (leak.data or "")[:35].replace("\n", " ") + "..."
+            pdf.drawString(80, y, ts)
+            pdf.drawString(180, y, leak.source[:15])
+            sev = (leak.severity or "").lower()
+            color = (
+                "#ff4c4c" if sev == "critical"
+                else "#ff914c" if sev == "high"
+                else "#ffd84c" if sev == "medium"
+                else "#4cffd0" if sev == "low"
+                else "#808080"
+            )
+            pdf.setFillColor(color)
+            pdf.drawString(280, y, (leak.severity or "unknown").capitalize())
+            pdf.setFillColorRGB(0, 0, 0)
+
+            pdf.drawString(360, y, snippet)
+            y -= 12
+            if y < 100:
+                pdf.showPage()
+                y = 740
+
+
+
+    # --- Short summary paragraph ---
+    last_week_count = (
+        db_session.query(func.count(Leak.id))
+        .filter(
+            Leak.user_id == user_id,
+            Leak.timestamp < start_date,
+            Leak.timestamp >= start_date - timedelta(days=7),
+        )
+        .scalar()
+    ) or 0
+
+    change = ((total - last_week_count) / max(last_week_count or 1, 1)) * 100
+    trend = "increase" if change > 0 else "decrease" if change < 0 else "no change"
+
+    top_source = (
+        max(leak_sources, key=leak_sources.get) if leaks and leak_sources else "N/A"
+    )
+
+    pdf.setFont("Helvetica-Oblique", 10)
+    pdf.drawString(
+        80,
+        y - 10,
+        f"This week’s activity shows a {abs(change):.1f}% {trend} compared to last week. "
+        f"Most leaks originated from {top_source}.",
+    )
+    top_severity = max(severities, key=severities.get)
+    if top_severity in ("zero", "zero severity"):
+        pdf.setFont("Helvetica-Oblique", 10)
+        pdf.drawString(80, y - 25, "Note: All/Most detected leaks this week are unclassified and may require manual review.")
+
+    # --- Footer ---
+    pdf.setFont("Helvetica-Oblique", 8)
+    pdf.drawString(80, 50, "Generated by Dark Web Risk Monitoring — Confidential Report")
+    pdf.showPage()
+
+
+# -----------------------------------------------------------
+# INCIDENT RESPONSE REPORT
+# -----------------------------------------------------------
+# -----------------------------------------------------------
+# INCIDENT RESPONSE REPORT (Multi-Leak Version)
+# -----------------------------------------------------------
+def generate_incident_report(pdf, db_session, user_id):
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(80, 760, "Dark Web Risk Monitoring — Incident Response Report")
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(80, 740, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    pdf.drawString(80, 725, f"User ID: {user_id}")
+    y = 700
+
+    # --- Pull all relevant incidents (critical, high, medium)
+    incidents = (
+        db_session.query(Leak)
+        .filter(Leak.user_id == user_id, Leak.severity.in_(["critical", "high", "medium"]))
+        .order_by(Leak.timestamp.desc())
+        .all()
+    )
+
+    if not incidents:
+        pdf.setFont("Helvetica", 10)
+        pdf.drawString(80, y, "No critical, high, or medium severity incidents found.")
+        pdf.showPage()
+        return
+
+    for i, leak in enumerate(incidents):
+        if y < 200:  # start a new page if running out of space
+            pdf.showPage()
+            y = 740
+
+        pdf.setFont("Helvetica-Bold", 12)
+        pdf.drawString(80, y, f"Incident #{i + 1} — ID {leak.id}")
+        pdf.setFont("Helvetica", 10)
+        y -= 15
+        pdf.drawString(80, y, f"Detected: {leak.timestamp.strftime('%Y-%m-%d %H:%M')}")
+        pdf.drawString(80, y - 15, f"Source: {leak.source}")
+
+        # Color-coded severity label
+        color = (
+            "#ff4c4c" if leak.severity == "critical"
+            else "#ff914c" if leak.severity == "high"
+            else "#ffd84c"
+        )
+        pdf.setFillColor(color)
+        pdf.drawString(80, y - 30, f"Severity: {leak.severity.upper()}")
+        pdf.setFillColorRGB(0, 0, 0)
+        y -= 55
+
+        # --- Incident Summary
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(80, y, "Incident Summary:")
+        pdf.setFont("Helvetica", 10)
+        y -= 15
+        summary = (
+            f"A {leak.severity}-severity leak was detected on {leak.source}. "
+            "It may contain sensitive data or credentials. Further review is recommended."
+        )
+        wrapped_summary = wrap(summary, width=90)
+        for line in wrapped_summary:
+            pdf.drawString(100, y, line)
+            y -= 12
+        y -= 10
+
+        # --- Leak Details
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(80, y, "Leak Details:")
+        y -= 15
+        pdf.setFont("Helvetica", 9)
+        snippet = (leak.data or "")[:200].replace("\n", " ") + "..."
+        wrapped_snippet = wrap(snippet, width=95)
+        for line in wrapped_snippet:
+            pdf.drawString(100, y, line)
+            y -= 11
+        y -= 10
+
+        # --- Risk Level Explanation
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(80, y, "Risk Level Explanation:")
+        pdf.setFont("Helvetica", 10)
+        y -= 15
+        if leak.severity == "critical":
+            explanation = "Critical: Contains credentials or domain references requiring immediate response."
+        elif leak.severity == "high":
+            explanation = "High: Includes sensitive information or internal identifiers."
+        else:
+            explanation = "Medium: Contains low-priority findings."
+        wrapped_exp = wrap(explanation, width=90)
+        for line in wrapped_exp:
+            pdf.drawString(100, y, line)
+            y -= 12
+        y -= 10
+
+        # --- Recommended Actions
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(80, y, "Recommended Actions:")
+        pdf.setFont("Helvetica", 10)
+        y -= 15
+        actions = [
+            "• Reset affected credentials immediately.",
+            "• Notify internal IT and security teams.",
+            "• Conduct further investigation on source platform.",
+            "• Monitor related accounts for unusual activity.",
+        ]
+        for action in actions:
+            pdf.drawString(100, y, action)
+            y -= 12
+
+        # --- Divider line between incidents
+        y -= 15
+        pdf.setLineWidth(0.5)
+        pdf.setStrokeColorRGB(0.6, 0.6, 0.6)
+        pdf.line(75, y, 525, y)
+        pdf.setStrokeColorRGB(0, 0, 0)
+        y -= 25
+
+    # --- Footer
+    pdf.setFont("Helvetica-Oblique", 8)
+    pdf.drawString(80, 50, "Generated by Dark Web Risk Monitoring — Confidential Report")
+    pdf.showPage()
+
+
+# -----------------------------------------------------------
+# RISK ASSESSMENT OVERVIEW
+# -----------------------------------------------------------
+def generate_risk_report(pdf, db_session, user_id):
+    from textwrap import wrap
+    now = datetime.now()
+    start_date = now - timedelta(days=30)
+
+    # --- Header ---
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(80, 760, f"Dark Web Risk Monitoring — Risk Assessment Overview")
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(80, 740, f"Reporting Period: {start_date.strftime('%b %d')}–{now.strftime('%b %d, %Y')}")
+    y = 710
+
+    # --- Query severity counts (last 30 days) ---
+    severities = ["critical", "high", "medium", "low", "zero severity"]
+    counts = {}
+    for s in severities:
+        if s == "zero severity":
+            n = db_session.query(func.count(Leak.id)).filter(
+                Leak.user_id == user_id,
+                or_(Leak.severity == None, Leak.severity == "zero severity"),
+                Leak.timestamp >= start_date
+            ).scalar() or 0
+        else:
+            n = db_session.query(func.count(Leak.id)).filter(
+                Leak.user_id == user_id,
+                Leak.severity == s,
+                Leak.timestamp >= start_date
+            ).scalar() or 0
+        counts[s] = n
+
+    total = sum(counts.values())
+
+    # --- Text summary of counts ---
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(80, y, f"Total leaks detected (past 30 days): {total}")
+    y -= 15
+    pdf.drawString(
+        100, y,
+        f"Critical: {counts['critical']} | High: {counts['high']} | "
+        f"Medium: {counts['medium']} | Low: {counts['low']} | Unclassified: {counts['zero severity']}"
+    )
+    y -= 30
+
+    # --- Pie Chart: Severity Breakdown ---
+    if total > 0:
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(80, y, "Severity Breakdown (Last 30 Days):")
+        y -= 15
+        fig, ax = plt.subplots(figsize=(5, 3))
+        labels = ["Critical", "High", "Medium", "Low", "Unclassified"]
+        sizes = [
+            counts["critical"], counts["high"], counts["medium"],
+            counts["low"], counts["zero severity"]
+        ]
+        colors = ["#ff4c4c", "#ff914c", "#ffd84c", "#4cffd0", "#bfbfbf"]
+        wedges, texts = ax.pie(sizes, colors=colors, startangle=90, wedgeprops=dict(width=0.6))
+        ax.legend(
+            wedges,
+            [f"{l}: {s} ({(s / max(total, 1)) * 100:.1f}%)" for l, s in zip(labels, sizes)],
+            loc="center left",
+            bbox_to_anchor=(1.15, 0.5),
+            fontsize=8
+        )
+        ax.set_title("Leak Severity Distribution")
+        plt.subplots_adjust(left=0.1, right=0.8)
+        img_buf = io.BytesIO()
+        plt.savefig(img_buf, format="png", bbox_inches="tight")
+        plt.close(fig)
+        img_buf.seek(0)
+        pdf.drawImage(ImageReader(img_buf), 70, y - 210, width=460, height=210)
+        y -= 230
+    else:
+        pdf.setFont("Helvetica-Oblique", 10)
+        pdf.drawString(100, y, "No severity data available in the past 30 days.")
+        y -= 30
+
+    # --- Top Risk Sources (where critical/high leaks came from) ---
+    risk_sources = (
+        db_session.query(Leak.source, func.count(Leak.id))
+        .filter(
+            Leak.user_id == user_id,
+            Leak.severity.in_(["critical", "high"]),
+            Leak.timestamp >= start_date
+        )
+        .group_by(Leak.source)
+        .order_by(func.count(Leak.id).desc())
+        .limit(5)
+        .all()
+    )
+
+    if risk_sources:
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(80, y, "Top Risk Sources:")
+        y -= 15
+        fig, ax = plt.subplots(figsize=(3.5, 2))
+        sources = [r[0] for r in risk_sources]
+        values = [r[1] for r in risk_sources]
+        ax.bar(sources, values, color="#ff4c4c")
+        ax.set_ylabel("Leak Count")
+        ax.set_title("Top Sources of High/Critical Leaks")
+        ax.set_ylim(0, max(values) + 2)
+        ax.set_yticks(range(0, max(values) + 3, max(1, (max(values) // 5) or 1)))
+
+        plt.tight_layout()
+        img_buf = io.BytesIO()
+        plt.savefig(img_buf, format="png")
+        plt.close(fig)
+        img_buf.seek(0)
+        pdf.drawImage(ImageReader(img_buf), 80, y - 170, width=390, height=170)
+        y -= 190
+
+    # --- Most Common Leak Categories (keyword scan in leak.data) ---
+    leaks = (
+        db_session.query(Leak)
+        .filter(Leak.user_id == user_id, Leak.timestamp >= start_date)
+        .all()
+    )
+    categories = {"credentials": 0, "email": 0, "api key": 0, "password": 0}
+    for leak in leaks:
+        data_text = (leak.data or "").lower()
+        for key in categories:
+            if key in data_text:
+                categories[key] += 1
+
+    if any(categories.values()):
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(80, y, "Most Common Leak Categories:")
+        y -= 43
+
+        fig, ax = plt.subplots(figsize=(4, 2.5))
+        cat_labels = list(categories.keys())
+        cat_values = list(categories.values())
+        ax.barh(cat_labels, cat_values, color="#007acc")
+        ax.set_xlabel("Mentions in Leaks")
+        ax.set_title("Most Common Keywords in Leaks")
+        plt.subplots_adjust(left=0.2, right=0.85, bottom=0.2, top=0.85)
+        img_buf = io.BytesIO()
+        plt.savefig(img_buf, format="png", bbox_inches="tight")
+        plt.close(fig)
+        img_buf.seek(0)
+        pdf.drawImage(ImageReader(img_buf), 80, y - 160, width=400, height=200)
+        y -= 270
+
+
+    # --- Trend Chart: High/Critical over time ---
+    trend_data = (
+        db_session.query(
+            func.date(Leak.timestamp),
+            func.count(Leak.id)
+        )
+        .filter(
+            Leak.user_id == user_id,
+            Leak.timestamp >= start_date,
+            Leak.severity.in_(["high", "critical"])
+        )
+        .group_by(func.date(Leak.timestamp))
+        .order_by(func.date(Leak.timestamp))
+        .all()
+    )
+    if trend_data:
+        if y < 300:
+            pdf.showPage()
+            y = 740
+
+        pdf.setFont("Helvetica-Bold", 11)
+        pdf.drawString(80, y, "Trend: High-Risk Leaks Over Time")
+        y -= 15
+
+        dates = [str(d[0]) for d in trend_data]
+        counts_over_time = [d[1] for d in trend_data]
+        fig, ax = plt.subplots(figsize=(4.8, 3))
+        ax.plot(dates, counts_over_time, marker="o", color="#ff4c4c", linewidth=1.5)
+        ax.set_xticklabels(dates, rotation=45, ha="right", fontsize=8)
+        ax.set_ylabel("Leak Count")
+        ax.grid(True, linestyle="--", alpha=0.5)
+        ax.set_title("High/Critical Leaks (Past 30 Days)")
+        plt.tight_layout()
+
+        img_buf = io.BytesIO()
+        plt.savefig(img_buf, format="png")
+        plt.close(fig)
+        img_buf.seek(0)
+        pdf.drawImage(ImageReader(img_buf), 80, y - 240, width=420, height=240)
+        y -= 260
+
+
+    # --- Summary paragraph ---
+    last_month_total = (
+        db_session.query(func.count(Leak.id))
+        .filter(
+            Leak.user_id == user_id,
+            Leak.timestamp < start_date,
+            Leak.timestamp >= start_date - timedelta(days=30)
+        )
+        .scalar()
+        or 0
+    )
+    change = ((total - last_month_total) / max(last_month_total or 1, 1)) * 100
+    trend = "increase" if change > 0 else "decrease" if change < 0 else "no change"
+    summary = (
+        f"Overall risk shows a {abs(change):.1f}% {trend} in total leaks compared to the previous month. "
+        f"Most high-severity incidents originated from {risk_sources[0][0] if risk_sources else 'varied sources'}."
+    )
+    wrapped = wrap(summary, width=95)
+    pdf.setFont("Helvetica-Oblique", 10)
+    for line in wrapped:
+        pdf.drawString(80, y, line)
+        y -= 12
+
+    # --- Footer ---
+    pdf.setFont("Helvetica-Oblique", 8)
+    pdf.drawString(80, 50, "Generated by Dark Web Risk Monitoring — Confidential Report")
+
+    pdf.showPage()
+
 
 # Config page routes
 @app.route('/config')

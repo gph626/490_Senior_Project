@@ -10,3 +10,4 @@ stem
 bcrypt
 python-dotenv
 colorama
+reportlab

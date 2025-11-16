@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reports</title>
+    <title>Reports & Analytics</title>
     <link rel="stylesheet" href="/dashboard/new.css">
     <link rel="stylesheet" href="/dashboard/base.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
@@ -105,39 +105,112 @@
         </aside>
         <main>
             <div class="section-heading">
-                <h2>Reports</h2>
+                <h2>Reports & Analytics</h2>
             </div>
-            <section id="reports"></section>
             
-            <section class="saved-reports-container">
-                <h3>Saved Custom Reports</h3>
-                <div id="savedReportsList">
-                    <p style="color: #888;">Loading saved reports...</p>
+            <!-- Tabs Layout -->
+            <div style="max-width: 1400px; margin: 0 auto; padding: 0 40px;">
+                <div class="tabs" style="margin-bottom: 30px;">
+                    <button class="tab-button active" data-tab="analytics">Analytics</button>
+                    <button class="tab-button" data-tab="reports">Reports</button>
                 </div>
-            </section>
-            
-            <section class="report-section">
-                <h3>Custom Report Builder</h3>
-                <p>Create custom PDFs with charts, text, and images</p>
-                <button class="report-link" onclick="window.location.href='{{ url_for('custom_report') }}'">
-                    <i class="fa-solid fa-plus"></i> Create New Report
-                </button>
-            </section>
+                
+                <!-- Analytics Tab -->
+                <div id="analytics-tab" class="tab-content active">
+                    <div style="background: #2e3143; border-radius: 12px; padding: 24px; margin-bottom: 20px;">
+                        <div style="margin-bottom: 20px;">
+                            <h3 style="margin: 0 0 8px 0; color: #ECECEC;">Security Analytics Overview</h3>
+                            <p style="margin: 0; color: #9aa2ac; font-size: 14px;">Visual insights and trends from your security monitoring</p>
+                        </div>
+                        
+                        <div class="columns" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px;">
+                            <!-- Leaks per Crawler Chart -->
+                            <section id="leaks-bar-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
+                                <h4 style="margin: 0 0 12px 0; color: #ECECEC; font-size: 16px;">Leaks per Crawler</h4>
+                                <canvas id="leaksChart" width="300" height="120"></canvas>
+                                <div id="leaksChartMsg" style="color: #9aa2ac; font-size: 0.9em; margin-top: 8px;"></div>
+                            </section>
 
-            <section class="report-section">
-                <h3>Weekly Security Summary</h3>
-                <a class="report-link" href="{{ url_for('download_report', report_type='weekly') }}">Download PDF</a>
-            </section>
+                            <!-- Critical Alerts Over Time Chart -->
+                            <section id="alerts-line-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
+                                <h4 style="margin: 0 0 12px 0; color: #ECECEC; font-size: 16px;">Critical Alerts Over Time</h4>
+                                <canvas id="alertsChart" width="300" height="120"></canvas>
+                                <div id="alertsChartMsg" style="color: #9aa2ac; font-size: 0.9em; margin-top: 8px;"></div>
+                            </section>
 
-            <section class="report-section">
-                <h3>Incident Response Report</h3>
-                <a class="report-link" href="{{ url_for('download_report', report_type='incident') }}">Download PDF</a>
-            </section>
+                            <!-- Risk Severity Breakdown Chart -->
+                            <section id="risk-pie-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
+                                <h4 style="margin: 0 0 12px 0; color: #ECECEC; font-size: 16px;">Risk Severity Breakdown</h4>
+                                <canvas id="riskChart" width="300" height="120"></canvas>
+                                <div id="riskChartMsg" style="color: #9aa2ac; font-size: 0.9em; margin-top: 8px;"></div>
+                            </section>
 
-            <section class="report-section">
-                <h3>Risk Assessment Overview</h3>
-                <a class="report-link" href="{{ url_for('download_report', report_type='risk') }}">Download PDF</a>
-            </section>
+                            <!-- Overall Risk Trend Chart -->
+                            <section id="risk-trend-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
+                                <h4 style="margin: 0 0 12px 0; color: #ECECEC; font-size: 16px;">Overall Risk Trend</h4>
+                                <canvas id="riskTrendChart" width="300" height="120"></canvas>
+                                <div id="riskTrendMsg" style="color: #9aa2ac; font-size: 0.9em; margin-top: 8px;"></div>
+                            </section>
+
+                            <!-- Risk by Severity Over Time Chart -->
+                            <section id="severity-trend-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
+                                <h4 style="margin: 0 0 12px 0; color: #ECECEC; font-size: 16px;">Risk by Severity Over Time</h4>
+                                <canvas id="severityTrendChart" width="400" height="160"></canvas>
+                                <div id="severityTrendMsg" style="color: #9aa2ac; font-size: 0.9em; margin-top: 8px;"></div>
+                            </section>
+
+                            <!-- Top Risky Assets Chart -->
+                            <section id="top-assets-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
+                                <h4 style="margin: 0 0 12px 0; color: #ECECEC; font-size: 16px;">Top Risky Assets</h4>
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                                    <div style="font-size:0.9em;color:#ddd;">View:</div>
+                                    <div id="topAssetsToggle" style="display:flex;gap:6px;">
+                                        <button id="topAssetsToggleType" class="small-toggle active" style="background:#333;color:#fff;border:1px solid #555;padding:6px 8px;border-radius:4px;cursor:pointer;">By Type</button>
+                                        <button id="topAssetsToggleAsset" class="small-toggle" style="background:transparent;color:#ddd;border:1px solid transparent;padding:6px 8px;border-radius:4px;cursor:pointer;">By Asset</button>
+                                    </div>
+                                </div>
+                                <canvas id="topAssetsChart" width="400" height="200"></canvas>
+                                <div id="topAssetsMsg" style="color: #9aa2ac; font-size: 0.9em; margin-top: 8px;"></div>
+                            </section>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Reports Tab -->
+                <div id="reports-tab" class="tab-content">
+                    <div style="background: #2e3143; border-radius: 12px; padding: 24px; margin-bottom: 20px;">
+                        <section class="saved-reports-container">
+                            <h3 style="color: #ECECEC;">Saved Custom Reports</h3>
+                            <div id="savedReportsList">
+                                <p style="color: #888;">Loading saved reports...</p>
+                            </div>
+                        </section>
+                        
+                        <section class="report-section">
+                            <h3>Custom Report Builder</h3>
+                            <p>Create custom PDFs with charts, text, and images</p>
+                            <button class="report-link" onclick="window.location.href='{{ url_for(&quot;custom_report&quot;) }}'">
+                                <i class="fa-solid fa-plus"></i> Create New Report
+                            </button>
+                        </section>
+
+                        <section class="report-section">
+                            <h3>Weekly Security Summary</h3>
+                            <a class="report-link" href="{{ url_for('download_report', report_type='weekly') }}">Download PDF</a>
+                        </section>
+
+                        <section class="report-section">
+                            <h3>Incident Response Report</h3>
+                            <a class="report-link" href="{{ url_for('download_report', report_type='incident') }}">Download PDF</a>
+                        </section>
+
+                        <section class="report-section">
+                            <h3>Risk Assessment Overview</h3>
+                            <a class="report-link" href="{{ url_for('download_report', report_type='risk') }}">Download PDF</a>
+                        </section>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
     
@@ -254,5 +327,6 @@
         // Load saved reports when page loads
         document.addEventListener('DOMContentLoaded', loadSavedReports);
     </script>
+    <script src="{{ url_for('static', filename='js/reports.js') }}"></script>
 </body>
 </html>

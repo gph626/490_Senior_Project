@@ -7,6 +7,85 @@
     <link rel="stylesheet" href="/dashboard/new.css">
     <link rel="stylesheet" href="/dashboard/base.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
+    <style>
+        .saved-reports-container {
+            margin-bottom: 30px;
+        }
+        
+        .saved-report-card {
+            background: var(--card-bg, #1e1e1e);
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary-color, #4A90E2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .saved-report-info h4 {
+            margin: 0 0 8px 0;
+            color: var(--text-color, #fff);
+        }
+        
+        .saved-report-meta {
+            font-size: 13px;
+            color: var(--text-secondary, #aaa);
+        }
+        
+        .saved-report-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .saved-report-actions button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .btn-load {
+            background: var(--secondary-color, #50C878);
+            color: white;
+        }
+        
+        .btn-load:hover {
+            background: var(--secondary-hover, #45B068);
+        }
+        
+        .btn-download-saved {
+            background: var(--primary-color, #4A90E2);
+            color: white;
+        }
+        
+        .btn-download-saved:hover {
+            background: var(--primary-hover, #357ABD);
+        }
+        
+        .btn-delete {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-delete:hover {
+            background: #c0392b;
+        }
+        
+        .empty-saved-reports {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary, #888);
+        }
+        
+        .empty-saved-reports i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -29,6 +108,22 @@
                 <h2>Reports</h2>
             </div>
             <section id="reports"></section>
+            
+            <section class="saved-reports-container">
+                <h3>Saved Custom Reports</h3>
+                <div id="savedReportsList">
+                    <p style="color: #888;">Loading saved reports...</p>
+                </div>
+            </section>
+            
+            <section class="report-section">
+                <h3>Custom Report Builder</h3>
+                <p>Create custom PDFs with charts, text, and images</p>
+                <button class="report-link" onclick="window.location.href='{{ url_for('custom_report') }}'">
+                    <i class="fa-solid fa-plus"></i> Create New Report
+                </button>
+            </section>
+
             <section class="report-section">
                 <h3>Weekly Security Summary</h3>
                 <a class="report-link" href="{{ url_for('download_report', report_type='weekly') }}">Download PDF</a>
@@ -45,5 +140,119 @@
             </section>
         </main>
     </div>
+    
+    <script>
+        // Load saved reports
+        async function loadSavedReports() {
+            const container = document.getElementById('savedReportsList');
+            
+            try {
+                const response = await fetch('/api/reports/saved');
+                const reports = await response.json();
+                
+                if (!reports || reports.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-saved-reports">
+                            <i class="fa-regular fa-folder-open"></i>
+                            <p>No saved reports yet. Create one using the Custom Report Builder.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = '';
+                reports.forEach(report => {
+                    const card = document.createElement('div');
+                    card.className = 'saved-report-card';
+                    
+                    const createdDate = new Date(report.created_at).toLocaleDateString();
+                    const updatedDate = new Date(report.updated_at).toLocaleDateString();
+                    
+                    card.innerHTML = `
+                        <div class="saved-report-info">
+                            <h4>${escapeHtml(report.title)}</h4>
+                            <div class="saved-report-meta">
+                                <span><i class="fa-solid fa-file"></i> ${report.element_count} elements</span> •
+                                <span><i class="fa-regular fa-calendar"></i> Created: ${createdDate}</span> •
+                                <span><i class="fa-regular fa-clock"></i> Updated: ${updatedDate}</span>
+                            </div>
+                        </div>
+                        <div class="saved-report-actions">
+                            <button class="btn-load" onclick="loadReport(${report.id})">
+                                <i class="fa-solid fa-pen"></i> Edit
+                            </button>
+                            <button class="btn-download-saved" onclick="downloadSavedReport(${report.id})">
+                                <i class="fa-solid fa-download"></i> Download
+                            </button>
+                            <button class="btn-delete" onclick="deleteSavedReport(${report.id})">
+                                <i class="fa-solid fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    `;
+                    
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                container.innerHTML = `<p style="color: #e74c3c;">Error loading saved reports: ${error.message}</p>`;
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function loadReport(reportId) {
+            // Redirect to custom report builder with report ID
+            window.location.href = `/reports/custom?load=${reportId}`;
+        }
+        
+        async function downloadSavedReport(reportId) {
+            try {
+                const response = await fetch(`/api/reports/saved/${reportId}/download`);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `report_${reportId}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    alert('Failed to download report');
+                }
+            } catch (error) {
+                alert('Error downloading report: ' + error.message);
+            }
+        }
+        
+        async function deleteSavedReport(reportId) {
+            if (!confirm('Are you sure you want to delete this saved report?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/reports/saved/${reportId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    loadSavedReports(); // Reload the list
+                } else {
+                    alert('Failed to delete report: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error deleting report: ' + error.message);
+            }
+        }
+        
+        // Load saved reports when page loads
+        document.addEventListener('DOMContentLoaded', loadSavedReports);
+    </script>
 </body>
 </html>

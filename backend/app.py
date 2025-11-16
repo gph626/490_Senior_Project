@@ -1,5 +1,5 @@
 import os
-from backend.database import Leak, CrawlRun, Asset, AlertHistory
+from backend.database import Leak, CrawlRun, Asset, AlertHistory, SavedReport
 from backend.database import SessionLocal
 DBSession = SessionLocal
 import random
@@ -16,7 +16,7 @@ import json
 from textwrap import wrap
 from backend.utils import get_user_by_api_key
 from flask_login import login_required, current_user, LoginManager, login_user
-from backend.database import SessionLocal, APIKey, User, Config, AlertHistory
+from backend.database import SessionLocal, APIKey, User, Config, AlertHistory, SavedReport
 import secrets
 from datetime import datetime, timedelta
 import requests
@@ -53,6 +53,7 @@ try:
     from backend.database import Asset, SessionLocal, Base, Leak
     from backend.severity import compute_severity_from_entities
     from backend.analytics import get_critical_leaks, risk_summary, risk_time_series, severity_time_series, asset_risk
+    from backend.pdf_builder import create_pdf_from_config
 except ImportError:
     # Fallback: running directly in the backend/ directory
     from database import (
@@ -214,7 +215,12 @@ def get_current_user_id():
 @app.before_request
 def check_api_key():
     # Allow certain endpoints to use session-based auth (no API key required)
-    exempt_paths = ["/login", "/register", "/api/keys/new", "/api/account/delete", "/api/reset_password", "/api/check_email", "/api/check_username"]
+    exempt_paths = [
+        "/login", "/register", "/api/keys/new", "/api/account/delete", 
+        "/api/reset_password", "/api/check_email", "/api/check_username",
+        "/api/reports/preview", "/api/reports/download", "/api/reports/data/",
+        "/api/reports/save", "/api/reports/saved"
+    ]
     if any(request.path.startswith(p) for p in exempt_paths):
         return
 
@@ -256,9 +262,11 @@ def require_login():
     # Allow /auth/login.html and /auth/register.html without login
     if path in ['/auth/login.html', '/auth/register.html']:
         return None
-    # Allow session-based auth (session['user_id']) for both API and normal routes
-    if path.startswith("/api") and not (current_user.is_authenticated or session.get('user_id')):
-        return redirect("/login")
+    # For API routes, return JSON error instead of redirect
+    if path.startswith("/api"):
+        if not (current_user.is_authenticated or session.get('user_id')):
+            return jsonify({"error": "Authentication required"}), 401
+    # For non-API routes, redirect to login page
     if not (current_user.is_authenticated or session.get('user_id')):
         return redirect('/auth/login.html')
     return None
@@ -2889,6 +2897,375 @@ def create_api_key():
         return jsonify({"api_key": new_key, "expires_at": expires_at.isoformat()})
     finally:
         session_db.close()
+
+
+# -----------------------------------------------------------
+# CUSTOM PDF BUILDER ROUTES
+# -----------------------------------------------------------
+@app.route('/reports/custom')
+def custom_report():
+    """Page for building custom PDFs."""
+    username = session.get('username', 'User')
+    return render_template('custom_report.html', username=username)
+
+
+@app.route('/api/reports/preview', methods=['POST'])
+def preview_custom_report():
+    """Generate a preview of the custom PDF."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        config = request.get_json()
+        if not config:
+            return jsonify({"error": "No configuration provided"}), 400
+        
+        # Generate PDF
+        pdf_bytes = create_pdf_from_config(config)
+        
+        # Convert to base64 for preview
+        pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+        
+        return jsonify({
+            "success": True,
+            "pdf_data": pdf_base64
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/reports/download', methods=['POST'])
+def download_custom_report():
+    """Download the custom PDF."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    username = getattr(current_user, "username", "User")
+    
+    if not user_id:
+        return "Unauthorized - please log in first", 401
+    
+    try:
+        config = request.get_json()
+        if not config:
+            return "No configuration provided", 400
+        
+        # Generate PDF
+        pdf_bytes = create_pdf_from_config(config)
+        
+        # Create response
+        response = make_response(pdf_bytes)
+        response.headers["Content-Type"] = "application/pdf"
+        
+        # Get filename from config or use default
+        filename = config.get('filename', f'{username}_custom_report')
+        if not filename.endswith('.pdf'):
+            filename += '.pdf'
+            
+        response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+        return response
+    except Exception as e:
+        return f"Error generating PDF: {str(e)}", 500
+
+
+@app.route('/api/reports/save', methods=['POST'])
+def save_custom_report():
+    """Save a PDF configuration for later use."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    db_session = SessionLocal()
+    try:
+        config = request.get_json()
+        if not config:
+            return jsonify({"error": "No configuration provided"}), 400
+        
+        title = config.get('title', 'Untitled Report')
+        filename = config.get('filename', 'custom_report')
+        
+        # Create new saved report
+        saved_report = SavedReport(
+            user_id=user_id,
+            title=title,
+            filename=filename,
+            config_data=config
+        )
+        
+        db_session.add(saved_report)
+        db_session.commit()
+        
+        return jsonify({
+            "success": True,
+            "id": saved_report.id,
+            "message": "Report saved successfully"
+        })
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+
+@app.route('/api/reports/saved', methods=['GET'])
+def get_saved_reports():
+    """Get all saved reports for the current user."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    db_session = SessionLocal()
+    try:
+        reports = (
+            db_session.query(SavedReport)
+            .filter(SavedReport.user_id == user_id)
+            .order_by(SavedReport.updated_at.desc())
+            .all()
+        )
+        
+        return jsonify([{
+            "id": r.id,
+            "title": r.title,
+            "filename": r.filename,
+            "created_at": r.created_at.isoformat(),
+            "updated_at": r.updated_at.isoformat(),
+            "element_count": len(r.config_data.get('elements', []))
+        } for r in reports])
+    finally:
+        db_session.close()
+
+
+@app.route('/api/reports/saved/<int:report_id>', methods=['GET'])
+def get_saved_report(report_id):
+    """Get a specific saved report configuration."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    db_session = SessionLocal()
+    try:
+        report = (
+            db_session.query(SavedReport)
+            .filter(SavedReport.id == report_id, SavedReport.user_id == user_id)
+            .first()
+        )
+        
+        if not report:
+            return jsonify({"error": "Report not found"}), 404
+        
+        return jsonify(report.config_data)
+    finally:
+        db_session.close()
+
+
+@app.route('/api/reports/saved/<int:report_id>', methods=['DELETE'])
+def delete_saved_report(report_id):
+    """Delete a saved report."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    db_session = SessionLocal()
+    try:
+        report = (
+            db_session.query(SavedReport)
+            .filter(SavedReport.id == report_id, SavedReport.user_id == user_id)
+            .first()
+        )
+        
+        if not report:
+            return jsonify({"error": "Report not found"}), 404
+        
+        db_session.delete(report)
+        db_session.commit()
+        
+        return jsonify({"success": True, "message": "Report deleted successfully"})
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+
+@app.route('/api/reports/saved/<int:report_id>/download', methods=['GET'])
+def download_saved_report(report_id):
+    """Download a saved report as PDF."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    
+    if not user_id:
+        return "Unauthorized - please log in first", 401
+    
+    db_session = SessionLocal()
+    try:
+        report = (
+            db_session.query(SavedReport)
+            .filter(SavedReport.id == report_id, SavedReport.user_id == user_id)
+            .first()
+        )
+        
+        if not report:
+            return "Report not found", 404
+        
+        # Generate PDF from saved config
+        pdf_bytes = create_pdf_from_config(report.config_data)
+        
+        # Create response
+        response = make_response(pdf_bytes)
+        response.headers["Content-Type"] = "application/pdf"
+        
+        filename = report.filename
+        if not filename.endswith('.pdf'):
+            filename += '.pdf'
+            
+        response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+        return response
+    except Exception as e:
+        return f"Error generating PDF: {str(e)}", 500
+    finally:
+        db_session.close()
+
+
+@app.route('/api/reports/data/leaks_per_crawler', methods=['GET'])
+def get_leaks_per_crawler_data():
+    """Get leaks per crawler data for charts."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    db_session = SessionLocal()
+    try:
+        leaks = db_session.query(Leak).filter(Leak.user_id == user_id).limit(100).all()
+        sources = {}
+        for leak in leaks:
+            source = leak.source or leak.crawler or 'Unknown'
+            sources[source] = sources.get(source, 0) + 1
+        
+        return jsonify({
+            "labels": list(sources.keys()),
+            "values": list(sources.values())
+        })
+    finally:
+        db_session.close()
+
+
+@app.route('/api/reports/data/critical_alerts', methods=['GET'])
+def get_critical_alerts_data():
+    """Get critical alerts over time for charts."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    db_session = SessionLocal()
+    try:
+        alerts = db_session.query(AlertHistory).filter(AlertHistory.user_id == user_id).limit(100).all()
+        date_counts = {}
+        for alert in alerts:
+            date_str = (alert.date or alert.timestamp or '').strftime('%Y-%m-%d') if hasattr(alert.date or alert.timestamp, 'strftime') else str(alert.date or alert.timestamp or '')[:10]
+            if date_str:
+                date_counts[date_str] = date_counts.get(date_str, 0) + 1
+        
+        dates = sorted(date_counts.keys())
+        return jsonify({
+            "labels": dates,
+            "values": [date_counts[d] for d in dates]
+        })
+    finally:
+        db_session.close()
+
+
+@app.route('/api/reports/data/risk_severity', methods=['GET'])
+def get_risk_severity_data():
+    """Get risk severity breakdown for pie charts."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        summary = risk_summary(user_id=user_id)
+        severity_counts = summary.get('severity_counts', {})
+        
+        order = ['critical', 'high', 'medium', 'low', 'zero severity', 'unknown']
+        labels = [k for k in order if k in severity_counts]
+        values = [severity_counts[k] for k in labels]
+        
+        return jsonify({
+            "labels": labels,
+            "values": values
+        })
+    except Exception as e:
+        return jsonify({"error": str(e), "labels": [], "values": []}), 500
+
+
+@app.route('/api/reports/data/risk_trend', methods=['GET'])
+def get_risk_trend_data():
+    """Get overall risk trend for charts."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    days = request.args.get('days', 7, type=int)
+    try:
+        series = risk_time_series(days=days, user_id=user_id)
+        if not series:
+            return jsonify({"labels": [], "values": []})
+        
+        return jsonify({
+            "labels": [s['date'] for s in series],
+            "values": [s['score'] for s in series]
+        })
+    except Exception as e:
+        return jsonify({"error": str(e), "labels": [], "values": []}), 500
+
+
+@app.route('/api/reports/data/severity_trend', methods=['GET'])
+def get_severity_trend_data():
+    """Get severity time series for stacked charts."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    days = request.args.get('days', 7, type=int)
+    try:
+        series = severity_time_series(days=days, user_id=user_id)
+        return jsonify(series)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/reports/data/top_assets', methods=['GET'])
+def get_top_assets_data():
+    """Get top risky assets for charts."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    mode = request.args.get('mode', 'type')  # 'type' or 'asset'
+    limit = request.args.get('limit', 10, type=int)
+    
+    try:
+        assets = asset_risk(limit=limit, user_id=user_id)
+        
+        if mode == 'type':
+            type_counts = {}
+            for asset in assets:
+                asset_type = asset.get('type', 'unknown')
+                type_counts[asset_type] = type_counts.get(asset_type, 0) + int(asset.get('leak_count', 0))
+            
+            sorted_types = sorted(type_counts.items(), key=lambda x: x[1], reverse=True)
+            return jsonify({
+                "labels": [t[0] for t in sorted_types],
+                "values": [t[1] for t in sorted_types]
+            })
+        else:
+            return jsonify({
+                "labels": [f"{a.get('type')}:{a.get('value')}" for a in assets],
+                "values": [int(a.get('leak_count', 0)) for a in assets]
+            })
+    except Exception as e:
+        return jsonify({"error": str(e), "labels": [], "values": []}), 500
 
 
 

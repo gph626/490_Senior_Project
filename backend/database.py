@@ -117,6 +117,18 @@ class AlertHistory(Base):
     user = relationship("User")
 
 
+class SavedReport(Base):
+    __tablename__ = "saved_reports"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String(255), nullable=False)
+    filename = Column(String(255), nullable=False)
+    config_data = Column(JSON, nullable=False)  # Store PDF configuration
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    user = relationship("User")
+
+
 def init_db():
     # Refresh engine in case DB_PATH changed 
     global ENGINE, SessionLocal

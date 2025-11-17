@@ -25,12 +25,12 @@
         
         .saved-report-info h4 {
             margin: 0 0 8px 0;
-            color: var(--text-color, #fff);
+            color: #ffffff;
         }
         
         .saved-report-meta {
             font-size: 13px;
-            color: var(--text-secondary, #aaa);
+            color: #e0e0e0;
         }
         
         .saved-report-actions {
@@ -77,7 +77,7 @@
         .empty-saved-reports {
             text-align: center;
             padding: 40px 20px;
-            color: var(--text-secondary, #888);
+            color: #cccccc;
         }
         
         .empty-saved-reports i {
@@ -119,58 +119,58 @@
                 <div id="analytics-tab" class="tab-content active">
                     <div style="background: #2e3143; border-radius: 12px; padding: 24px; margin-bottom: 20px;">
                         <div style="margin-bottom: 20px;">
-                            <h3 style="margin: 0 0 8px 0; color: #ECECEC;">Security Analytics Overview</h3>
-                            <p style="margin: 0; color: #9aa2ac; font-size: 14px;">Visual insights and trends from your security monitoring</p>
+                            <h3 style="margin: 0 0 8px 0; color: #ffffff;">Security Analytics Overview</h3>
+                            <p style="margin: 0; color: #e0e0e0; font-size: 14px;">Visual insights and trends from your security monitoring</p>
                         </div>
                         
                         <div class="columns" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px;">
                             <!-- Leaks per Crawler Chart -->
                             <section id="leaks-bar-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
-                                <h4 style="margin: 0 0 12px 0; color: #ECECEC; font-size: 16px;">Leaks per Crawler</h4>
+                                <h4 style="margin: 0 0 12px 0; color: #ffffff; font-size: 16px;">Leaks per Crawler</h4>
                                 <canvas id="leaksChart" width="300" height="120"></canvas>
-                                <div id="leaksChartMsg" style="color: #9aa2ac; font-size: 0.9em; margin-top: 8px;"></div>
+                                <div id="leaksChartMsg" style="color: #e0e0e0; font-size: 0.9em; margin-top: 8px;"></div>
                             </section>
 
                             <!-- Critical Alerts Over Time Chart -->
                             <section id="alerts-line-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
-                                <h4 style="margin: 0 0 12px 0; color: #ECECEC; font-size: 16px;">Critical Alerts Over Time</h4>
+                                <h4 style="margin: 0 0 12px 0; color: #ffffff; font-size: 16px;">Critical Alerts Over Time</h4>
                                 <canvas id="alertsChart" width="300" height="120"></canvas>
-                                <div id="alertsChartMsg" style="color: #9aa2ac; font-size: 0.9em; margin-top: 8px;"></div>
+                                <div id="alertsChartMsg" style="color: #e0e0e0; font-size: 0.9em; margin-top: 8px;"></div>
                             </section>
 
                             <!-- Risk Severity Breakdown Chart -->
                             <section id="risk-pie-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
-                                <h4 style="margin: 0 0 12px 0; color: #ECECEC; font-size: 16px;">Risk Severity Breakdown</h4>
+                                <h4 style="margin: 0 0 12px 0; color: #ffffff; font-size: 16px;">Risk Severity Breakdown</h4>
                                 <canvas id="riskChart" width="300" height="120"></canvas>
-                                <div id="riskChartMsg" style="color: #9aa2ac; font-size: 0.9em; margin-top: 8px;"></div>
+                                <div id="riskChartMsg" style="color: #e0e0e0; font-size: 0.9em; margin-top: 8px;"></div>
                             </section>
 
                             <!-- Overall Risk Trend Chart -->
                             <section id="risk-trend-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
-                                <h4 style="margin: 0 0 12px 0; color: #ECECEC; font-size: 16px;">Overall Risk Trend</h4>
+                                <h4 style="margin: 0 0 12px 0; color: #ffffff; font-size: 16px;">Overall Risk Trend</h4>
                                 <canvas id="riskTrendChart" width="300" height="120"></canvas>
-                                <div id="riskTrendMsg" style="color: #9aa2ac; font-size: 0.9em; margin-top: 8px;"></div>
+                                <div id="riskTrendMsg" style="color: #e0e0e0; font-size: 0.9em; margin-top: 8px;"></div>
                             </section>
 
                             <!-- Risk by Severity Over Time Chart -->
                             <section id="severity-trend-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
-                                <h4 style="margin: 0 0 12px 0; color: #ECECEC; font-size: 16px;">Risk by Severity Over Time</h4>
+                                <h4 style="margin: 0 0 12px 0; color: #ffffff; font-size: 16px;">Risk by Severity Over Time</h4>
                                 <canvas id="severityTrendChart" width="400" height="160"></canvas>
-                                <div id="severityTrendMsg" style="color: #9aa2ac; font-size: 0.9em; margin-top: 8px;"></div>
+                                <div id="severityTrendMsg" style="color: #e0e0e0; font-size: 0.9em; margin-top: 8px;"></div>
                             </section>
 
                             <!-- Top Risky Assets Chart -->
                             <section id="top-assets-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
-                                <h4 style="margin: 0 0 12px 0; color: #ECECEC; font-size: 16px;">Top Risky Assets</h4>
+                                <h4 style="margin: 0 0 12px 0; color: #ffffff; font-size: 16px;">Top Risky Assets</h4>
                                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-                                    <div style="font-size:0.9em;color:#ddd;">View:</div>
+                                    <div style="font-size:0.9em;color:#ffffff;">View:</div>
                                     <div id="topAssetsToggle" style="display:flex;gap:6px;">
                                         <button id="topAssetsToggleType" class="small-toggle active" style="background:#333;color:#fff;border:1px solid #555;padding:6px 8px;border-radius:4px;cursor:pointer;">By Type</button>
-                                        <button id="topAssetsToggleAsset" class="small-toggle" style="background:transparent;color:#ddd;border:1px solid transparent;padding:6px 8px;border-radius:4px;cursor:pointer;">By Asset</button>
+                                        <button id="topAssetsToggleAsset" class="small-toggle" style="background:transparent;color:#ffffff;border:1px solid transparent;padding:6px 8px;border-radius:4px;cursor:pointer;">By Asset</button>
                                     </div>
                                 </div>
                                 <canvas id="topAssetsChart" width="400" height="200"></canvas>
-                                <div id="topAssetsMsg" style="color: #9aa2ac; font-size: 0.9em; margin-top: 8px;"></div>
+                                <div id="topAssetsMsg" style="color: #e0e0e0; font-size: 0.9em; margin-top: 8px;"></div>
                             </section>
                         </div>
                     </div>
@@ -180,32 +180,32 @@
                 <div id="reports-tab" class="tab-content">
                     <div style="background: #2e3143; border-radius: 12px; padding: 24px; margin-bottom: 20px;">
                         <section class="saved-reports-container">
-                            <h3 style="color: #ECECEC;">Saved Custom Reports</h3>
+                            <h3 style="color: #ffffff;">Saved Custom Reports</h3>
                             <div id="savedReportsList">
-                                <p style="color: #888;">Loading saved reports...</p>
+                                <p style="color: #e0e0e0;">Loading saved reports...</p>
                             </div>
                         </section>
                         
                         <section class="report-section">
-                            <h3>Custom Report Builder</h3>
-                            <p>Create custom PDFs with charts, text, and images</p>
-                            <button class="report-link" onclick="window.location.href='{{ url_for(&quot;custom_report&quot;) }}'">
+                            <h3 style="color: #ffffff;">Custom Report Builder</h3>
+                            <p style="color: #e0e0e0;">Create custom PDFs with charts, text, and images</p>
+                            <a class="report-link" href="{{ url_for('custom_report') }}">
                                 <i class="fa-solid fa-plus"></i> Create New Report
-                            </button>
+                            </a>
                         </section>
 
                         <section class="report-section">
-                            <h3>Weekly Security Summary</h3>
+                            <h3 style="color: #ffffff;">Weekly Security Summary</h3>
                             <a class="report-link" href="{{ url_for('download_report', report_type='weekly') }}">Download PDF</a>
                         </section>
 
                         <section class="report-section">
-                            <h3>Incident Response Report</h3>
+                            <h3 style="color: #ffffff;">Incident Response Report</h3>
                             <a class="report-link" href="{{ url_for('download_report', report_type='incident') }}">Download PDF</a>
                         </section>
 
                         <section class="report-section">
-                            <h3>Risk Assessment Overview</h3>
+                            <h3 style="color: #ffffff;">Risk Assessment Overview</h3>
                             <a class="report-link" href="{{ url_for('download_report', report_type='risk') }}">Download PDF</a>
                         </section>
                     </div>

@@ -174,15 +174,15 @@ function getElementPreview(element) {
         case 'title':
         case 'heading':
         case 'paragraph':
-            return `<small>${truncate(element.text, 60)}</small>`;
+            return `<small style="color: #ffffff;">${truncate(element.text, 60)}</small>`;
         case 'chart':
-            return `<small>${element.chartType} chart: ${element.title}</small>`;
+            return `<small style="color: #ffffff;">${element.chartType} chart: ${element.title}</small>`;
         case 'image':
-            return `<small>Image ${element.caption ? '- ' + element.caption : ''}</small>`;
+            return `<small style="color: #ffffff;">Image ${element.caption ? '- ' + element.caption : ''}</small>`;
         case 'spacer':
-            return `<small>Spacer: ${element.height} inches</small>`;
+            return `<small style="color: #ffffff;">Spacer: ${element.height} inches</small>`;
         case 'pageBreak':
-            return `<small>Page break</small>`;
+            return `<small style="color: #ffffff;">Page break</small>`;
         default:
             return '';
     }
@@ -261,7 +261,7 @@ function showEditForm(element) {
     
     card.innerHTML = `
         <div class="element-header">
-            <span class="element-type">Editing ${element.type}</span>
+            <span class="element-type" style="color: #ffffff;">Editing ${element.type}</span>
         </div>
         ${formHTML}
     `;
@@ -659,10 +659,10 @@ async function generatePreview() {
                 <iframe class="pdf-preview" src="data:application/pdf;base64,${data.pdf_data}"></iframe>
             `;
         } else {
-            previewContainer.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
+            previewContainer.innerHTML = `<p style="color: #ffffff;">Error: ${data.error}</p>`;
         }
     } catch (error) {
-        previewContainer.innerHTML = `<p style="color: red;">Error generating preview: ${error.message}</p>`;
+        previewContainer.innerHTML = `<p style="color: #ffffff;">Error generating preview: ${error.message}</p>`;
     }
 }
 

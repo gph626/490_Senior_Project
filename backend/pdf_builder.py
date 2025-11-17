@@ -169,52 +169,248 @@ class CustomPDFBuilder:
         width = element['width'] * inch
         height = element['height'] * inch
         
+        # Debug logging
+        import sys
+        print(f"DEBUG: Drawing chart - Type: {chart_type}, Title: {title}", file=sys.stderr)
+        print(f"DEBUG: Data type: {type(chart_data)}", file=sys.stderr)
+        if isinstance(chart_data, dict):
+            print(f"DEBUG: Labels: {chart_data.get('labels', [])[:5]}...", file=sys.stderr)
+            print(f"DEBUG: Values: {chart_data.get('values', [])[:5]}...", file=sys.stderr)
+        
         # Check if enough space on page
         if y - height < self.margin:
             pdf.showPage()
             y = self.page_height - self.margin
         
-        # Create matplotlib figure
+        # Create matplotlib figure with dark background matching dashboard
         fig, ax = plt.subplots(figsize=(element['width'], element['height']))
+        fig.patch.set_facecolor('#23272F')
+        ax.set_facecolor('#23272F')
+        
+        # Configure font to match dashboard (Montserrat-like)
+        plt.rcParams['font.family'] = 'sans-serif'
+        plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Helvetica']
         
         # Handle different data formats
+        is_stacked_severity = False
         if isinstance(chart_data, list):
             # For time series data like [{"date": "...", "critical": 5, ...}, ...]
-            labels = []
-            values = []
-            if chart_data:
-                # Extract dates as labels
+            if not chart_data:
+                labels = []
+                values = []
+            elif 'critical' in chart_data[0] or 'high' in chart_data[0]:
+                # Stacked severity trend chart - matches dashboard severityTrendChart
+                is_stacked_severity = True
                 labels = [item.get('date', '') for item in chart_data]
-                # For stacked data, we'll just sum all numeric values for now
-                # A more sophisticated approach would handle stacked charts properly
+                severity_keys = ['critical', 'high', 'medium', 'low', 'unknown']
+                # Colors matching dashboard Chart.js colors exactly
+                severity_colors = {
+                    'critical': 'rgba(255,99,132,0.85)',
+                    'high': 'rgba(255,140,0,0.85)',
+                    'medium': 'rgba(255,206,86,0.85)',
+                    'low': 'rgba(75,192,192,0.85)',
+                    'unknown': 'rgba(153,102,255,0.85)'
+                }
+                
+                # Convert rgba to matplotlib format
+                def rgba_to_mpl(rgba_str):
+                    import re
+                    match = re.search(r'rgba?\((\d+),(\d+),(\d+),?([0-9.]+)?\)', rgba_str)
+                    if match:
+                        r, g, b = int(match.group(1))/255, int(match.group(2))/255, int(match.group(3))/255
+                        a = float(match.group(4)) if match.group(4) else 1.0
+                        return (r, g, b, a)
+                    return (0.5, 0.5, 0.5, 1.0)
+                
+                # Draw stacked area chart with fill
+                bottom = [0] * len(labels)
+                for key in severity_keys:
+                    values_data = [item.get(key, 0) for item in chart_data]
+                    color_rgba = rgba_to_mpl(severity_colors[key])
+                    # Fill area with transparency
+                    fill_color = (color_rgba[0], color_rgba[1], color_rgba[2], 0.25)
+                    ax.fill_between(range(len(labels)), bottom, [b + v for b, v in zip(bottom, values_data)], 
+                                   label=key.capitalize(), color=fill_color, edgecolor=color_rgba, linewidth=1.5)
+                    bottom = [b + v for b, v in zip(bottom, values_data)]
+                
+                ax.set_xticks(range(len(labels)))
+                ax.set_xticklabels(labels, rotation=0, ha='center', color='#ffffff', fontsize=9)
+                ax.legend(loc='upper left', facecolor='#23272F', edgecolor='#555', labelcolor='#ffffff', 
+                         fontsize=8, framealpha=0.9)
+                ax.set_ylabel('Count', color='#ffffff', fontsize=10)
+                ax.tick_params(colors='#ffffff', labelsize=9)
+                ax.grid(True, alpha=0.15, color='#ffffff', linestyle='-', linewidth=0.5)
+                values = []  # Set empty for stacked charts
+            else:
+                # Simple time series
+                labels = [item.get('date', '') for item in chart_data]
                 value_keys = [k for k in chart_data[0].keys() if k != 'date']
                 if value_keys:
-                    # Just take the first numeric key for simple charts
                     values = [sum(item.get(k, 0) for k in value_keys if isinstance(item.get(k), (int, float))) 
                              for item in chart_data]
+                else:
+                    values = []
         else:
             # For dict format like {"labels": [...], "values": [...]}
             labels = chart_data.get('labels', [])
             values = chart_data.get('values', [])
         
-        if chart_type == 'bar':
-            ax.bar(labels, values, color='#4A90E2')
-            ax.set_ylabel('Count')
+        # Handle empty data
+        if is_stacked_severity:
+            # Stacked severity chart already drawn above
+            pass
+        elif not labels or not values:
+            # Draw "No data available" message
+            ax.text(0.5, 0.5, 'No data available', 
+                   horizontalalignment='center', verticalalignment='center',
+                   transform=ax.transAxes, color='#ffffff', fontsize=14)
+            ax.set_xlim(0, 1)
+            ax.set_ylim(0, 1)
+            ax.axis('off')
+        # Draw based on chart type
+        elif chart_type == 'bar':
+            # Check if this is a horizontal bar chart (top assets, etc.)
+            is_horizontal = False
+            if title:
+                # Check for keywords that indicate horizontal layout
+                title_lower = title.lower()
+                horizontal_keywords = ['top', 'asset', 'risky', 'risk']
+                if any(keyword in title_lower for keyword in horizontal_keywords):
+                    is_horizontal = True
+            
+            if not is_horizontal and labels and len(labels) > 0:
+                # If labels contain colons (asset:value format) or are long, use horizontal
+                has_colons = any(':' in str(l) for l in labels)
+                avg_label_len = sum(len(str(l)) for l in labels) / len(labels) if labels else 0
+                if has_colons or avg_label_len > 12:
+                    is_horizontal = True
+            
+            if is_horizontal:
+                # Horizontal bar chart for top assets - matches dashboard
+                y_pos = list(range(len(labels)))
+                bars = ax.barh(y_pos, values, color='rgba(167,0,29,0.85)', height=0.7)
+                ax.set_yticks(y_pos)
+                # Truncate long labels for better display
+                display_labels = [str(l)[:40] + '...' if len(str(l)) > 40 else str(l) for l in labels]
+                ax.set_yticklabels(display_labels, color='#ffffff', fontsize=8)
+                ax.set_xlabel('Leak Count', color='#ffffff', fontsize=10)
+                ax.set_ylabel('', color='#ffffff')
+                ax.tick_params(axis='x', colors='#ffffff', labelsize=9)
+                ax.tick_params(axis='y', colors='#ffffff', labelsize=8)
+                # Invert y-axis so highest value is on top
+                ax.invert_yaxis()
+                # Add subtle grid
+                ax.grid(True, axis='x', alpha=0.15, color='#ffffff', linestyle='-', linewidth=0.5)
+                # Add value labels on bars
+                for i, value in enumerate(values):
+                    if value > 0:
+                        ax.text(value * 0.98, i, f'{int(value)}', va='center', ha='right', 
+                               color='#ffffff', fontsize=8, fontweight='bold')
+            else:
+                # Vertical bar chart - matches dashboard leaksChart
+                x_pos = range(len(labels))
+                bars = ax.bar(x_pos, values, color='#a7001d', width=0.7, edgecolor='none')
+                ax.set_xticks(x_pos)
+                ax.set_xticklabels(labels, rotation=0 if len(labels) <= 5 else 45, 
+                                  ha='center' if len(labels) <= 5 else 'right', 
+                                  color='#ffffff', fontsize=9)
+                ax.set_ylabel('Count', color='#ffffff', fontsize=10)
+                ax.set_xlabel('', color='#ffffff')
+                ax.tick_params(colors='#ffffff', labelsize=9)
+                ax.grid(True, axis='y', alpha=0.15, color='#ffffff', linestyle='-', linewidth=0.5)
+                # Add value labels on top of bars
+                for i, value in enumerate(values):
+                    if value > 0:
+                        ax.text(i, value, f'{int(value)}', ha='center', va='bottom', 
+                               color='#ffffff', fontsize=8)
         elif chart_type == 'line':
-            ax.plot(labels, values, marker='o', linewidth=2, color='#4A90E2')
-            ax.set_ylabel('Value')
+            # Line chart - matches dashboard alertsChart and riskTrendChart
+            x_pos = range(len(labels))
+            # Use color matching the dashboard critical alerts chart
+            line_color = 'rgba(255,99,132,0.85)'
+            fill_color = 'rgba(255,99,132,0.25)'
+            
+            # Check title to determine which dashboard chart this represents
+            if title and 'risk trend' in title.lower():
+                # Overall Risk Trend uses orange
+                line_color = 'rgba(255,159,64,0.9)'
+                fill_color = 'rgba(255,159,64,0.18)'
+            
+            # Convert rgba to matplotlib
+            def rgba_to_mpl(rgba_str):
+                import re
+                match = re.search(r'rgba?\((\d+),(\d+),(\d+),?([0-9.]+)?\)', rgba_str)
+                if match:
+                    r, g, b = int(match.group(1))/255, int(match.group(2))/255, int(match.group(3))/255
+                    a = float(match.group(4)) if match.group(4) else 1.0
+                    return (r, g, b, a)
+                return (0.5, 0.5, 0.5, 1.0)
+            
+            line_rgb = rgba_to_mpl(line_color)
+            fill_rgb = rgba_to_mpl(fill_color)
+            
+            ax.plot(x_pos, values, marker='o', linewidth=2, color=line_rgb, 
+                   markerfacecolor=line_rgb, markersize=4, markeredgewidth=0)
+            ax.fill_between(x_pos, values, alpha=fill_rgb[3], color=fill_rgb[:3])
+            ax.set_xticks(x_pos)
+            ax.set_xticklabels(labels, rotation=0 if len(labels) <= 7 else 45, 
+                              ha='center' if len(labels) <= 7 else 'right', 
+                              color='#ffffff', fontsize=9)
+            ax.set_ylabel('Value', color='#ffffff', fontsize=10)
+            ax.tick_params(colors='#ffffff', labelsize=9)
+            ax.grid(True, alpha=0.15, color='#ffffff', linestyle='-', linewidth=0.5)
+            ax.set_ylim(bottom=0)  # Start from zero like dashboard
         elif chart_type == 'pie':
-            ax.pie(values, labels=labels, autopct='%1.1f%%', startangle=90)
+            # Pie chart - matches dashboard riskChart
+            # Color mapping matching dashboard exactly
+            colors_pie = {
+                'critical': 'rgba(255,99,132,.65)',
+                'high': 'rgba(255,140,0,.65)',
+                'medium': 'rgba(255,206,86,.65)',
+                'low': 'rgba(75,192,192,.65)',
+                'zero severity': 'rgba(160,160,160,.65)',
+                'unknown': 'rgba(153,102,255,.65)'
+            }
+            
+            def rgba_to_mpl(rgba_str):
+                import re
+                match = re.search(r'rgba?\((\d+),(\d+),(\d+),?([0-9.]+)?\)', rgba_str)
+                if match:
+                    r, g, b = int(match.group(1))/255, int(match.group(2))/255, int(match.group(3))/255
+                    a = float(match.group(4)) if match.group(4) else 1.0
+                    return (r, g, b, a)
+                return (0.5, 0.5, 0.5, 0.65)
+            
+            pie_colors = [rgba_to_mpl(colors_pie.get(str(label).lower(), 'rgba(74,144,226,.65)')) 
+                         for label in labels]
+            
+            wedges, texts, autotexts = ax.pie(values, labels=labels, autopct='%1.1f%%', startangle=90, 
+                                              colors=pie_colors, textprops={'color': '#ffffff', 'fontsize': 9})
+            for autotext in autotexts:
+                autotext.set_color('#ffffff')
+                autotext.set_fontweight('bold')
+                autotext.set_fontsize(8)
+            for text in texts:
+                text.set_color('#ffffff')
+                text.set_fontsize(9)
             ax.axis('equal')
         
+        # Add title if provided (not for pie charts as they don't have titles in dashboard)
         if title and chart_type != 'pie':
-            ax.set_title(title)
-            
+            ax.set_title(title, color='#ffffff', fontsize=11, pad=12, fontweight='normal')
+        
+        # Style the spines to match dashboard
+        for spine in ax.spines.values():
+            spine.set_edgecolor((1.0, 1.0, 1.0, 0.15))
+            spine.set_linewidth(0.5)
+        
+        # Adjust layout to prevent label cutoff
         plt.tight_layout()
         
-        # Save to buffer
+        # Save to buffer with settings matching dashboard appearance
         img_buffer = io.BytesIO()
-        plt.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight')
+        plt.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight', 
+                   facecolor='#23272F', edgecolor='none')
         plt.close(fig)
         img_buffer.seek(0)
         

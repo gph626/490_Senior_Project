@@ -92,8 +92,15 @@ def delete_asset(asset_id: int) -> bool:
         session.close()
 
 
-def get_assets_sets() -> dict:
-    """Return assets as sets per type for fast membership checks."""
+def get_assets_sets(user_id: int | None = None) -> dict:
+    """Return assets as sets per type for fast membership checks.
+    
+    Note: This function uses the separate assets.sqlite database which doesn't
+    have user_id. For user-scoped assets, use the Asset model from database.py
+    
+    Args:
+        user_id: Not used by this function (kept for compatibility)
+    """
     init_assets_db()
     session = AssetsSession()
     try:

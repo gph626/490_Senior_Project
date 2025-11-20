@@ -169,14 +169,6 @@ class CustomPDFBuilder:
         width = element['width'] * inch
         height = element['height'] * inch
         
-        # Debug logging
-        import sys
-        print(f"DEBUG: Drawing chart - Type: {chart_type}, Title: {title}", file=sys.stderr)
-        print(f"DEBUG: Data type: {type(chart_data)}", file=sys.stderr)
-        if isinstance(chart_data, dict):
-            print(f"DEBUG: Labels: {chart_data.get('labels', [])[:5]}...", file=sys.stderr)
-            print(f"DEBUG: Values: {chart_data.get('values', [])[:5]}...", file=sys.stderr)
-        
         # Check if enough space on page
         if y - height < self.margin:
             pdf.showPage()
@@ -233,12 +225,16 @@ class CustomPDFBuilder:
                                    label=key.capitalize(), color=fill_color, edgecolor=color_rgba, linewidth=1.5)
                     bottom = [b + v for b, v in zip(bottom, values_data)]
                 
+                # Set x-axis with rotation and reduced font size to prevent overlap
                 ax.set_xticks(range(len(labels)))
-                ax.set_xticklabels(labels, rotation=0, ha='center', color='#ffffff', fontsize=9)
+                # Use rotation and smaller font size for better readability
+                rotation_angle = 0 if len(labels) <= 7 else 45
+                ax.set_xticklabels(labels, rotation=rotation_angle, ha='center' if len(labels) <= 7 else 'right', 
+                                  color='#ffffff', fontsize=8)
                 ax.legend(loc='upper left', facecolor='#23272F', edgecolor='#555', labelcolor='#ffffff', 
                          fontsize=8, framealpha=0.9)
                 ax.set_ylabel('Count', color='#ffffff', fontsize=10)
-                ax.tick_params(colors='#ffffff', labelsize=9)
+                ax.tick_params(colors='#ffffff', labelsize=8)
                 ax.grid(True, alpha=0.15, color='#ffffff', linestyle='-', linewidth=0.5)
                 values = []  # Set empty for stacked charts
             else:
@@ -288,7 +284,7 @@ class CustomPDFBuilder:
             if is_horizontal:
                 # Horizontal bar chart for top assets - matches dashboard
                 y_pos = list(range(len(labels)))
-                bars = ax.barh(y_pos, values, color='rgba(167,0,29,0.85)', height=0.7)
+                bars = ax.barh(y_pos, values, color=(167/255, 0/255, 29/255, 0.85), height=0.7)
                 ax.set_yticks(y_pos)
                 # Truncate long labels for better display
                 display_labels = [str(l)[:40] + '...' if len(str(l)) > 40 else str(l) for l in labels]

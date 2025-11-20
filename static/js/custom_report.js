@@ -44,7 +44,8 @@ async function saveReport() {
     const config = {
         title: document.getElementById('reportTitle').value,
         filename: document.getElementById('reportFilename').value,
-        elements: elements
+        elements: elements,
+        id: currentReportId // Include the report ID if editing
     };
     
     if (!config.title) {
@@ -66,6 +67,8 @@ async function saveReport() {
         if (data.success) {
             currentReportId = data.id;
             alert('Report saved successfully!');
+            // Redirect to reports page
+            window.location.href = '/reports';
         } else {
             alert('Failed to save report: ' + (data.error || 'Unknown error'));
         }
@@ -176,7 +179,15 @@ function getElementPreview(element) {
         case 'paragraph':
             return `<small style="color: #ffffff;">${truncate(element.text, 60)}</small>`;
         case 'chart':
-            return `<small style="color: #ffffff;">${element.chartType} chart: ${element.title}</small>`;
+            let dateInfo = '';
+            if (element.dateRange) {
+                if (element.dateRange === 'custom' && element.startDate && element.endDate) {
+                    dateInfo = ` | ${element.startDate} to ${element.endDate}`;
+                } else {
+                    dateInfo = ` | ${element.dateRange}`;
+                }
+            }
+            return `<small style="color: #ffffff;">${element.chartType} chart: ${element.title}${dateInfo}</small>`;
         case 'image':
             return `<small style="color: #ffffff;">Image ${element.caption ? '- ' + element.caption : ''}</small>`;
         case 'spacer':
@@ -300,11 +311,37 @@ function deleteElement(index) {
 // Show chart configuration modal
 function showChartModal(element) {
     const modal = document.getElementById('chartModal');
+    const modalTitle = document.getElementById('chartModalTitle');
     const form = document.getElementById('chartConfigForm');
+    
+    const isEditing = element.dataLoaded;
+    const dateRangeValue = element.dateRange || 'weekly';
+    
+    // Update modal title
+    modalTitle.textContent = isEditing ? 'Edit Chart' : 'Select Charts to Add';
     
     form.innerHTML = `
         <div class="form-group">
-            <label>Selected Chart: <span id="chartTypeDisplay">None - Please load data below</span></label>
+            <label>Selected Chart: <span id="chartTypeDisplay">${element.title || 'None - Please load data below'}</span></label>
+        </div>
+        <div class="form-group">
+            <label>Date Range</label>
+            <select id="chartDateRange" style="width: 100%; padding: 8px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px;">
+                <option value="daily" ${dateRangeValue === 'daily' ? 'selected' : ''}>Daily (Last 24 hours)</option>
+                <option value="weekly" ${dateRangeValue === 'weekly' ? 'selected' : ''}>Weekly (Last 7 days)</option>
+                <option value="monthly" ${dateRangeValue === 'monthly' ? 'selected' : ''}>Monthly (Last 30 days)</option>
+                <option value="custom" ${dateRangeValue === 'custom' ? 'selected' : ''}>Custom Range</option>
+            </select>
+        </div>
+        <div id="customDateFields" style="display: ${dateRangeValue === 'custom' ? 'block' : 'none'};">
+            <div class="form-group">
+                <label>Start Date</label>
+                <input type="date" id="chartStartDate" value="${element.startDate || ''}" style="width: 100%; padding: 8px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px;">
+            </div>
+            <div class="form-group">
+                <label>End Date</label>
+                <input type="date" id="chartEndDate" value="${element.endDate || ''}" style="width: 100%; padding: 8px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px;">
+            </div>
         </div>
         <div class="form-group">
             <label>Width (inches)</label>
@@ -314,16 +351,25 @@ function showChartModal(element) {
             <label>Height (inches)</label>
             <input type="number" id="chartHeight" value="${element.height}" min="2" max="7" step="0.5">
         </div>
+        ${isEditing ? `
+        <div style="margin-top: 15px; padding: 10px; background: #2a2a2a; border-radius: 4px;">
+            <button type="button" onclick="reloadChartData()" style="width: 100%; padding: 10px; background: #4a90e2; color: white; border: none; border-radius: 4px; cursor: pointer; margin-bottom: 10px;">
+                <i class="fa-solid fa-sync"></i> Reload Data with New Date Range
+            </button>
+            <small style="color: #aaa;">Click to refresh chart data based on the date range above</small>
+        </div>
+        ` : ''}
         <div style="display: flex; gap: 10px; margin-top: 20px;">
             <button type="button" onclick="saveChart()" style="flex: 1; padding: 10px; background: var(--primary-color); color: white; border: none; border-radius: 4px; cursor: pointer;">Save Chart</button>
             <button type="button" onclick="cancelChartModal()" style="flex: 1; padding: 10px; background: #666; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
         </div>
     `;
     
-    // Update display if data already loaded
-    if (element.title) {
-        document.getElementById('chartTypeDisplay').textContent = element.title;
-    }
+    // Add event listener for date range selector
+    document.getElementById('chartDateRange').addEventListener('change', function() {
+        const customFields = document.getElementById('customDateFields');
+        customFields.style.display = this.value === 'custom' ? 'block' : 'none';
+    });
     
     modal.classList.add('active');
 }
@@ -339,43 +385,179 @@ function cancelChartModal() {
     closeModal('chartModal');
 }
 
+// Reload chart data with new date range
+async function reloadChartData() {
+    const element = elements[currentElementIndex];
+    
+    if (!element || !element.dataLoaded) {
+        alert('No chart data to reload');
+        return;
+    }
+    
+    // Get the chart type key from stored data
+    // We need to reverse-lookup which endpoint was used
+    const chartTypeMap = {
+        'Leaks per Crawler': 'leaks_per_crawler',
+        'Critical Alerts Over Time': 'critical_alerts',
+        'Risk Severity Breakdown': 'risk_severity',
+        'Overall Risk Trend': 'risk_trend',
+        'Risk by Severity Over Time': 'severity_trend',
+        'Top Risky Assets by Type': 'top_assets_type',
+        'Top Risky Assets': 'top_assets_asset'
+    };
+    
+    const chartKey = chartTypeMap[element.title];
+    if (!chartKey) {
+        alert('Unable to determine chart type for reload');
+        return;
+    }
+    
+    try {
+        // Load the data with current date range settings
+        await loadChartData(chartKey);
+        
+        // Update the modal display
+        document.getElementById('chartTypeDisplay').textContent = element.title;
+        
+        alert('Chart data reloaded successfully!');
+    } catch (error) {
+        console.error('Reload error:', error);
+        alert('Failed to reload chart data: ' + error.message);
+    }
+}
+
+// Reload chart data with new date range
+async function reloadChartData() {
+    const element = elements[currentElementIndex];
+    
+    if (!element || !element.dataLoaded) {
+        alert('No chart data to reload');
+        return;
+    }
+    
+    // Get the chart type key from stored data
+    // We need to reverse-lookup which endpoint was used
+    const chartTypeMap = {
+        'Leaks per Crawler': 'leaks_per_crawler',
+        'Critical Alerts Over Time': 'critical_alerts',
+        'Risk Severity Breakdown': 'risk_severity',
+        'Overall Risk Trend': 'risk_trend',
+        'Risk by Severity Over Time': 'severity_trend',
+        'Top Risky Assets by Type': 'top_assets_type',
+        'Top Risky Assets': 'top_assets_asset'
+    };
+    
+    const chartKey = chartTypeMap[element.title];
+    if (!chartKey) {
+        alert('Unable to determine chart type for reload');
+        return;
+    }
+    
+    try {
+        // Load the data with current date range settings
+        await loadChartData(chartKey);
+        
+        // Update the modal display
+        document.getElementById('chartTypeDisplay').textContent = element.title;
+        
+        alert('Chart data reloaded successfully!');
+    } catch (error) {
+        console.error('Reload error:', error);
+        alert('Failed to reload chart data: ' + error.message);
+    }
+}
+
+// Reload chart data with new date range
+async function reloadChartData() {
+    const element = elements[currentElementIndex];
+    
+    if (!element || !element.dataLoaded) {
+        alert('No chart data to reload');
+        return;
+    }
+    
+    // Get the chart type key from stored data
+    // We need to reverse-lookup which endpoint was used
+    const chartTypeMap = {
+        'Leaks per Crawler': 'leaks_per_crawler',
+        'Critical Alerts Over Time': 'critical_alerts',
+        'Risk Severity Breakdown': 'risk_severity',
+        'Overall Risk Trend': 'risk_trend',
+        'Risk by Severity Over Time': 'severity_trend',
+        'Top Risky Assets by Type': 'top_assets_type',
+        'Top Risky Assets': 'top_assets_asset'
+    };
+    
+    const chartKey = chartTypeMap[element.title];
+    if (!chartKey) {
+        alert('Unable to determine chart type for reload');
+        return;
+    }
+    
+    try {
+        // Load the data with current date range settings
+        await loadChartData(chartKey);
+        
+        // Update the modal display
+        document.getElementById('chartTypeDisplay').textContent = element.title;
+        
+        alert('Chart data reloaded successfully!');
+    } catch (error) {
+        console.error('Reload error:', error);
+        alert('Failed to reload chart data: ' + error.message);
+    }
+}
+
 // Load chart data from various endpoints
 async function loadChartData(dataType) {
     const element = elements[currentElementIndex];
     
+    // Get date range parameters
+    const dateRange = document.getElementById('chartDateRange')?.value || 'weekly';
+    const startDate = document.getElementById('chartStartDate')?.value || '';
+    const endDate = document.getElementById('chartEndDate')?.value || '';
+    
+    // Build date range query string
+    let dateParams = '';
+    if (dateRange === 'custom' && startDate && endDate) {
+        dateParams = `?range=custom&start=${startDate}&end=${endDate}`;
+    } else {
+        dateParams = `?range=${dateRange}`;
+    }
+    
     const endpoints = {
         'leaks_per_crawler': {
-            url: '/api/reports/data/leaks_per_crawler',
+            url: '/api/reports/data/leaks_per_crawler' + dateParams,
             title: 'Leaks per Crawler',
             chartType: 'bar'
         },
         'critical_alerts': {
-            url: '/api/reports/data/critical_alerts',
+            url: '/api/reports/data/critical_alerts' + dateParams,
             title: 'Critical Alerts Over Time',
             chartType: 'line'
         },
         'risk_severity': {
-            url: '/api/reports/data/risk_severity',
+            url: '/api/reports/data/risk_severity' + dateParams,
             title: 'Risk Severity Breakdown',
             chartType: 'pie'
         },
         'risk_trend': {
-            url: '/api/reports/data/risk_trend?days=7',
-            title: 'Overall Risk Trend (7 Days)',
+            url: '/api/reports/data/risk_trend?days=7&' + dateParams.substring(1),
+            title: 'Overall Risk Trend',
             chartType: 'line'
         },
         'severity_trend': {
-            url: '/api/reports/data/severity_trend?days=7',
+            url: '/api/reports/data/severity_trend?days=7&' + dateParams.substring(1),
             title: 'Risk by Severity Over Time',
             chartType: 'line'
         },
         'top_assets_type': {
-            url: '/api/reports/data/top_assets?mode=type&limit=10',
+            url: '/api/reports/data/top_assets?mode=type&limit=10&' + dateParams.substring(1),
             title: 'Top Risky Assets by Type',
             chartType: 'bar'
         },
         'top_assets_asset': {
-            url: '/api/reports/data/top_assets?mode=asset&limit=10',
+            url: '/api/reports/data/top_assets?mode=asset&limit=10&' + dateParams.substring(1),
             title: 'Top Risky Assets',
             chartType: 'bar'
         }
@@ -407,11 +589,16 @@ async function loadChartData(dataType) {
             throw new Error(data.error);
         }
         
-        // Store the loaded data
+        // Store the loaded data and date range info
         element.data = data;
         element.title = config.title;
         element.chartType = config.chartType;
-        element.dataLoaded = true; // Flag to track successful load
+        element.dataLoaded = true;
+        element.dateRange = dateRange;
+        if (dateRange === 'custom') {
+            element.startDate = startDate;
+            element.endDate = endDate;
+        }
         
         // Update display
         const displayElement = document.getElementById('chartTypeDisplay');
@@ -438,39 +625,52 @@ async function addSelectedCharts() {
     const width = parseFloat(document.getElementById('chartWidth').value);
     const height = parseFloat(document.getElementById('chartHeight').value);
     
+    // Get date range parameters from the modal
+    const dateRange = document.getElementById('chartDateRange')?.value || 'weekly';
+    const startDate = document.getElementById('chartStartDate')?.value || '';
+    const endDate = document.getElementById('chartEndDate')?.value || '';
+    
+    // Build date range query string
+    let dateParams = '';
+    if (dateRange === 'custom' && startDate && endDate) {
+        dateParams = `?range=custom&start=${startDate}&end=${endDate}`;
+    } else {
+        dateParams = `?range=${dateRange}`;
+    }
+    
     const endpoints = {
         'leaks_per_crawler': {
-            url: '/api/reports/data/leaks_per_crawler',
+            url: '/api/reports/data/leaks_per_crawler' + dateParams,
             title: 'Leaks per Crawler',
             chartType: 'bar'
         },
         'critical_alerts': {
-            url: '/api/reports/data/critical_alerts',
+            url: '/api/reports/data/critical_alerts' + dateParams,
             title: 'Critical Alerts Over Time',
             chartType: 'line'
         },
         'risk_severity': {
-            url: '/api/reports/data/risk_severity',
+            url: '/api/reports/data/risk_severity' + dateParams,
             title: 'Risk Severity Breakdown',
             chartType: 'pie'
         },
         'risk_trend': {
-            url: '/api/reports/data/risk_trend?days=7',
-            title: 'Overall Risk Trend (7 Days)',
+            url: '/api/reports/data/risk_trend?days=7&' + dateParams.substring(1),
+            title: 'Overall Risk Trend',
             chartType: 'line'
         },
         'severity_trend': {
-            url: '/api/reports/data/severity_trend?days=7',
+            url: '/api/reports/data/severity_trend?days=7&' + dateParams.substring(1),
             title: 'Risk by Severity Over Time',
             chartType: 'line'
         },
         'top_assets_type': {
-            url: '/api/reports/data/top_assets?mode=type&limit=10',
+            url: '/api/reports/data/top_assets?mode=type&limit=10&' + dateParams.substring(1),
             title: 'Top Risky Assets by Type',
             chartType: 'bar'
         },
         'top_assets_asset': {
-            url: '/api/reports/data/top_assets?mode=asset&limit=10',
+            url: '/api/reports/data/top_assets?mode=asset&limit=10&' + dateParams.substring(1),
             title: 'Top Risky Assets',
             chartType: 'bar'
         }
@@ -508,8 +708,15 @@ async function addSelectedCharts() {
                 width: width,
                 height: height,
                 data: data,
-                dataLoaded: true
+                dataLoaded: true,
+                dateRange: dateRange
             };
+            
+            // Add date range info if custom
+            if (dateRange === 'custom') {
+                element.startDate = startDate;
+                element.endDate = endDate;
+            }
             
             elements.push(element);
             successCount++;
@@ -557,6 +764,18 @@ function saveChart() {
     
     element.width = parseFloat(document.getElementById('chartWidth').value);
     element.height = parseFloat(document.getElementById('chartHeight').value);
+    
+    // Save date range settings
+    const dateRange = document.getElementById('chartDateRange').value;
+    element.dateRange = dateRange;
+    if (dateRange === 'custom') {
+        element.startDate = document.getElementById('chartStartDate').value;
+        element.endDate = document.getElementById('chartEndDate').value;
+    } else {
+        // Clear custom dates if not using custom range
+        delete element.startDate;
+        delete element.endDate;
+    }
     
     // Validate that data has been loaded using the flag
     if (!element.dataLoaded) {

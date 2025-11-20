@@ -123,6 +123,24 @@
                             <p style="margin: 0; color: #e0e0e0; font-size: 14px;">Visual insights and trends from your security monitoring</p>
                         </div>
                         
+                        <!-- Date Range Filter -->
+                        <div style="background: #1a1d2e; border-radius: 8px; padding: 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                            <div style="font-size: 0.95em; color: #ffffff; font-weight: 500;">Date Range:</div>
+                            <div style="display: flex; gap: 8px;">
+                                <button id="dateRangeDaily" class="date-range-btn" data-range="daily" style="background:#333;color:#fff;border:1px solid #555;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:0.9em;">Daily</button>
+                                <button id="dateRangeWeekly" class="date-range-btn active" data-range="weekly" style="background:#4A90E2;color:#fff;border:1px solid #4A90E2;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:0.9em;">Weekly</button>
+                                <button id="dateRangeMonthly" class="date-range-btn" data-range="monthly" style="background:#333;color:#fff;border:1px solid #555;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:0.9em;">Monthly</button>
+                                <button id="dateRangeCustom" class="date-range-btn" data-range="custom" style="background:#333;color:#fff;border:1px solid #555;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:0.9em;">Custom</button>
+                            </div>
+                            <div id="customDateRange" style="display: none; gap: 8px; align-items: center;">
+                                <label style="color: #e0e0e0; font-size: 0.9em;">From:</label>
+                                <input type="date" id="customStartDate" style="background:#333;color:#fff;border:1px solid #555;padding:6px 10px;border-radius:4px;font-size:0.9em;">
+                                <label style="color: #e0e0e0; font-size: 0.9em;">To:</label>
+                                <input type="date" id="customEndDate" style="background:#333;color:#fff;border:1px solid #555;padding:6px 10px;border-radius:4px;font-size:0.9em;">
+                                <button id="applyCustomRange" style="background:#50C878;color:#fff;border:none;padding:6px 16px;border-radius:4px;cursor:pointer;font-size:0.9em;">Apply</button>
+                            </div>
+                        </div>
+                        
                         <div class="columns" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px;">
                             <!-- Leaks per Crawler Chart -->
                             <section id="leaks-bar-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
@@ -134,6 +152,7 @@
                             <!-- Critical Alerts Over Time Chart -->
                             <section id="alerts-line-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
                                 <h4 style="margin: 0 0 12px 0; color: #ffffff; font-size: 16px;">Critical Alerts Over Time</h4>
+                                <div id="alertsDateInfo" style="color: #aaa; font-size: 0.85em; margin-bottom: 8px;"></div>
                                 <canvas id="alertsChart" width="300" height="120"></canvas>
                                 <div id="alertsChartMsg" style="color: #e0e0e0; font-size: 0.9em; margin-top: 8px;"></div>
                             </section>
@@ -148,6 +167,7 @@
                             <!-- Overall Risk Trend Chart -->
                             <section id="risk-trend-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
                                 <h4 style="margin: 0 0 12px 0; color: #ffffff; font-size: 16px;">Overall Risk Trend</h4>
+                                <div id="riskTrendDateInfo" style="color: #aaa; font-size: 0.85em; margin-bottom: 8px;"></div>
                                 <canvas id="riskTrendChart" width="300" height="120"></canvas>
                                 <div id="riskTrendMsg" style="color: #e0e0e0; font-size: 0.9em; margin-top: 8px;"></div>
                             </section>
@@ -155,6 +175,7 @@
                             <!-- Risk by Severity Over Time Chart -->
                             <section id="severity-trend-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
                                 <h4 style="margin: 0 0 12px 0; color: #ffffff; font-size: 16px;">Risk by Severity Over Time</h4>
+                                <div id="severityTrendDateInfo" style="color: #aaa; font-size: 0.85em; margin-bottom: 8px;"></div>
                                 <canvas id="severityTrendChart" width="400" height="160"></canvas>
                                 <div id="severityTrendMsg" style="color: #e0e0e0; font-size: 0.9em; margin-top: 8px;"></div>
                             </section>
@@ -186,28 +207,11 @@
                             </div>
                         </section>
                         
-                        <section class="report-section">
-                            <h3 style="color: #ffffff;">Custom Report Builder</h3>
-                            <p style="color: #e0e0e0;">Create custom PDFs with charts, text, and images</p>
-                            <a class="report-link" href="{{ url_for('custom_report') }}">
-                                <i class="fa-solid fa-plus"></i> Create New Report
+                        <div style="margin-bottom: 20px;">
+                            <a class="report-link" href="{{ url_for('custom_report') }}" style="display: inline-block; padding: 12px 24px; background: #4A90E2; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; transition: background 0.3s;">
+                                <i class="fa-solid fa-plus"></i> Create Custom Report
                             </a>
-                        </section>
-
-                        <section class="report-section">
-                            <h3 style="color: #ffffff;">Weekly Security Summary</h3>
-                            <a class="report-link" href="{{ url_for('download_report', report_type='weekly') }}">Download PDF</a>
-                        </section>
-
-                        <section class="report-section">
-                            <h3 style="color: #ffffff;">Incident Response Report</h3>
-                            <a class="report-link" href="{{ url_for('download_report', report_type='incident') }}">Download PDF</a>
-                        </section>
-
-                        <section class="report-section">
-                            <h3 style="color: #ffffff;">Risk Assessment Overview</h3>
-                            <a class="report-link" href="{{ url_for('download_report', report_type='risk') }}">Download PDF</a>
-                        </section>
+                        </div>
                     </div>
                 </div>
             </div>

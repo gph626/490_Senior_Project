@@ -1112,11 +1112,38 @@ def api_leaks():
 @app.route("/api/alerts", methods=["GET"])
 def api_alerts():
     limit = request.args.get('limit', default=50, type=int)
+    date_range = request.args.get('range', default='weekly', type=str)
+    start_date = request.args.get('start', default=None, type=str)
+    end_date = request.args.get('end', default=None, type=str)
+    
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"error": "not authenticated"}), 401
 
     crits = get_critical_leaks(limit=limit, user_id=user_id)
+    
+    # Filter by date range if specified
+    if date_range == 'custom' and start_date and end_date:
+        from datetime import datetime
+        try:
+            start = datetime.fromisoformat(start_date)
+            end = datetime.fromisoformat(end_date)
+            crits = [c for c in crits if start_date <= (c.get('date') or c.get('timestamp', ''))[:10] <= end_date]
+        except:
+            pass  # If date parsing fails, return unfiltered
+    elif date_range in ['daily', 'weekly', 'monthly']:
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        if date_range == 'daily':
+            cutoff = now - timedelta(days=1)
+        elif date_range == 'weekly':
+            cutoff = now - timedelta(weeks=1)
+        else:  # monthly
+            cutoff = now - timedelta(days=30)
+        
+        cutoff_str = cutoff.strftime('%Y-%m-%d')
+        crits = [c for c in crits if (c.get('date') or c.get('timestamp', ''))[:10] >= cutoff_str]
+    
     return jsonify(crits)
 
 
@@ -1158,15 +1185,42 @@ def api_risk_time_series():
     """Return a daily overall risk score time series for the requesting user.
 
     Query params:
-      - days: number of days back to include (default 90)
+      - range: 'daily', 'weekly', 'monthly', or 'custom'
+      - start: start date for custom range (YYYY-MM-DD)
+      - end: end date for custom range (YYYY-MM-DD)
+      - days: number of days back (legacy, overridden by range)
     """
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({"error": "not authenticated"}), 401
 
-    days = request.args.get('days', default=7, type=int)
+    date_range = request.args.get('range', default='weekly', type=str)
+    start_date = request.args.get('start', default=None, type=str)
+    end_date = request.args.get('end', default=None, type=str)
+    
+    # Calculate days based on range
+    if date_range == 'custom' and start_date and end_date:
+        from datetime import datetime
+        try:
+            start = datetime.fromisoformat(start_date)
+            end = datetime.fromisoformat(end_date)
+            days = (end - start).days + 1
+        except:
+            days = 7
+    elif date_range == 'daily':
+        days = 1
+    elif date_range == 'monthly':
+        days = 30
+    else:  # weekly
+        days = 7
+    
     try:
         series = risk_time_series(days=days, user_id=user_id)
+        
+        # Filter by custom date range if specified
+        if date_range == 'custom' and start_date and end_date:
+            series = [s for s in series if start_date <= s.get('date', '') <= end_date]
+        
     except Exception as e:
         return jsonify({"error": "failed to compute time series", "message": str(e)}), 500
     return jsonify(series)
@@ -1177,15 +1231,42 @@ def api_risk_severity_time_series():
     """Return daily severity counts for the requesting user.
 
     Query params:
-      - days: number of days back to include (default 7)
+      - range: 'daily', 'weekly', 'monthly', or 'custom'
+      - start: start date for custom range (YYYY-MM-DD)
+      - end: end date for custom range (YYYY-MM-DD)
+      - days: number of days back (legacy, overridden by range)
     """
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({"error": "not authenticated"}), 401
 
-    days = request.args.get('days', default=7, type=int)
+    date_range = request.args.get('range', default='weekly', type=str)
+    start_date = request.args.get('start', default=None, type=str)
+    end_date = request.args.get('end', default=None, type=str)
+    
+    # Calculate days based on range
+    if date_range == 'custom' and start_date and end_date:
+        from datetime import datetime
+        try:
+            start = datetime.fromisoformat(start_date)
+            end = datetime.fromisoformat(end_date)
+            days = (end - start).days + 1
+        except:
+            days = 7
+    elif date_range == 'daily':
+        days = 1
+    elif date_range == 'monthly':
+        days = 30
+    else:  # weekly
+        days = 7
+    
     try:
         series = severity_time_series(days=days, user_id=user_id)
+        
+        # Filter by custom date range if specified
+        if date_range == 'custom' and start_date and end_date:
+            series = [s for s in series if start_date <= s.get('date', '') <= end_date]
+        
     except Exception as e:
         return jsonify({"error": "failed to compute severity time series", "message": str(e)}), 500
     return jsonify(series)
@@ -2983,22 +3064,41 @@ def save_custom_report():
         
         title = config.get('title', 'Untitled Report')
         filename = config.get('filename', 'custom_report')
+        report_id = config.get('id')  # Check if we're updating an existing report
         
-        # Create new saved report
-        saved_report = SavedReport(
-            user_id=user_id,
-            title=title,
-            filename=filename,
-            config_data=config
-        )
+        if report_id:
+            # Update existing report
+            saved_report = (
+                db_session.query(SavedReport)
+                .filter(SavedReport.id == report_id, SavedReport.user_id == user_id)
+                .first()
+            )
+            
+            if not saved_report:
+                return jsonify({"error": "Report not found or unauthorized"}), 404
+            
+            # Update the fields
+            saved_report.title = title
+            saved_report.filename = filename
+            saved_report.config_data = config
+            message = "Report updated successfully"
+        else:
+            # Create new saved report
+            saved_report = SavedReport(
+                user_id=user_id,
+                title=title,
+                filename=filename,
+                config_data=config
+            )
+            db_session.add(saved_report)
+            message = "Report saved successfully"
         
-        db_session.add(saved_report)
         db_session.commit()
         
         return jsonify({
             "success": True,
             "id": saved_report.id,
-            "message": "Report saved successfully"
+            "message": message
         })
     except Exception as e:
         db_session.rollback()
@@ -3135,9 +3235,34 @@ def get_leaks_per_crawler_data():
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
     
+    # Get date range parameters
+    date_range = request.args.get('range', 'weekly')
+    start_date_str = request.args.get('start', '')
+    end_date_str = request.args.get('end', '')
+    
     db_session = SessionLocal()
     try:
-        leaks = db_session.query(Leak).filter(Leak.user_id == user_id).limit(100).all()
+        query = db_session.query(Leak).filter(Leak.user_id == user_id)
+        
+        # Apply date filtering
+        if date_range == 'custom' and start_date_str and end_date_str:
+            from datetime import datetime
+            try:
+                query = query.filter(Leak.timestamp >= start_date_str, Leak.timestamp <= end_date_str + ' 23:59:59')
+            except:
+                pass
+        elif date_range in ['daily', 'weekly', 'monthly']:
+            from datetime import datetime, timedelta
+            now = datetime.now()
+            if date_range == 'daily':
+                cutoff = now - timedelta(days=1)
+            elif date_range == 'weekly':
+                cutoff = now - timedelta(weeks=1)
+            else:
+                cutoff = now - timedelta(days=30)
+            query = query.filter(Leak.timestamp >= cutoff)
+        
+        leaks = query.limit(1000).all()
         sources = {}
         for leak in leaks:
             source = leak.source or leak.crawler or 'Unknown'
@@ -3158,12 +3283,37 @@ def get_critical_alerts_data():
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
     
+    # Get date range parameters
+    date_range = request.args.get('range', 'weekly')
+    start_date_str = request.args.get('start', '')
+    end_date_str = request.args.get('end', '')
+    
     db_session = SessionLocal()
     try:
-        alerts = db_session.query(AlertHistory).filter(AlertHistory.user_id == user_id).limit(100).all()
+        query = db_session.query(AlertHistory).filter(AlertHistory.user_id == user_id)
+        
+        # Apply date filtering
+        if date_range == 'custom' and start_date_str and end_date_str:
+            try:
+                query = query.filter(AlertHistory.sent_at >= start_date_str, AlertHistory.sent_at <= end_date_str + ' 23:59:59')
+            except:
+                pass
+        elif date_range in ['daily', 'weekly', 'monthly']:
+            from datetime import datetime, timedelta
+            now = datetime.now()
+            if date_range == 'daily':
+                cutoff = now - timedelta(days=1)
+            elif date_range == 'weekly':
+                cutoff = now - timedelta(weeks=1)
+            else:
+                cutoff = now - timedelta(days=30)
+            query = query.filter(AlertHistory.sent_at >= cutoff)
+        
+        alerts = query.limit(1000).all()
         date_counts = {}
         for alert in alerts:
-            date_str = (alert.date or alert.timestamp or '').strftime('%Y-%m-%d') if hasattr(alert.date or alert.timestamp, 'strftime') else str(alert.date or alert.timestamp or '')[:10]
+            date_obj = alert.sent_at or alert.created_at
+            date_str = date_obj.strftime('%Y-%m-%d') if hasattr(date_obj, 'strftime') else str(date_obj)[:10]
             if date_str:
                 date_counts[date_str] = date_counts.get(date_str, 0) + 1
         
@@ -3206,7 +3356,25 @@ def get_risk_trend_data():
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
     
-    days = request.args.get('days', 7, type=int)
+    # Handle date range parameters
+    date_range = request.args.get('range', 'weekly')
+    if date_range == 'daily':
+        days = 1
+    elif date_range == 'weekly':
+        days = 7
+    elif date_range == 'monthly':
+        days = 30
+    else:  # custom - calculate days between dates
+        start_date_str = request.args.get('start', '')
+        end_date_str = request.args.get('end', '')
+        if start_date_str and end_date_str:
+            from datetime import datetime
+            start = datetime.fromisoformat(start_date_str)
+            end = datetime.fromisoformat(end_date_str)
+            days = max(1, (end - start).days + 1)
+        else:
+            days = 7  # default fallback
+    
     try:
         series = risk_time_series(days=days, user_id=user_id)
         if not series:
@@ -3227,7 +3395,25 @@ def get_severity_trend_data():
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
     
-    days = request.args.get('days', 7, type=int)
+    # Handle date range parameters
+    date_range = request.args.get('range', 'weekly')
+    if date_range == 'daily':
+        days = 1
+    elif date_range == 'weekly':
+        days = 7
+    elif date_range == 'monthly':
+        days = 30
+    else:  # custom - calculate days between dates
+        start_date_str = request.args.get('start', '')
+        end_date_str = request.args.get('end', '')
+        if start_date_str and end_date_str:
+            from datetime import datetime
+            start = datetime.fromisoformat(start_date_str)
+            end = datetime.fromisoformat(end_date_str)
+            days = max(1, (end - start).days + 1)
+        else:
+            days = 7  # default fallback
+    
     try:
         series = severity_time_series(days=days, user_id=user_id)
         return jsonify(series)
@@ -3246,13 +3432,21 @@ def get_top_assets_data():
     limit = request.args.get('limit', 10, type=int)
     
     try:
-        assets = asset_risk(limit=limit, user_id=user_id)
+        # Scan all leaks (1000 max) to get complete asset risk data
+        assets = asset_risk(limit=1000, user_id=user_id)
         
         if mode == 'type':
             type_counts = {}
             for asset in assets:
-                asset_type = asset.get('type', 'unknown')
-                type_counts[asset_type] = type_counts.get(asset_type, 0) + int(asset.get('leak_count', 0))
+                # Only include assets with actual leaks
+                leak_count = int(asset.get('leak_count', 0))
+                if leak_count > 0:
+                    asset_type = asset.get('type', 'unknown')
+                    type_counts[asset_type] = type_counts.get(asset_type, 0) + leak_count
+            
+            # If no assets have leaks, return empty but valid data
+            if not type_counts:
+                return jsonify({"labels": [], "values": []})
             
             sorted_types = sorted(type_counts.items(), key=lambda x: x[1], reverse=True)
             return jsonify({
@@ -3260,9 +3454,18 @@ def get_top_assets_data():
                 "values": [t[1] for t in sorted_types]
             })
         else:
+            # Filter to only assets with leaks
+            assets_with_leaks = [a for a in assets if int(a.get('leak_count', 0)) > 0]
+            
+            if not assets_with_leaks:
+                return jsonify({"labels": [], "values": []})
+            
+            # Limit to top N assets
+            top_assets = assets_with_leaks[:limit]
+            
             return jsonify({
-                "labels": [f"{a.get('type')}:{a.get('value')}" for a in assets],
-                "values": [int(a.get('leak_count', 0)) for a in assets]
+                "labels": [f"{a.get('type')}:{a.get('value')}" for a in top_assets],
+                "values": [int(a.get('leak_count', 0)) for a in top_assets]
             })
     except Exception as e:
         return jsonify({"error": str(e), "labels": [], "values": []}), 500

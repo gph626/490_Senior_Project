@@ -1,5 +1,15 @@
 // Reports page charts logic (reusing dashboard chart functions)
 (function(){
+  // Global date range state
+  let currentDateRange = 'weekly';
+  let customStartDate = null;
+  let customEndDate = null;
+  
+  // Chart instances
+  let alertsChartInstance = null;
+  let riskTrendChartInstance = null;
+  let severityTrendChartInstance = null;
+
   function loadChartJs(cb){
     if (window.Chart) return cb();
     const s = document.createElement('script');
@@ -10,6 +20,7 @@
 
   function init(){
     initTabs();
+    setupDateRangeFilter();
     leaksChart();
     alertsChart();
     riskChart();
@@ -17,6 +28,78 @@
     severityTrendChart();
     setupTopAssetsToggle();
     topAssetsChart();
+    alertResponseChart();
+    leakStatusChart();
+    attendedLeaksList();
+  }
+
+  // Date Range Filter Setup
+  function setupDateRangeFilter(){
+    const dateRangeBtns = document.querySelectorAll('.date-range-btn');
+    const customDateDiv = document.getElementById('customDateRange');
+    const applyBtn = document.getElementById('applyCustomRange');
+    
+    dateRangeBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const range = btn.dataset.range;
+        
+        // Update button styles
+        dateRangeBtns.forEach(b => {
+          b.style.background = '#333';
+          b.style.borderColor = '#555';
+          b.classList.remove('active');
+        });
+        btn.style.background = '#4A90E2';
+        btn.style.borderColor = '#4A90E2';
+        btn.classList.add('active');
+        
+        if(range === 'custom'){
+          customDateDiv.style.display = 'flex';
+        } else {
+          customDateDiv.style.display = 'none';
+          currentDateRange = range;
+          customStartDate = null;
+          customEndDate = null;
+          refreshTimeBasedCharts();
+        }
+      });
+    });
+    
+    if(applyBtn){
+      applyBtn.addEventListener('click', () => {
+        const start = document.getElementById('customStartDate').value;
+        const end = document.getElementById('customEndDate').value;
+        
+        if(start && end){
+          customStartDate = start;
+          customEndDate = end;
+          currentDateRange = 'custom';
+          refreshTimeBasedCharts();
+        } else {
+          alert('Please select both start and end dates');
+        }
+      });
+    }
+  }
+
+  function refreshTimeBasedCharts(){
+    alertsChart();
+    riskTrendChart();
+    severityTrendChart();
+  }
+
+  function getDateRangeParams(){
+    if(currentDateRange === 'custom' && customStartDate && customEndDate){
+      return `range=custom&start=${customStartDate}&end=${customEndDate}`;
+    }
+    return `range=${currentDateRange}`;
+  }
+
+  function getDateRangeDisplay(){
+    if(currentDateRange === 'custom' && customStartDate && customEndDate){
+      return `Custom: ${customStartDate} to ${customEndDate}`;
+    }
+    return currentDateRange.charAt(0).toUpperCase() + currentDateRange.slice(1);
   }
 
   // Tab switching
@@ -98,10 +181,13 @@
 
   async function alertsChart(){
     const msg=document.getElementById('alertsChartMsg');
+    const dateInfo=document.getElementById('alertsDateInfo');
     if(!msg) return;
     msg.textContent='Loading alerts data...';
+    if(dateInfo) dateInfo.textContent = `Range: ${getDateRangeDisplay()}`;
     try {
-      const alerts = await fetchJson('/api/alerts?limit=100');
+      const params = getDateRangeParams();
+      const alerts = await fetchJson(`/api/alerts?limit=100&${params}`);
       if(!alerts.length){ msg.textContent='No alerts data available.'; return; }
       const dateCounts = {};
       alerts.forEach(a => {
@@ -114,7 +200,14 @@
       const labels = dates.map(formatDateLabel);
       const data = dates.map(d => dateCounts[d]);
       msg.textContent = '';
-      new Chart(document.getElementById('alertsChart'), {
+      
+      // Destroy existing chart instance
+      if(alertsChartInstance){ 
+        try{ alertsChartInstance.destroy(); }catch(e){} 
+        alertsChartInstance = null;
+      }
+      
+      alertsChartInstance = new Chart(document.getElementById('alertsChart'), {
         type: 'line',
         data: {
           labels: labels,
@@ -162,15 +255,25 @@
 
   async function riskTrendChart(){
     const msg = document.getElementById('riskTrendMsg');
+    const dateInfo = document.getElementById('riskTrendDateInfo');
     if(!msg) return;
     msg.textContent = 'Loading risk trend...';
+    if(dateInfo) dateInfo.textContent = `Range: ${getDateRangeDisplay()}`;
     try {
-      const series = await fetchJson('/api/risk/time_series?days=7');
+      const params = getDateRangeParams();
+      const series = await fetchJson(`/api/risk/time_series?${params}`);
       if(!Array.isArray(series) || !series.length){ msg.textContent='No time series data available.'; return; }
       const labels = series.map(s => formatDateLabel(s.date));
       const data = series.map(s => s.score);
       msg.textContent = '';
-      new Chart(document.getElementById('riskTrendChart'), {
+      
+      // Destroy existing chart instance
+      if(riskTrendChartInstance){ 
+        try{ riskTrendChartInstance.destroy(); }catch(e){} 
+        riskTrendChartInstance = null;
+      }
+      
+      riskTrendChartInstance = new Chart(document.getElementById('riskTrendChart'), {
         type: 'line',
         data: {
           labels: labels,
@@ -198,10 +301,13 @@
 
   async function severityTrendChart(){
     const msg = document.getElementById('severityTrendMsg');
+    const dateInfo = document.getElementById('severityTrendDateInfo');
     if(!msg) return;
     msg.textContent = 'Loading severity time series...';
+    if(dateInfo) dateInfo.textContent = `Range: ${getDateRangeDisplay()}`;
     try {
-      const series = await fetchJson('/api/risk/severity_time_series?days=7');
+      const params = getDateRangeParams();
+      const series = await fetchJson(`/api/risk/severity_time_series?${params}`);
       if(!Array.isArray(series) || !series.length){ msg.textContent='No severity time series data available.'; return; }
 
       const dates = series.map(s => s.date);
@@ -227,7 +333,14 @@
       }));
 
       msg.textContent = '';
-      new Chart(document.getElementById('severityTrendChart'), {
+      
+      // Destroy existing chart instance
+      if(severityTrendChartInstance){ 
+        try{ severityTrendChartInstance.destroy(); }catch(e){} 
+        severityTrendChartInstance = null;
+      }
+      
+      severityTrendChartInstance = new Chart(document.getElementById('severityTrendChart'), {
         type: 'line',
         data: { labels, datasets },
         options: {

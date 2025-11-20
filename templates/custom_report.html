@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Report Builder</title>
+    <link rel="stylesheet" href="/dashboard/new.css">
+    <link rel="stylesheet" href="/dashboard/base.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
+    <style>
+        .builder-container {
+            display: grid;
+            grid-template-columns: 300px 1fr 400px;
+            gap: 20px;
+            height: calc(100vh - 100px);
+        }
+
+        .tools-panel {
+            background: var(--card-bg, #1e1e1e);
+            border-radius: 8px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .canvas-area {
+            background: var(--card-bg, #1e1e1e);
+            border-radius: 8px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .preview-panel {
+            background: var(--card-bg, #1e1e1e);
+            border-radius: 8px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .tool-button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: var(--primary-color, #4A90E2);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .tool-button:hover {
+            background: var(--primary-hover, #357ABD);
+        }
+
+        .tool-button i {
+            margin-right: 8px;
+        }
+
+        .element-card {
+            background: var(--bg-secondary, #2a2a2a);
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            border-left: 4px solid var(--primary-color, #4A90E2);
+            position: relative;
+        }
+
+        .element-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .element-type {
+            font-weight: bold;
+            color: #ffffff;
+            text-transform: capitalize;
+        }
+
+        .element-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .element-actions button {
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+
+        .element-actions button:hover {
+            background: var(--bg-hover, #3a3a3a);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #ffffff;
+            font-size: 13px;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            background: var(--input-bg, #333);
+            border: 1px solid var(--border-color, #444);
+            border-radius: 4px;
+            color: #ffffff;
+            font-family: inherit;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .action-buttons button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-preview {
+            background: var(--secondary-color, #50C878);
+            color: white;
+        }
+
+        .btn-preview:hover {
+            background: var(--secondary-hover, #45B068);
+        }
+
+        .btn-download {
+            background: var(--primary-color, #4A90E2);
+            color: white;
+        }
+
+        .btn-download:hover {
+            background: var(--primary-hover, #357ABD);
+        }
+
+        .pdf-preview {
+            width: 100%;
+            height: calc(100vh - 200px);
+            border: none;
+            border-radius: 6px;
+        }
+
+        .preview-placeholder {
+            text-align: center;
+            padding: 60px 20px;
+            color: #ffffff;
+        }
+
+        .preview-placeholder i {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        .chart-data-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .data-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .data-row input {
+            padding: 6px;
+        }
+
+        .data-row button {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .add-data-btn {
+            padding: 8px;
+            background: var(--primary-color, #4A90E2);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--card-bg, #1e1e1e);
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #ffffff;
+            cursor: pointer;
+        }
+
+        .load-data-section {
+            margin-bottom: 20px;
+        }
+
+        .load-data-btn {
+            padding: 10px;
+            background: var(--secondary-color, #50C878);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .load-data-section label:hover {
+            background: var(--bg-hover, #3a3a3a);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #ffffff;
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        h3, h4 {
+            color: #ffffff;
+        }
+
+        p {
+            color: #ffffff;
+        }
+
+        label span {
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('homepage') }}" data-tooltip="Home"><i class="fa-regular fa-house"></i></a></li>
+                    <li><a href="{{ url_for('leaks') }}" data-tooltip="Leaks"><i class="fa-solid fa-spider"></i></a></li>
+                    <li><a href="{{ url_for('alerts') }}" data-tooltip="Alerts"><i class="fa-regular fa-bell"></i></a></li>
+                    <li><a href="{{ url_for('dashboard') }}" data-tooltip="Dashboard"><i class="fa-regular fa-chart-bar"></i></a></li>
+                    <li><a class="active" href="{{ url_for('reports') }}" data-tooltip="Reports"><i class="fa-regular fa-file-lines"></i></a></li>
+                    <li><a href="{{ url_for('config') }}" data-tooltip="Settings"><i class="fa-solid fa-gear"></i></a></li>
+                    <li><a href="{{ url_for('resources_route') }}" data-tooltip="Resources"><i class="fa-regular fa-file"></i></a></li>
+                    <li><a href="{{ url_for('account') }}" data-tooltip="Account"><i class="fa-regular fa-circle-user"></i></a></li>
+                </ul>
+            </nav>
+        </aside>
+        <main>
+            <div class="section-heading">
+                <h2>Custom Report Builder</h2>
+            </div>
+            
+            <div class="builder-container">
+                <!-- Tools Panel -->
+                <div class="tools-panel">
+                    <h3>Add Elements</h3>
+                    <button class="tool-button" onclick="addElement('title')">
+                        <i class="fa-solid fa-heading"></i> Title
+                    </button>
+                    <button class="tool-button" onclick="addElement('heading')">
+                        <i class="fa-solid fa-h"></i> Heading
+                    </button>
+                    <button class="tool-button" onclick="addElement('paragraph')">
+                        <i class="fa-solid fa-paragraph"></i> Paragraph
+                    </button>
+                    <button class="tool-button" onclick="addChartElement()">
+                        <i class="fa-solid fa-chart-bar"></i> Chart
+                    </button>
+                    <button class="tool-button" onclick="addElement('image')">
+                        <i class="fa-solid fa-image"></i> Image
+                    </button>
+                    <button class="tool-button" onclick="addElement('spacer')">
+                        <i class="fa-solid fa-arrows-up-down"></i> Spacer
+                    </button>
+                    <button class="tool-button" onclick="addElement('pageBreak')">
+                        <i class="fa-solid fa-file"></i> Page Break
+                    </button>
+                </div>
+
+                <!-- Canvas Area -->
+                <div class="canvas-area">
+                    <div class="form-group">
+                        <label>Report Title</label>
+                        <input type="text" id="reportTitle" value="Custom Security Report" placeholder="Enter report title">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Filename</label>
+                        <input type="text" id="reportFilename" value="custom_report" placeholder="Enter filename (without .pdf)">
+                    </div>
+
+                    <h3>Elements</h3>
+                    <div id="elementsContainer">
+                        <div class="empty-state">
+                            <i class="fa-regular fa-file"></i>
+                            <p>No elements yet. Add elements using the tools on the left.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preview Panel -->
+                <div class="preview-panel">
+                    <h3>Preview</h3>
+                    <div id="previewContainer" class="preview-placeholder">
+                        <i class="fa-regular fa-file-pdf"></i>
+                        <p>Click "Generate Preview" to see your PDF</p>
+                    </div>
+                    
+                    <div class="action-buttons">
+                        <button class="btn-preview" onclick="generatePreview()">
+                            <i class="fa-solid fa-eye"></i> Generate Preview
+                        </button>
+                        <button class="btn-preview" onclick="saveReport()" style="background: #9b59b6;">
+                            <i class="fa-solid fa-save"></i> Save Report
+                        </button>
+                        <button class="btn-download" onclick="downloadPDF()">
+                            <i class="fa-solid fa-download"></i> Download PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Chart Modal -->
+    <div id="chartModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="chartModalTitle">Select Charts to Add</h3>
+                <button class="close-modal" onclick="closeModal('chartModal')">&times;</button>
+            </div>
+            <div id="chartConfigForm" class="load-data-section">
+                <h4 style="margin-bottom: 15px;">Select one or more charts:</h4>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px; border-radius: 4px; transition: background 0.2s;">
+                        <input type="checkbox" name="chartSelect" value="leaks_per_crawler" style="width: auto; cursor: pointer;">
+                        <span>Leaks per Crawler</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px; border-radius: 4px; transition: background 0.2s;">
+                        <input type="checkbox" name="chartSelect" value="critical_alerts" style="width: auto; cursor: pointer;">
+                        <span>Critical Alerts</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px; border-radius: 4px; transition: background 0.2s;">
+                        <input type="checkbox" name="chartSelect" value="risk_severity" style="width: auto; cursor: pointer;">
+                        <span>Risk Severity</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px; border-radius: 4px; transition: background 0.2s;">
+                        <input type="checkbox" name="chartSelect" value="risk_trend" style="width: auto; cursor: pointer;">
+                        <span>Risk Trend</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px; border-radius: 4px; transition: background 0.2s;">
+                        <input type="checkbox" name="chartSelect" value="severity_trend" style="width: auto; cursor: pointer;">
+                        <span>Severity Trend</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px; border-radius: 4px; transition: background 0.2s;">
+                        <input type="checkbox" name="chartSelect" value="top_assets_type" style="width: auto; cursor: pointer;">
+                        <span>Top Assets by Type</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 8px; border-radius: 4px; transition: background 0.2s;">
+                        <input type="checkbox" name="chartSelect" value="top_assets_asset" style="width: auto; cursor: pointer;">
+                        <span>Top Assets by Asset</span>
+                    </label>
+                </div>
+                <div style="margin-top: 20px;">
+                    <div class="form-group">
+                        <label>Chart Width (inches):</label>
+                        <input type="number" id="chartWidth" value="6" min="2" max="10" step="0.5">
+                    </div>
+                    <div class="form-group">
+                        <label>Chart Height (inches):</label>
+                        <input type="number" id="chartHeight" value="4" min="2" max="8" step="0.5">
+                    </div>
+                    <button class="load-data-btn" onclick="addSelectedCharts()" style="width: 100%; margin-top: 10px;">
+                        Add Selected Charts
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/custom_report.js"></script>
+</body>
+</html>

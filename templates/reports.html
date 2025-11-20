@@ -3,10 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reports</title>
+    <title>Reports & Analytics</title>
     <link rel="stylesheet" href="/dashboard/new.css">
     <link rel="stylesheet" href="/dashboard/base.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
+    <style>
+        .saved-reports-container {
+            margin-bottom: 30px;
+        }
+        
+        .saved-report-card {
+            background: var(--card-bg, #1e1e1e);
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--primary-color, #4A90E2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .saved-report-info h4 {
+            margin: 0 0 8px 0;
+            color: #ffffff;
+        }
+        
+        .saved-report-meta {
+            font-size: 13px;
+            color: #e0e0e0;
+        }
+        
+        .saved-report-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .saved-report-actions button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .btn-load {
+            background: var(--secondary-color, #50C878);
+            color: white;
+        }
+        
+        .btn-load:hover {
+            background: var(--secondary-hover, #45B068);
+        }
+        
+        .btn-download-saved {
+            background: var(--primary-color, #4A90E2);
+            color: white;
+        }
+        
+        .btn-download-saved:hover {
+            background: var(--primary-hover, #357ABD);
+        }
+        
+        .btn-delete {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-delete:hover {
+            background: #c0392b;
+        }
+        
+        .empty-saved-reports {
+            text-align: center;
+            padding: 40px 20px;
+            color: #cccccc;
+        }
+        
+        .empty-saved-reports i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -26,24 +105,232 @@
         </aside>
         <main>
             <div class="section-heading">
-                <h2>Reports</h2>
+                <h2>Reports & Analytics</h2>
             </div>
-            <section id="reports"></section>
-            <section class="report-section">
-                <h3>Weekly Security Summary</h3>
-                <a class="report-link" href="{{ url_for('download_report', report_type='weekly') }}">Download PDF</a>
-            </section>
+            
+            <!-- Tabs Layout -->
+            <div style="max-width: 1400px; margin: 0 auto; padding: 0 40px;">
+                <div class="tabs" style="margin-bottom: 30px;">
+                    <button class="tab-button active" data-tab="analytics">Analytics</button>
+                    <button class="tab-button" data-tab="reports">Reports</button>
+                </div>
+                
+                <!-- Analytics Tab -->
+                <div id="analytics-tab" class="tab-content active">
+                    <div style="background: #2e3143; border-radius: 12px; padding: 24px; margin-bottom: 20px;">
+                        <div style="margin-bottom: 20px;">
+                            <h3 style="margin: 0 0 8px 0; color: #ffffff;">Security Analytics Overview</h3>
+                            <p style="margin: 0; color: #e0e0e0; font-size: 14px;">Visual insights and trends from your security monitoring</p>
+                        </div>
+                        
+                        <!-- Date Range Filter -->
+                        <div style="background: #1a1d2e; border-radius: 8px; padding: 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                            <div style="font-size: 0.95em; color: #ffffff; font-weight: 500;">Date Range:</div>
+                            <div style="display: flex; gap: 8px;">
+                                <button id="dateRangeDaily" class="date-range-btn" data-range="daily" style="background:#333;color:#fff;border:1px solid #555;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:0.9em;">Daily</button>
+                                <button id="dateRangeWeekly" class="date-range-btn active" data-range="weekly" style="background:#4A90E2;color:#fff;border:1px solid #4A90E2;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:0.9em;">Weekly</button>
+                                <button id="dateRangeMonthly" class="date-range-btn" data-range="monthly" style="background:#333;color:#fff;border:1px solid #555;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:0.9em;">Monthly</button>
+                                <button id="dateRangeCustom" class="date-range-btn" data-range="custom" style="background:#333;color:#fff;border:1px solid #555;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:0.9em;">Custom</button>
+                            </div>
+                            <div id="customDateRange" style="display: none; gap: 8px; align-items: center;">
+                                <label style="color: #e0e0e0; font-size: 0.9em;">From:</label>
+                                <input type="date" id="customStartDate" style="background:#333;color:#fff;border:1px solid #555;padding:6px 10px;border-radius:4px;font-size:0.9em;">
+                                <label style="color: #e0e0e0; font-size: 0.9em;">To:</label>
+                                <input type="date" id="customEndDate" style="background:#333;color:#fff;border:1px solid #555;padding:6px 10px;border-radius:4px;font-size:0.9em;">
+                                <button id="applyCustomRange" style="background:#50C878;color:#fff;border:none;padding:6px 16px;border-radius:4px;cursor:pointer;font-size:0.9em;">Apply</button>
+                            </div>
+                        </div>
+                        
+                        <div class="columns" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px;">
+                            <!-- Leaks per Crawler Chart -->
+                            <section id="leaks-bar-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
+                                <h4 style="margin: 0 0 12px 0; color: #ffffff; font-size: 16px;">Leaks per Crawler</h4>
+                                <canvas id="leaksChart" width="300" height="120"></canvas>
+                                <div id="leaksChartMsg" style="color: #e0e0e0; font-size: 0.9em; margin-top: 8px;"></div>
+                            </section>
 
-            <section class="report-section">
-                <h3>Incident Response Report</h3>
-                <a class="report-link" href="{{ url_for('download_report', report_type='incident') }}">Download PDF</a>
-            </section>
+                            <!-- Critical Alerts Over Time Chart -->
+                            <section id="alerts-line-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
+                                <h4 style="margin: 0 0 12px 0; color: #ffffff; font-size: 16px;">Critical Alerts Over Time</h4>
+                                <div id="alertsDateInfo" style="color: #aaa; font-size: 0.85em; margin-bottom: 8px;"></div>
+                                <canvas id="alertsChart" width="300" height="120"></canvas>
+                                <div id="alertsChartMsg" style="color: #e0e0e0; font-size: 0.9em; margin-top: 8px;"></div>
+                            </section>
 
-            <section class="report-section">
-                <h3>Risk Assessment Overview</h3>
-                <a class="report-link" href="{{ url_for('download_report', report_type='risk') }}">Download PDF</a>
-            </section>
+                            <!-- Risk Severity Breakdown Chart -->
+                            <section id="risk-pie-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
+                                <h4 style="margin: 0 0 12px 0; color: #ffffff; font-size: 16px;">Risk Severity Breakdown</h4>
+                                <canvas id="riskChart" width="300" height="120"></canvas>
+                                <div id="riskChartMsg" style="color: #e0e0e0; font-size: 0.9em; margin-top: 8px;"></div>
+                            </section>
+
+                            <!-- Overall Risk Trend Chart -->
+                            <section id="risk-trend-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
+                                <h4 style="margin: 0 0 12px 0; color: #ffffff; font-size: 16px;">Overall Risk Trend</h4>
+                                <div id="riskTrendDateInfo" style="color: #aaa; font-size: 0.85em; margin-bottom: 8px;"></div>
+                                <canvas id="riskTrendChart" width="300" height="120"></canvas>
+                                <div id="riskTrendMsg" style="color: #e0e0e0; font-size: 0.9em; margin-top: 8px;"></div>
+                            </section>
+
+                            <!-- Risk by Severity Over Time Chart -->
+                            <section id="severity-trend-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
+                                <h4 style="margin: 0 0 12px 0; color: #ffffff; font-size: 16px;">Risk by Severity Over Time</h4>
+                                <div id="severityTrendDateInfo" style="color: #aaa; font-size: 0.85em; margin-bottom: 8px;"></div>
+                                <canvas id="severityTrendChart" width="400" height="160"></canvas>
+                                <div id="severityTrendMsg" style="color: #e0e0e0; font-size: 0.9em; margin-top: 8px;"></div>
+                            </section>
+
+                            <!-- Top Risky Assets Chart -->
+                            <section id="top-assets-section" class="chart-section" style="background: #23272F; border-radius: 8px; padding: 20px;">
+                                <h4 style="margin: 0 0 12px 0; color: #ffffff; font-size: 16px;">Top Risky Assets</h4>
+                                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+                                    <div style="font-size:0.9em;color:#ffffff;">View:</div>
+                                    <div id="topAssetsToggle" style="display:flex;gap:6px;">
+                                        <button id="topAssetsToggleType" class="small-toggle active" style="background:#333;color:#fff;border:1px solid #555;padding:6px 8px;border-radius:4px;cursor:pointer;">By Type</button>
+                                        <button id="topAssetsToggleAsset" class="small-toggle" style="background:transparent;color:#ffffff;border:1px solid transparent;padding:6px 8px;border-radius:4px;cursor:pointer;">By Asset</button>
+                                    </div>
+                                </div>
+                                <canvas id="topAssetsChart" width="400" height="200"></canvas>
+                                <div id="topAssetsMsg" style="color: #e0e0e0; font-size: 0.9em; margin-top: 8px;"></div>
+                            </section>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Reports Tab -->
+                <div id="reports-tab" class="tab-content">
+                    <div style="background: #2e3143; border-radius: 12px; padding: 24px; margin-bottom: 20px;">
+                        <section class="saved-reports-container">
+                            <h3 style="color: #ffffff;">Saved Custom Reports</h3>
+                            <div id="savedReportsList">
+                                <p style="color: #e0e0e0;">Loading saved reports...</p>
+                            </div>
+                        </section>
+                        
+                        <div style="margin-bottom: 20px;">
+                            <a class="report-link" href="{{ url_for('custom_report') }}" style="display: inline-block; padding: 12px 24px; background: #4A90E2; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; transition: background 0.3s;">
+                                <i class="fa-solid fa-plus"></i> Create Custom Report
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
+    
+    <script>
+        // Load saved reports
+        async function loadSavedReports() {
+            const container = document.getElementById('savedReportsList');
+            
+            try {
+                const response = await fetch('/api/reports/saved');
+                const reports = await response.json();
+                
+                if (!reports || reports.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-saved-reports">
+                            <i class="fa-regular fa-folder-open"></i>
+                            <p>No saved reports yet. Create one using the Custom Report Builder.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = '';
+                reports.forEach(report => {
+                    const card = document.createElement('div');
+                    card.className = 'saved-report-card';
+                    
+                    const createdDate = new Date(report.created_at).toLocaleDateString();
+                    const updatedDate = new Date(report.updated_at).toLocaleDateString();
+                    
+                    card.innerHTML = `
+                        <div class="saved-report-info">
+                            <h4>${escapeHtml(report.title)}</h4>
+                            <div class="saved-report-meta">
+                                <span><i class="fa-solid fa-file"></i> ${report.element_count} elements</span> •
+                                <span><i class="fa-regular fa-calendar"></i> Created: ${createdDate}</span> •
+                                <span><i class="fa-regular fa-clock"></i> Updated: ${updatedDate}</span>
+                            </div>
+                        </div>
+                        <div class="saved-report-actions">
+                            <button class="btn-load" onclick="loadReport(${report.id})">
+                                <i class="fa-solid fa-pen"></i> Edit
+                            </button>
+                            <button class="btn-download-saved" onclick="downloadSavedReport(${report.id})">
+                                <i class="fa-solid fa-download"></i> Download
+                            </button>
+                            <button class="btn-delete" onclick="deleteSavedReport(${report.id})">
+                                <i class="fa-solid fa-trash"></i> Delete
+                            </button>
+                        </div>
+                    `;
+                    
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                container.innerHTML = `<p style="color: #e74c3c;">Error loading saved reports: ${error.message}</p>`;
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function loadReport(reportId) {
+            // Redirect to custom report builder with report ID
+            window.location.href = `/reports/custom?load=${reportId}`;
+        }
+        
+        async function downloadSavedReport(reportId) {
+            try {
+                const response = await fetch(`/api/reports/saved/${reportId}/download`);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `report_${reportId}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    alert('Failed to download report');
+                }
+            } catch (error) {
+                alert('Error downloading report: ' + error.message);
+            }
+        }
+        
+        async function deleteSavedReport(reportId) {
+            if (!confirm('Are you sure you want to delete this saved report?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/reports/saved/${reportId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    loadSavedReports(); // Reload the list
+                } else {
+                    alert('Failed to delete report: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error deleting report: ' + error.message);
+            }
+        }
+        
+        // Load saved reports when page loads
+        document.addEventListener('DOMContentLoaded', loadSavedReports);
+    </script>
+    <script src="{{ url_for('static', filename='js/reports.js') }}"></script>
 </body>
 </html>

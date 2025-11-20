@@ -1,5 +1,5 @@
 import os
-from backend.database import Leak, CrawlRun, Asset, AlertHistory
+from backend.database import Leak, CrawlRun, Asset, AlertHistory, SavedReport
 from backend.database import SessionLocal
 DBSession = SessionLocal
 import random
@@ -16,7 +16,7 @@ import json
 from textwrap import wrap
 from backend.utils import get_user_by_api_key
 from flask_login import login_required, current_user, LoginManager, login_user
-from backend.database import SessionLocal, APIKey, User, Config, AlertHistory
+from backend.database import SessionLocal, APIKey, User, Config, AlertHistory, SavedReport
 import secrets
 from datetime import datetime, timedelta
 import requests
@@ -53,6 +53,7 @@ try:
     from backend.database import Asset, SessionLocal, Base, Leak
     from backend.severity import compute_severity_from_entities
     from backend.analytics import get_critical_leaks, risk_summary, risk_time_series, severity_time_series, asset_risk
+    from backend.pdf_builder import create_pdf_from_config
 except ImportError:
     # Fallback: running directly in the backend/ directory
     from database import (
@@ -214,7 +215,12 @@ def get_current_user_id():
 @app.before_request
 def check_api_key():
     # Allow certain endpoints to use session-based auth (no API key required)
-    exempt_paths = ["/login", "/register", "/api/keys/new", "/api/account/delete", "/api/reset_password", "/api/check_email", "/api/check_username"]
+    exempt_paths = [
+        "/login", "/register", "/api/keys/new", "/api/account/delete", 
+        "/api/reset_password", "/api/check_email", "/api/check_username",
+        "/api/reports/preview", "/api/reports/download", "/api/reports/data/",
+        "/api/reports/save", "/api/reports/saved"
+    ]
     if any(request.path.startswith(p) for p in exempt_paths):
         return
 
@@ -256,9 +262,11 @@ def require_login():
     # Allow /auth/login.html and /auth/register.html without login
     if path in ['/auth/login.html', '/auth/register.html']:
         return None
-    # Allow session-based auth (session['user_id']) for both API and normal routes
-    if path.startswith("/api") and not (current_user.is_authenticated or session.get('user_id')):
-        return redirect("/login")
+    # For API routes, return JSON error instead of redirect
+    if path.startswith("/api"):
+        if not (current_user.is_authenticated or session.get('user_id')):
+            return jsonify({"error": "Authentication required"}), 401
+    # For non-API routes, redirect to login page
     if not (current_user.is_authenticated or session.get('user_id')):
         return redirect('/auth/login.html')
     return None
@@ -1104,11 +1112,38 @@ def api_leaks():
 @app.route("/api/alerts", methods=["GET"])
 def api_alerts():
     limit = request.args.get('limit', default=50, type=int)
+    date_range = request.args.get('range', default='weekly', type=str)
+    start_date = request.args.get('start', default=None, type=str)
+    end_date = request.args.get('end', default=None, type=str)
+    
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"error": "not authenticated"}), 401
 
     crits = get_critical_leaks(limit=limit, user_id=user_id)
+    
+    # Filter by date range if specified
+    if date_range == 'custom' and start_date and end_date:
+        from datetime import datetime
+        try:
+            start = datetime.fromisoformat(start_date)
+            end = datetime.fromisoformat(end_date)
+            crits = [c for c in crits if start_date <= (c.get('date') or c.get('timestamp', ''))[:10] <= end_date]
+        except:
+            pass  # If date parsing fails, return unfiltered
+    elif date_range in ['daily', 'weekly', 'monthly']:
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        if date_range == 'daily':
+            cutoff = now - timedelta(days=1)
+        elif date_range == 'weekly':
+            cutoff = now - timedelta(weeks=1)
+        else:  # monthly
+            cutoff = now - timedelta(days=30)
+        
+        cutoff_str = cutoff.strftime('%Y-%m-%d')
+        crits = [c for c in crits if (c.get('date') or c.get('timestamp', ''))[:10] >= cutoff_str]
+    
     return jsonify(crits)
 
 
@@ -1150,15 +1185,42 @@ def api_risk_time_series():
     """Return a daily overall risk score time series for the requesting user.
 
     Query params:
-      - days: number of days back to include (default 90)
+      - range: 'daily', 'weekly', 'monthly', or 'custom'
+      - start: start date for custom range (YYYY-MM-DD)
+      - end: end date for custom range (YYYY-MM-DD)
+      - days: number of days back (legacy, overridden by range)
     """
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({"error": "not authenticated"}), 401
 
-    days = request.args.get('days', default=7, type=int)
+    date_range = request.args.get('range', default='weekly', type=str)
+    start_date = request.args.get('start', default=None, type=str)
+    end_date = request.args.get('end', default=None, type=str)
+    
+    # Calculate days based on range
+    if date_range == 'custom' and start_date and end_date:
+        from datetime import datetime
+        try:
+            start = datetime.fromisoformat(start_date)
+            end = datetime.fromisoformat(end_date)
+            days = (end - start).days + 1
+        except:
+            days = 7
+    elif date_range == 'daily':
+        days = 1
+    elif date_range == 'monthly':
+        days = 30
+    else:  # weekly
+        days = 7
+    
     try:
         series = risk_time_series(days=days, user_id=user_id)
+        
+        # Filter by custom date range if specified
+        if date_range == 'custom' and start_date and end_date:
+            series = [s for s in series if start_date <= s.get('date', '') <= end_date]
+        
     except Exception as e:
         return jsonify({"error": "failed to compute time series", "message": str(e)}), 500
     return jsonify(series)
@@ -1169,15 +1231,42 @@ def api_risk_severity_time_series():
     """Return daily severity counts for the requesting user.
 
     Query params:
-      - days: number of days back to include (default 7)
+      - range: 'daily', 'weekly', 'monthly', or 'custom'
+      - start: start date for custom range (YYYY-MM-DD)
+      - end: end date for custom range (YYYY-MM-DD)
+      - days: number of days back (legacy, overridden by range)
     """
     user_id = session.get('user_id')
     if not user_id:
         return jsonify({"error": "not authenticated"}), 401
 
-    days = request.args.get('days', default=7, type=int)
+    date_range = request.args.get('range', default='weekly', type=str)
+    start_date = request.args.get('start', default=None, type=str)
+    end_date = request.args.get('end', default=None, type=str)
+    
+    # Calculate days based on range
+    if date_range == 'custom' and start_date and end_date:
+        from datetime import datetime
+        try:
+            start = datetime.fromisoformat(start_date)
+            end = datetime.fromisoformat(end_date)
+            days = (end - start).days + 1
+        except:
+            days = 7
+    elif date_range == 'daily':
+        days = 1
+    elif date_range == 'monthly':
+        days = 30
+    else:  # weekly
+        days = 7
+    
     try:
         series = severity_time_series(days=days, user_id=user_id)
+        
+        # Filter by custom date range if specified
+        if date_range == 'custom' and start_date and end_date:
+            series = [s for s in series if start_date <= s.get('date', '') <= end_date]
+        
     except Exception as e:
         return jsonify({"error": "failed to compute severity time series", "message": str(e)}), 500
     return jsonify(series)
@@ -2889,6 +2978,497 @@ def create_api_key():
         return jsonify({"api_key": new_key, "expires_at": expires_at.isoformat()})
     finally:
         session_db.close()
+
+
+# -----------------------------------------------------------
+# CUSTOM PDF BUILDER ROUTES
+# -----------------------------------------------------------
+@app.route('/reports/custom')
+def custom_report():
+    """Page for building custom PDFs."""
+    username = session.get('username', 'User')
+    return render_template('custom_report.html', username=username)
+
+
+@app.route('/api/reports/preview', methods=['POST'])
+def preview_custom_report():
+    """Generate a preview of the custom PDF."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        config = request.get_json()
+        if not config:
+            return jsonify({"error": "No configuration provided"}), 400
+        
+        # Generate PDF
+        pdf_bytes = create_pdf_from_config(config)
+        
+        # Convert to base64 for preview
+        pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+        
+        return jsonify({
+            "success": True,
+            "pdf_data": pdf_base64
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/reports/download', methods=['POST'])
+def download_custom_report():
+    """Download the custom PDF."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    username = getattr(current_user, "username", "User")
+    
+    if not user_id:
+        return "Unauthorized - please log in first", 401
+    
+    try:
+        config = request.get_json()
+        if not config:
+            return "No configuration provided", 400
+        
+        # Generate PDF
+        pdf_bytes = create_pdf_from_config(config)
+        
+        # Create response
+        response = make_response(pdf_bytes)
+        response.headers["Content-Type"] = "application/pdf"
+        
+        # Get filename from config or use default
+        filename = config.get('filename', f'{username}_custom_report')
+        if not filename.endswith('.pdf'):
+            filename += '.pdf'
+            
+        response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+        return response
+    except Exception as e:
+        return f"Error generating PDF: {str(e)}", 500
+
+
+@app.route('/api/reports/save', methods=['POST'])
+def save_custom_report():
+    """Save a PDF configuration for later use."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    db_session = SessionLocal()
+    try:
+        config = request.get_json()
+        if not config:
+            return jsonify({"error": "No configuration provided"}), 400
+        
+        title = config.get('title', 'Untitled Report')
+        filename = config.get('filename', 'custom_report')
+        report_id = config.get('id')  # Check if we're updating an existing report
+        
+        if report_id:
+            # Update existing report
+            saved_report = (
+                db_session.query(SavedReport)
+                .filter(SavedReport.id == report_id, SavedReport.user_id == user_id)
+                .first()
+            )
+            
+            if not saved_report:
+                return jsonify({"error": "Report not found or unauthorized"}), 404
+            
+            # Update the fields
+            saved_report.title = title
+            saved_report.filename = filename
+            saved_report.config_data = config
+            message = "Report updated successfully"
+        else:
+            # Create new saved report
+            saved_report = SavedReport(
+                user_id=user_id,
+                title=title,
+                filename=filename,
+                config_data=config
+            )
+            db_session.add(saved_report)
+            message = "Report saved successfully"
+        
+        db_session.commit()
+        
+        return jsonify({
+            "success": True,
+            "id": saved_report.id,
+            "message": message
+        })
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+
+@app.route('/api/reports/saved', methods=['GET'])
+def get_saved_reports():
+    """Get all saved reports for the current user."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    db_session = SessionLocal()
+    try:
+        reports = (
+            db_session.query(SavedReport)
+            .filter(SavedReport.user_id == user_id)
+            .order_by(SavedReport.updated_at.desc())
+            .all()
+        )
+        
+        return jsonify([{
+            "id": r.id,
+            "title": r.title,
+            "filename": r.filename,
+            "created_at": r.created_at.isoformat(),
+            "updated_at": r.updated_at.isoformat(),
+            "element_count": len(r.config_data.get('elements', []))
+        } for r in reports])
+    finally:
+        db_session.close()
+
+
+@app.route('/api/reports/saved/<int:report_id>', methods=['GET'])
+def get_saved_report(report_id):
+    """Get a specific saved report configuration."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    db_session = SessionLocal()
+    try:
+        report = (
+            db_session.query(SavedReport)
+            .filter(SavedReport.id == report_id, SavedReport.user_id == user_id)
+            .first()
+        )
+        
+        if not report:
+            return jsonify({"error": "Report not found"}), 404
+        
+        return jsonify(report.config_data)
+    finally:
+        db_session.close()
+
+
+@app.route('/api/reports/saved/<int:report_id>', methods=['DELETE'])
+def delete_saved_report(report_id):
+    """Delete a saved report."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    db_session = SessionLocal()
+    try:
+        report = (
+            db_session.query(SavedReport)
+            .filter(SavedReport.id == report_id, SavedReport.user_id == user_id)
+            .first()
+        )
+        
+        if not report:
+            return jsonify({"error": "Report not found"}), 404
+        
+        db_session.delete(report)
+        db_session.commit()
+        
+        return jsonify({"success": True, "message": "Report deleted successfully"})
+    except Exception as e:
+        db_session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_session.close()
+
+
+@app.route('/api/reports/saved/<int:report_id>/download', methods=['GET'])
+def download_saved_report(report_id):
+    """Download a saved report as PDF."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    
+    if not user_id:
+        return "Unauthorized - please log in first", 401
+    
+    db_session = SessionLocal()
+    try:
+        report = (
+            db_session.query(SavedReport)
+            .filter(SavedReport.id == report_id, SavedReport.user_id == user_id)
+            .first()
+        )
+        
+        if not report:
+            return "Report not found", 404
+        
+        # Generate PDF from saved config
+        pdf_bytes = create_pdf_from_config(report.config_data)
+        
+        # Create response
+        response = make_response(pdf_bytes)
+        response.headers["Content-Type"] = "application/pdf"
+        
+        filename = report.filename
+        if not filename.endswith('.pdf'):
+            filename += '.pdf'
+            
+        response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+        return response
+    except Exception as e:
+        return f"Error generating PDF: {str(e)}", 500
+    finally:
+        db_session.close()
+
+
+@app.route('/api/reports/data/leaks_per_crawler', methods=['GET'])
+def get_leaks_per_crawler_data():
+    """Get leaks per crawler data for charts."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    # Get date range parameters
+    date_range = request.args.get('range', 'weekly')
+    start_date_str = request.args.get('start', '')
+    end_date_str = request.args.get('end', '')
+    
+    db_session = SessionLocal()
+    try:
+        query = db_session.query(Leak).filter(Leak.user_id == user_id)
+        
+        # Apply date filtering
+        if date_range == 'custom' and start_date_str and end_date_str:
+            from datetime import datetime
+            try:
+                query = query.filter(Leak.timestamp >= start_date_str, Leak.timestamp <= end_date_str + ' 23:59:59')
+            except:
+                pass
+        elif date_range in ['daily', 'weekly', 'monthly']:
+            from datetime import datetime, timedelta
+            now = datetime.now()
+            if date_range == 'daily':
+                cutoff = now - timedelta(days=1)
+            elif date_range == 'weekly':
+                cutoff = now - timedelta(weeks=1)
+            else:
+                cutoff = now - timedelta(days=30)
+            query = query.filter(Leak.timestamp >= cutoff)
+        
+        leaks = query.limit(1000).all()
+        sources = {}
+        for leak in leaks:
+            source = leak.source or leak.crawler or 'Unknown'
+            sources[source] = sources.get(source, 0) + 1
+        
+        return jsonify({
+            "labels": list(sources.keys()),
+            "values": list(sources.values())
+        })
+    finally:
+        db_session.close()
+
+
+@app.route('/api/reports/data/critical_alerts', methods=['GET'])
+def get_critical_alerts_data():
+    """Get critical alerts over time for charts."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    # Get date range parameters
+    date_range = request.args.get('range', 'weekly')
+    start_date_str = request.args.get('start', '')
+    end_date_str = request.args.get('end', '')
+    
+    db_session = SessionLocal()
+    try:
+        query = db_session.query(AlertHistory).filter(AlertHistory.user_id == user_id)
+        
+        # Apply date filtering
+        if date_range == 'custom' and start_date_str and end_date_str:
+            try:
+                query = query.filter(AlertHistory.sent_at >= start_date_str, AlertHistory.sent_at <= end_date_str + ' 23:59:59')
+            except:
+                pass
+        elif date_range in ['daily', 'weekly', 'monthly']:
+            from datetime import datetime, timedelta
+            now = datetime.now()
+            if date_range == 'daily':
+                cutoff = now - timedelta(days=1)
+            elif date_range == 'weekly':
+                cutoff = now - timedelta(weeks=1)
+            else:
+                cutoff = now - timedelta(days=30)
+            query = query.filter(AlertHistory.sent_at >= cutoff)
+        
+        alerts = query.limit(1000).all()
+        date_counts = {}
+        for alert in alerts:
+            date_obj = alert.sent_at or alert.created_at
+            date_str = date_obj.strftime('%Y-%m-%d') if hasattr(date_obj, 'strftime') else str(date_obj)[:10]
+            if date_str:
+                date_counts[date_str] = date_counts.get(date_str, 0) + 1
+        
+        dates = sorted(date_counts.keys())
+        return jsonify({
+            "labels": dates,
+            "values": [date_counts[d] for d in dates]
+        })
+    finally:
+        db_session.close()
+
+
+@app.route('/api/reports/data/risk_severity', methods=['GET'])
+def get_risk_severity_data():
+    """Get risk severity breakdown for pie charts."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    try:
+        summary = risk_summary(user_id=user_id)
+        severity_counts = summary.get('severity_counts', {})
+        
+        order = ['critical', 'high', 'medium', 'low', 'zero severity', 'unknown']
+        labels = [k for k in order if k in severity_counts]
+        values = [severity_counts[k] for k in labels]
+        
+        return jsonify({
+            "labels": labels,
+            "values": values
+        })
+    except Exception as e:
+        return jsonify({"error": str(e), "labels": [], "values": []}), 500
+
+
+@app.route('/api/reports/data/risk_trend', methods=['GET'])
+def get_risk_trend_data():
+    """Get overall risk trend for charts."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    # Handle date range parameters
+    date_range = request.args.get('range', 'weekly')
+    if date_range == 'daily':
+        days = 1
+    elif date_range == 'weekly':
+        days = 7
+    elif date_range == 'monthly':
+        days = 30
+    else:  # custom - calculate days between dates
+        start_date_str = request.args.get('start', '')
+        end_date_str = request.args.get('end', '')
+        if start_date_str and end_date_str:
+            from datetime import datetime
+            start = datetime.fromisoformat(start_date_str)
+            end = datetime.fromisoformat(end_date_str)
+            days = max(1, (end - start).days + 1)
+        else:
+            days = 7  # default fallback
+    
+    try:
+        series = risk_time_series(days=days, user_id=user_id)
+        if not series:
+            return jsonify({"labels": [], "values": []})
+        
+        return jsonify({
+            "labels": [s['date'] for s in series],
+            "values": [s['score'] for s in series]
+        })
+    except Exception as e:
+        return jsonify({"error": str(e), "labels": [], "values": []}), 500
+
+
+@app.route('/api/reports/data/severity_trend', methods=['GET'])
+def get_severity_trend_data():
+    """Get severity time series for stacked charts."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    # Handle date range parameters
+    date_range = request.args.get('range', 'weekly')
+    if date_range == 'daily':
+        days = 1
+    elif date_range == 'weekly':
+        days = 7
+    elif date_range == 'monthly':
+        days = 30
+    else:  # custom - calculate days between dates
+        start_date_str = request.args.get('start', '')
+        end_date_str = request.args.get('end', '')
+        if start_date_str and end_date_str:
+            from datetime import datetime
+            start = datetime.fromisoformat(start_date_str)
+            end = datetime.fromisoformat(end_date_str)
+            days = max(1, (end - start).days + 1)
+        else:
+            days = 7  # default fallback
+    
+    try:
+        series = severity_time_series(days=days, user_id=user_id)
+        return jsonify(series)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/reports/data/top_assets', methods=['GET'])
+def get_top_assets_data():
+    """Get top risky assets for charts."""
+    user_id = getattr(current_user, "id", None) or session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    mode = request.args.get('mode', 'type')  # 'type' or 'asset'
+    limit = request.args.get('limit', 10, type=int)
+    
+    try:
+        # Scan all leaks (1000 max) to get complete asset risk data
+        assets = asset_risk(limit=1000, user_id=user_id)
+        
+        if mode == 'type':
+            type_counts = {}
+            for asset in assets:
+                # Only include assets with actual leaks
+                leak_count = int(asset.get('leak_count', 0))
+                if leak_count > 0:
+                    asset_type = asset.get('type', 'unknown')
+                    type_counts[asset_type] = type_counts.get(asset_type, 0) + leak_count
+            
+            # If no assets have leaks, return empty but valid data
+            if not type_counts:
+                return jsonify({"labels": [], "values": []})
+            
+            sorted_types = sorted(type_counts.items(), key=lambda x: x[1], reverse=True)
+            return jsonify({
+                "labels": [t[0] for t in sorted_types],
+                "values": [t[1] for t in sorted_types]
+            })
+        else:
+            # Filter to only assets with leaks
+            assets_with_leaks = [a for a in assets if int(a.get('leak_count', 0)) > 0]
+            
+            if not assets_with_leaks:
+                return jsonify({"labels": [], "values": []})
+            
+            # Limit to top N assets
+            top_assets = assets_with_leaks[:limit]
+            
+            return jsonify({
+                "labels": [f"{a.get('type')}:{a.get('value')}" for a in top_assets],
+                "values": [int(a.get('leak_count', 0)) for a in top_assets]
+            })
+    except Exception as e:
+        return jsonify({"error": str(e), "labels": [], "values": []}), 500
 
 
 

@@ -139,11 +139,19 @@ def asset_risk(limit: int | None = None, user_id: int | None = None) -> List[Dic
                 crit_hits.add(v)
 
     # Map watchlist assets to risk tiers
-    wl_sets = get_assets_sets()  # {'email': set(), 'domain': set(), ...}
-    flat_assets: list[tuple[str, str]] = []
-    for t, aset in wl_sets.items():
-        for v in aset:
-            flat_assets.append((t, v))
+    # Use the main database Asset model which has user_id
+    from .database import SessionLocal, Asset as MainAsset
+    
+    db_session = SessionLocal()
+    try:
+        query = db_session.query(MainAsset)
+        if user_id is not None:
+            query = query.filter(MainAsset.user_id == user_id)
+        
+        user_assets = query.all()
+        flat_assets: list[tuple[str, str]] = [(a.type, a.value) for a in user_assets]
+    finally:
+        db_session.close()
 
     results: List[Dict[str, Any]] = []
     for a_type, value in flat_assets:

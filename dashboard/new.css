@@ -711,9 +711,42 @@ ul li a.active {
     margin-left: 125px;
 }
 
-.commitment-section h3 {
+.commitment-section>h3 {
     border-bottom: 1px solid var(--secondary-color);
     box-shadow: 0 10px 8px -8px rgb(106, 3, 3);
     max-width: 400px;
     padding-bottom: 10px;
+}
+
+#commitment-subhead {
+    margin-left: 150px;
+}
+
+.feature-section {
+    display: flex;
+    flex-direction: row;
+    gap: 30px;
+    margin-right: 30px;
+}
+
+  .expand-feature {
+    margin-top: 20px;
+    max-width: 350px;
+  }
+
+.expand-feature::part(base) {
+    border-style: none;
+    background-color: var(--secondary-color);
+    color: var(--text-color)
+}
+
+.expand-feature::part(header) {
+    background-color: #d90429;
+    color: var(--text-color);
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+
+.expand-feature::part(icon) {
+    color: var(--text-color);
 }

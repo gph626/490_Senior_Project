@@ -6,34 +6,14 @@
     <meta name="description" content="Homepage with dashboard, resources, and account management for users.">
     <meta name="keywords" content="homepage, dashboard, resources, account, user, web">
     <title>Homepage</title>
+    <script src="https://kit.webawesome.com/461238d3414d4966.js" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="/dashboard/new.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"
-  />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
 </head>
 <body>
-    <!-- <header>
-        <div class="header-flex">
-            <div class="logo">
-                <img src="../dashboard/logo.png" alt="Site Logo" height="80" width="80" onerror="this.onerror=null;this.src='https://via.placeholder.com/80x80?text=Logo';">
-            </div>
-            <h1 class="site-heading">DarkWidow</h1>
-        </div>
-    </header> -->
     <div class="container">
         <aside class="sidebar">
-            <!-- <div class="sidebar-user">
-                <div class="user-info user-dropdown">
-                    <span class="user-label">Logged in as</span>
-                    <div class="dropdown">
-                        <a href="#" class="dropbtn user-name user-dropdown-btn">{{ username }} ▼</a>
-                        <div class="dropdown-content user-dropdown-content">
-                            <a href="{{ url_for('account') }}">Account</a>
-                            <a href="/logout">Logout</a>
-                        </div>
-                    </div>
-                </div>
-            </div> -->
             <nav>
                 <ul>
                     <li><a class="active" href="{{ url_for('homepage') }}" data-tooltip="Home"><i class="fa-regular fa-house"></i></a></li>
@@ -93,7 +73,23 @@
                 <h3>Your security matters</h3>
                 <p>Every second, new data breaches expose sensitive information across underground forums. Our crawler brings that hidden activity 
                     to light, empowering organizations to respond before real damage is done.</p>
-           </div>
+   
+                    <div class="feature-section">
+                                     <h3 id="commitment-subhead">How we respond</h3>
+                        <wa-details summary="Alerts" icon-placement="start" class="expand-feature" appearance="filled">
+                            Alerts notify you of important security events detected by the system, such as data leaks, suspicious activity, or 
+                            phishing attempts. Each alert is categorized by severity to help you prioritize your response.
+                        </wa-details>
+                        <wa-details summary="Reports" icon-placement="start" class="expand-feature">
+                            Reports offer detailed summaries and historical data on security incidents, alerts, and risk assessments. 
+                            Use reports to track trends, review past events, and support compliance or audit requirements.
+                        </wa-details>
+                        <wa-details summary="Risk Analysis" icon-placement="start" class="expand-feature">
+                            Risk Analysis provides an assessment of your organization's assets, highlighting potential vulnerabilities and their 
+                            associated risk levels. This helps you understand and address areas that may require additional security measures.
+                        </wa-details>
+                    </div>
+           </div>     
         </main>
     </div>
 </body>

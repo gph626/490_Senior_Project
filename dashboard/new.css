@@ -32,55 +32,6 @@
     background: linear-gradient(90deg, #C80024 0%, #A7001D 100%);
     box-shadow: 0 4px 16px rgba(167,0,29,0.18);
 }
-/* Dropdown styles for sidebar navigation */
-.dropdown {
-    position: relative;
-    display: block;
-    width: auto;
-}
-.dropbtn {
-    background: #23272F;
-    color: #fff;
-    padding: 10px 16px;
-    font-size: 1rem;
-    border: none;
-    border-radius: 0;
-    cursor: pointer;
-    width: auto;
-    text-align: left;
-    margin: 0;
-}
-.dropdown-content {
-    display: none;
-    position: absolute;
-    left: 0;
-    background-color: #23272F;
-    min-width: 160px;
-    box-shadow: 0 8px 16px rgba(0,0,0,0.18);
-    z-index: 1;
-    border-radius: 0 0 8px 8px;
-    width: 100%;
-}
-.dropdown-content a {
-    color: #fff;
-    padding: 12px 16px;
-    text-decoration: none;
-    display: block;
-    font-size: 0.98rem;
-    border-bottom: 1px solid #3D4754;
-}
-.dropdown-content a:last-child {
-    border-bottom: none;
-}
-.dropdown-content a:hover {
-    background-color: #3D4754;
-}
-.dropdown:hover .dropdown-content {
-    display: block;
-}
-.dropdown:hover .dropbtn {
-    background: #3D4754;
-}
 /* Modern Auth Page Styles */
 .modern-auth-bg {
     min-height: 100vh;
@@ -440,26 +391,6 @@ section {
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-/* section {
-    background: var(--card-background-color);
-    color: #ECECEC;
-    padding: 32px 28px 24px 28px;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.10);
-    width: auto;
-    max-width: 600px;
-    min-width: 220px;
-    position: relative;
-    margin-bottom: 32px;
-    transition: box-shadow 0.2s;
-    margin-left: auto;
-    margin-right: auto;
-    height: auto;      
-    min-height: 0; 
-    overflow: auto;
-    max-height: none;
-} */
-
 section p {
     overflow: hidden;
     max-width: 100%;
@@ -662,7 +593,7 @@ table.data tr:hover {
 
 .dynamic-highlight, li {
     color: var(--text-color);
-    padding-bottom: 5px;
+    padding-bottom: 3px;
     background-image: linear-gradient(var(--secondary-color));
     background-size: 0 2px, auto;
     background-repeat: no-repeat;
@@ -674,7 +605,6 @@ table.data tr:hover {
 .dynamic-highlight:hover {
     color: var(--secondary-color);
     background-size: 100% 2px, auto;
-
 }
 
 li:hover {
@@ -693,6 +623,7 @@ ul li a.active {
   border-radius: 1rem;
   transition: all 0.3s ease;
   border: 1px solid rgba(255, 255, 255, 0.05);
+  height: 180px; 
 }
 
 .home-card i {
@@ -705,12 +636,14 @@ ul li a.active {
     text-align: center;
 }
 
+.how-to,
 .commitment-section {
     color: var(--text-color);
-    margin-top: 100px;
+    margin-top: 80px;
     margin-left: 125px;
 }
 
+.how-to>h3,
 .commitment-section>h3 {
     border-bottom: 1px solid var(--secondary-color);
     box-shadow: 0 10px 8px -8px rgb(106, 3, 3);
@@ -719,20 +652,32 @@ ul li a.active {
 }
 
 #commitment-subhead {
-    margin-left: 150px;
+    margin-left: 75px;
 }
 
+/* dropdown styling */
 .feature-section {
     display: flex;
     flex-direction: row;
     gap: 30px;
-    margin-right: 30px;
+    margin-right: 100px;
+    margin-top: 80px;
 }
 
-  .expand-feature {
-    margin-top: 20px;
+.feature-header>h3 {
+    font-size: 24px;
+    border-bottom: 1px solid var(--secondary-color);
+    box-shadow: 0 10px 8px -8px rgb(106, 3, 3);
+    max-width: 400px;
+    padding-bottom: 10px;
+    display: inline-block;
+}
+
+.expand-feature {
     max-width: 350px;
-  }
+    margin-top: 20px;
+    margin-bottom: 30px;
+}
 
 .expand-feature::part(base) {
     border-style: none;
@@ -749,4 +694,8 @@ ul li a.active {
 
 .expand-feature::part(icon) {
     color: var(--text-color);
+}
+
+.steps>li {
+    background-position: bottom;
 }

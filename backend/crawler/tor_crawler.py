@@ -26,7 +26,6 @@ init_db()
 
 
 # --- CONFIG & PROXY ---
-ORG_ID = int(os.getenv("ORG_ID", "123"))  # Overridable via environment
 USE_TOR = True
 
 # Default to 9150 to match Tor Browser; the web app overrides this via /api/crawlers/tor/run
@@ -36,28 +35,33 @@ TOR_PROXY = {
     "https": f"socks5h://127.0.0.1:{TOR_PORT}",
 }
 
-# Cached org configuration (lazy-loaded). Empty on failure; crawler continues.
+# Cached user configuration (lazy-loaded per user)
 _CONFIG_CACHE: dict = {}
 
-def load_org_config(force: bool = False) -> dict:
-    """Load org config once and cache it; non-fatal on backend errors.
+def load_user_config(user_id: int | None = None) -> dict:
+    """Load user-specific config; non-fatal on backend errors.
 
-    Returns a dict (possibly empty). Set force=True to refresh the cache.
+    Returns a dict (possibly empty).
     """
     global _CONFIG_CACHE
-    if _CONFIG_CACHE and not force:
-        return _CONFIG_CACHE
-    url = f"http://127.0.0.1:5000/v1/config/org/{ORG_ID}"
+    if not user_id:
+        return {}  # No config without user context
+    
+    # Check cache first
+    if user_id in _CONFIG_CACHE:
+        return _CONFIG_CACHE[user_id]
+    
     try:
-        cfg = load_config(url) or {}
+        cfg = load_config(user_id) or {}
         if not isinstance(cfg, dict):
-            logger.warning("Org config is not a dict; using empty config")
+            logger.warning("User config is not a dict; using empty config")
             cfg = {}
-        _CONFIG_CACHE = cfg
+        _CONFIG_CACHE[user_id] = cfg
+        logger.info(f"Loaded config for user_id={user_id}")
     except Exception as e:
-        logger.warning(f"Org config load failed: {e}")
-        _CONFIG_CACHE = {}
-    return _CONFIG_CACHE
+        logger.warning(f"Config load failed for user_id={user_id}: {e}")
+        _CONFIG_CACHE[user_id] = {}
+    return _CONFIG_CACHE[user_id]
 
 
 
@@ -84,7 +88,7 @@ def fetch_and_store(url: str, retries: int = 3, delay: int = 10, config: dict | 
     retries = int(retries)
     delay = int(delay)
     if config is None:
-        config = load_org_config()
+        config = load_user_config(user_id)
     session = requests.Session()
     if USE_TOR:
         session.proxies = TOR_PROXY
@@ -145,32 +149,8 @@ def fetch_and_store(url: str, retries: int = 3, delay: int = 10, config: dict | 
             )
 
 
-            # --- Prepare Event Payload ---
-            event_uid = hashlib.sha256((url + content_hash).encode()).hexdigest()
-            event = {
-                "uid": event_uid,
-                "source": "Tor",
-                "url": url,
-                "title": title,
-                "content": redacted_text,
-                "content_hash": content_hash,
-                "entities": entities,
-                "language": lang,
-                "tags": tags,
-                "severity": severity,
-                "matched_assets": matched_assets,
-                "timestamp": time.time(),
-                "ssn": entities.get("ssns"),
-                "names": entities.get("names"),
-                "phone_numbers": entities.get("phone_numbers"),
-                "physical_addresses": entities.get("physical_addresses"),
-                "passwords": entities.get("passwords"),
-            }
-
-
-            # --- Send to API ---
-            send_event_to_api(event)
-            logger.info(f"[TorCrawler] Stored & sent: {title} | dup={is_dup}")
+            # Data already stored in database
+            logger.info(f"[TorCrawler] Stored: {title} | dup={is_dup}")
             return True
 
         except Exception as e:
@@ -181,9 +161,6 @@ def fetch_and_store(url: str, retries: int = 3, delay: int = 10, config: dict | 
 
 # --- MAIN ---
 if __name__ == "__main__":
-    # Optional preload; failures are non-fatal because fetch_and_store lazy-loads.
-    load_org_config()
-
     if not health_check():
         logger.warning("Tor not reachable. Exiting.")
     else:

@@ -165,12 +165,18 @@
                                 </label>
                                 <select id="alertThreshold" name="threshold"
                                         style="width: 100%; padding: 12px; background: #23272F; border: 1px solid #3D4754; border-radius: 6px; color: #ECECEC; font-size: 14px; cursor: pointer;">
-                                    <option value="critical">Critical Only (Severity ≥ 70)</option>
-                                    <option value="high">High & Critical (Severity ≥ 50)</option>
-                                    <option value="medium">Medium & Above (Severity ≥ 30)</option>
+                                    <option value="critical">Critical Only (Score ≥ 100) - Only most severe leaks</option>
+                                    <option value="high">High & Critical (Score ≥ 75) - Major security risks</option>
+                                    <option value="medium">Medium & Above (Score ≥ 50) - Moderate threats</option>
+                                    <option value="low">Low & Above (Score ≥ 25) - All suspicious activity</option>
                                 </select>
                                 <small style="display: block; margin-top: 6px; color: #9aa2ac; font-size: 13px;">
-                                    <i class="fa-solid fa-circle-info"></i> Lower thresholds may result in more frequent notifications
+                                    <i class="fa-solid fa-circle-info"></i> <strong>What this means:</strong> Only leaks with severity at or above your threshold will trigger alerts.<br>
+                                    <span style="margin-left: 20px;">• <strong>Critical (100+):</strong> Even 1 SSN, password, or credit card number = CRITICAL</span><br>
+                                    <span style="margin-left: 20px;">• <strong>High (60-99):</strong> Multiple physical addresses (3+), phone numbers (5+), or bitcoin wallets</span><br>
+                                    <span style="margin-left: 20px;">• <strong>Medium (25-59):</strong> Few phone numbers, emails, or IPs detected</span><br>
+                                    <span style="margin-left: 20px;">• <strong>Low (5-24):</strong> Minimal suspicious content (domains, names only)</span><br>
+                                    <span style="margin-left: 20px; color: #f39c12;">⚠️ Lower thresholds = more frequent notifications</span>
                                 </small>
                             </div>
                             

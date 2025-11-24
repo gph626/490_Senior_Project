@@ -28,27 +28,35 @@ init_db()
 
 
 
-ORG_ID = int(os.environ.get("DARKWEB_ORG_ID", "123"))
-_CONFIG_CACHE: Dict[str, Any] = {}
+# Config is loaded per-user to respect individual crawler settings
+_CONFIG_CACHE: Dict[int, Dict[str, Any]] = {}
 
-def get_config() -> Dict[str, Any]:
+def get_config(user_id: int | None = None) -> Dict[str, Any]:
+    """Load user-specific crawler configuration."""
     global _CONFIG_CACHE
-    if not _CONFIG_CACHE:
-        try:
-            _CONFIG_CACHE = load_config(ORG_ID) or {}
-            logger.info("Loaded config for org_id=%s", ORG_ID)
-        except Exception as e:
-            logger.warning("Config load failed (%s). Using defaults.", e)
-            _CONFIG_CACHE = {}
-    return _CONFIG_CACHE
+    if not user_id:
+        return {}  # No config without user context
+    
+    # Check cache first
+    if user_id in _CONFIG_CACHE:
+        return _CONFIG_CACHE[user_id]
+    
+    try:
+        # Load config for this specific user
+        _CONFIG_CACHE[user_id] = load_config(user_id) or {}
+        logger.info("Loaded config for user_id=%s", user_id)
+    except Exception as e:
+        logger.warning("Config load failed for user_id=%s: %s. Using defaults.", user_id, e)
+        _CONFIG_CACHE[user_id] = {}
+    return _CONFIG_CACHE[user_id]
 
-def get_source_cfg() -> Dict[str, Any]:
-    cfg = get_config()
+def get_source_cfg(user_id: int | None = None) -> Dict[str, Any]:
+    cfg = get_config(user_id)
     return (cfg.get("sources") or {}).get("pastebin", {})
 
-def build_session() -> tuple[requests.Session, int]:
+def build_session(user_id: int | None = None) -> tuple[requests.Session, int]:
     s = requests.Session()
-    sc = get_source_cfg()
+    sc = get_source_cfg(user_id)
     ua = sc.get("user_agent", "Mozilla/5.0 (PastebinCrawler/1.0)")
     s.headers.update({"User-Agent": ua})
     proxies = sc.get("proxies")
@@ -73,9 +81,9 @@ def guess_tags(text: str, asset_hit_count: int) -> Dict[str, Any]:
     confidence = 0.9 if asset_hit_count > 0 else 0.4
     return {"threat_type": threat_type, "verified": asset_hit_count > 0, "confidence": confidence}
 
-def health_check() -> bool:
+def health_check(user_id: int | None = None) -> bool:
     try:
-        s, timeout = build_session()
+        s, timeout = build_session(user_id)
         r = s.get("https://pastebin.com/archive", timeout=timeout)
         ok = r.status_code == 200
         logger.info("Health check: %s", "OK" if ok else f"HTTP {r.status_code}")
@@ -85,30 +93,29 @@ def health_check() -> bool:
         return False
 
 # ---------- Main crawler ----------
-def fetch_and_store(limit: int = 10, rate_limit_ms: int = 500, user_id: int | None = None) -> int:
+def fetch_and_store(limit: int = None, rate_limit_ms: int = None, user_id: int | None = None) -> int:
     """
     Fetch latest pastes, extract entities, match assets, compute severity, redact,
-    insert with dedupe, and send event to API (idempotent via stable uid).
-    Returns number of newly-inserted DB rows.
+    insert with dedupe. Returns number of newly-inserted DB rows.
     """
-    sc = get_source_cfg()
-    # Prefer explicit function arguments over config defaults
-    if sc.get("limit") is not None:
-        try:
-            # Only use config if caller didn't specify a positive limit
-            if not (isinstance(limit, int) and limit > 0):
-                limit = int(sc.get("limit"))
-        except Exception:
-            pass
-    cfg_rate = sc.get("rate_limit_ms")
-    if cfg_rate is not None:
-        try:
-            if not (isinstance(rate_limit_ms, int) and rate_limit_ms >= 0):
-                rate_limit_ms = int(cfg_rate)
-        except Exception:
-            pass
+    if not user_id:
+        logger.warning("Pastebin crawler requires user_id for config loading")
+        return 0
+    
+    sc = get_source_cfg(user_id)
+    
+    # Load limit from user config if not explicitly provided
+    if limit is None:
+        limit = int(sc.get("limit", 10))  # Default to 10 if no config
+    
+    logger.info(f"Pastebin crawler using limit={limit} for user_id={user_id}")
+    # Load rate_limit_ms from user config if not explicitly provided
+    if rate_limit_ms is None:
+        rate_limit_ms = int(sc.get("rate_limit_ms", 500))  # Default to 500ms if no config
+    
+    logger.info(f"Pastebin crawler using rate_limit_ms={rate_limit_ms}")
 
-    s, timeout = build_session()
+    s, timeout = build_session(user_id)
 
     archive_url = "https://pastebin.com/archive"
     try:
@@ -172,7 +179,7 @@ def fetch_and_store(limit: int = 10, rate_limit_ms: int = 500, user_id: int | No
 
         # Asset matching (util signature may vary; pass what your project expects)
         try:
-            asset_matches = match_assets(content or "", get_config())
+            asset_matches = match_assets(content or "", get_config(user_id))
             asset_hit_count = len(asset_matches.get("hits", [])) if isinstance(asset_matches, dict) else 0
         except Exception as e:
             logger.warning("match_assets failed: %s", e)
@@ -198,17 +205,7 @@ def fetch_and_store(limit: int = 10, rate_limit_ms: int = 500, user_id: int | No
         # Tags / Confidence
         tags = guess_tags(content or "", asset_hit_count)
 
-        # Stable UID for idempotent upsert on the server
-        uid = stable_uid(paste_id, link, content_hash)
-
-        # Redact before sending outward (keep raw content locally if desired)
-        redacted = None
-        try:
-            redacted = redact_sensitive_data(content) if content else None
-        except Exception:
-            redacted = content  # fail open to avoid losing evidence
-
-        # Insert locally with dedupe
+        # Insert to database with deduplication
         _, is_dup = insert_leak_with_dedupe(
             source="pastebin",
             url=link,
@@ -228,46 +225,7 @@ def fetch_and_store(limit: int = 10, rate_limit_ms: int = 500, user_id: int | No
         if not is_dup:
             inserted += 1
 
-        # Build event payload for API
-        event: Dict[str, Any] = {
-            "uid": uid,
-            "org_id": ORG_ID,
-            "source": "pastebin",
-            "source_type": "paste_site",
-            "url": link,
-            "title": title,
-            "paste_id": paste_id,
-            "poster": poster,
-            "posted_at": posted_at,
-            "content_hash": content_hash,
-            "language": lang,
-            "entities": entities,
-            "asset_matches": asset_matches,
-            "severity": sev,
-            "tags": tags,
-            # Send redacted/preview outward
-            "content": redacted or content or "",
-            "content_preview": (redacted or "")[:2000] if redacted else None,
-        }
-        event.update({
-            "ssn": entities.get("ssns"),
-            "names": entities.get("names"),
-            "phone_numbers": entities.get("phone_numbers"),
-            "physical_addresses": entities.get("physical_addresses"),
-            "passwords": entities.get("passwords"),
-        })
-
-
-        # Send to API with small retry/backoff (idempotent via uid)
-        for attempt in range(3):
-            try:
-                send_event_to_api(event)
-                break
-            except Exception as e:
-                wait = (2 ** attempt)
-                logger.warning("send_event_to_api failed (attempt %s): %s; retrying in %ss", attempt + 1, e, wait)
-                time.sleep(wait)
-
+        # Rate limit between requests
         time.sleep(max(0, rate_limit_ms) / 1000.0)
 
     logger.info("Pastebin run complete. Inserted new=%s", inserted)

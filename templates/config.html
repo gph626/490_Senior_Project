@@ -448,11 +448,12 @@
                                 <label style="display: block; margin-bottom: 6px; font-weight: 600;">Alert Threshold</label>
                                 <select id="alertThreshold" class="input-compact" 
                                     style="width: 100%; max-width: 300px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
-                                    <option value="critical">Critical Only (Severity ≥ 70)</option>
-                                    <option value="high">High & Critical (Severity ≥ 50)</option>
-                                    <option value="medium">Medium & Above (Severity ≥ 30)</option>
+                                    <option value="critical">Critical Only (Score ≥ 100)</option>
+                                    <option value="high">High & Critical (Score ≥ 75)</option>
+                                    <option value="medium">Medium & Above (Score ≥ 50)</option>
+                                    <option value="low">Low & Above (Score ≥ 25)</option>
                                 </select>
-                                <small class="muted">Minimum severity level to trigger alerts</small>
+                                <small class="muted">Minimum severity level to trigger alerts. <strong>Critical:</strong> Even 1 SSN/password = alert. Lower = more notifications.</small>
                             </div>
                             
                             <div id="batchIntervalSection">

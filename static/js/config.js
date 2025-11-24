@@ -107,25 +107,13 @@
     // Alerts
     document.getElementById('alertsEnabled').checked = alerts.enabled !== false;
     document.getElementById('alertThreshold').value = alerts.threshold || 'critical';
-    document.getElementById('notificationMode').value = alerts.notification_mode || 'immediate';
     document.getElementById('alertEmail').value = alerts.email || '';
     document.getElementById('alertWebhook').value = alerts.webhook || '';
     document.getElementById('alertInterval').value = alerts.check_interval_min || 15;
     
-    // Show/hide batch interval based on mode
-    updateBatchIntervalVisibility();
-  }
-  
-  // Show/hide batch interval section based on notification mode
-  function updateBatchIntervalVisibility() {
-    const mode = document.getElementById('notificationMode').value;
-    const section = document.getElementById('batchIntervalSection');
-    // Only show for batch mode (periodic)
-    if (mode === 'batch') {
-      section.style.display = 'block';
-    } else {
-      section.style.display = 'none';
-    }
+    // Save alerts enabled state to localStorage for timer visibility
+    localStorage.setItem('alerts_enabled', alerts.enabled !== false ? 'true' : 'false');
+    localStorage.setItem('notification_mode', 'batch');
   }
 
   // Save configuration
@@ -198,7 +186,7 @@
         alerts: {
           enabled: document.getElementById('alertsEnabled').checked,
           threshold: document.getElementById('alertThreshold').value,
-          notification_mode: document.getElementById('notificationMode').value,
+          notification_mode: 'batch',  // Always use batch mode
           email: document.getElementById('alertEmail').value,
           webhook: document.getElementById('alertWebhook').value,
           check_interval_min: parseInt(document.getElementById('alertInterval').value) || 15
@@ -216,9 +204,10 @@
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      // Save notification mode to localStorage for timer visibility
-      const notificationMode = document.getElementById('notificationMode').value;
-      localStorage.setItem('notification_mode', notificationMode);
+      // Save alerts enabled state and mode to localStorage for timer visibility
+      const alertsEnabled = document.getElementById('alertsEnabled').checked;
+      localStorage.setItem('alerts_enabled', alertsEnabled ? 'true' : 'false');
+      localStorage.setItem('notification_mode', 'batch');
 
       status.textContent = 'Configuration saved successfully!';
       status.style.color = '#4CAF50';
@@ -264,6 +253,5 @@
     loadConfig();
     document.getElementById('saveConfigBtn')?.addEventListener('click', saveConfig);
     document.getElementById('resetConfigBtn')?.addEventListener('click', resetConfig);
-    document.getElementById('notificationMode')?.addEventListener('change', updateBatchIntervalVisibility);
   });
 })();

@@ -122,40 +122,40 @@
                                     <label style="display: block; margin-bottom: 6px; font-weight: 600;">
                                         <i class="fa-solid fa-id-card"></i> Social Security Numbers
                                     </label>
-                                    <textarea id="watchlistSSNs" class="input-wide" rows="2" 
-                                        placeholder="123-45-6789, 987-65-4321"
+                                    <textarea id="watchlistSSNs" class="input-wide" rows="3" 
+                                        placeholder="123-45-6789, 987-65-4321, 111-22-3333 (comma-separated)"
                                         style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #FF9800; background: #1a1d23; color: #fff;"></textarea>
-                                    <small style="color: #FF9800;">⚠ Auto-hashed for security</small>
+                                    <small style="color: #FF9800;">⚠ Auto-hashed for security. Enter multiple values separated by commas.</small>
                                 </div>
                                 
                                 <div>
                                     <label style="display: block; margin-bottom: 6px; font-weight: 600;">
                                         <i class="fa-solid fa-key"></i> Passwords
                                     </label>
-                                    <textarea id="watchlistPasswords" class="input-wide" rows="2" 
-                                        placeholder="password123, MySecurePass!"
+                                    <textarea id="watchlistPasswords" class="input-wide" rows="3" 
+                                        placeholder="password123, MySecurePass!, SecretPass456 (comma-separated)"
                                         style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #FF9800; background: #1a1d23; color: #fff;"></textarea>
-                                    <small style="color: #FF9800;">⚠ Auto-hashed for security</small>
+                                    <small style="color: #FF9800;">⚠ Auto-hashed for security. Enter multiple values separated by commas.</small>
                                 </div>
                                 
                                 <div>
                                     <label style="display: block; margin-bottom: 6px; font-weight: 600;">
                                         <i class="fa-solid fa-phone"></i> Phone Numbers
                                     </label>
-                                    <textarea id="watchlistPhones" class="input-wide" rows="2" 
-                                        placeholder="555-123-4567, (555) 987-6543"
+                                    <textarea id="watchlistPhones" class="input-wide" rows="3" 
+                                        placeholder="555-123-4567, (555) 987-6543, 555-111-2222 (comma-separated)"
                                         style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #FF9800; background: #1a1d23; color: #fff;"></textarea>
-                                    <small style="color: #FF9800;">⚠ Auto-hashed for security</small>
+                                    <small style="color: #FF9800;">⚠ Auto-hashed for security. Enter multiple values separated by commas.</small>
                                 </div>
                                 
                                 <div>
                                     <label style="display: block; margin-bottom: 6px; font-weight: 600;">
                                         <i class="fa-solid fa-location-dot"></i> Physical Addresses
                                     </label>
-                                    <textarea id="watchlistAddresses" class="input-wide" rows="2" 
-                                        placeholder="123 Main St, Anytown, CA 12345"
+                                    <textarea id="watchlistAddresses" class="input-wide" rows="3" 
+                                        placeholder="123 Main St Anytown CA 12345, 456 Oak Ave Springfield IL 62701 (comma-separated)"
                                         style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #FF9800; background: #1a1d23; color: #fff;"></textarea>
-                                    <small style="color: #FF9800;">⚠ Auto-hashed for security</small>
+                                    <small style="color: #FF9800;">⚠ Auto-hashed for security. Enter multiple values separated by commas.</small>
                                 </div>
                             </div>
                         </div>
@@ -299,21 +299,11 @@
                                 <small class="muted">Minimum severity level to trigger alerts</small>
                             </div>
                             
-                            <div>
-                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Notification Mode</label>
-                                <select id="notificationMode" class="input-compact" 
-                                    style="width: 100%; max-width: 300px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
-                                    <option value="immediate">Immediate (Batch sent on leak detection)</option>
-                                    <option value="batch">Periodic (Batch sent at intervals)</option>
-                                </select>
-                                <small class="muted">Both modes batch non-alerted leaks. Immediate sends on detection, Periodic sends on schedule.</small>
-                            </div>
-                            
-                            <div id="batchIntervalSection" style="display: none;">
+                            <div id="batchIntervalSection">
                                 <label style="display: block; margin-bottom: 6px; font-weight: 600;">Batch Check Interval (minutes)</label>
                                 <input type="number" id="alertInterval" class="input-compact" min="5" max="1440" value="15" 
                                     style="width: 100%; max-width: 300px; padding: 8px; border-radius: 6px; border: 1px solid #444; background: #1a1d23; color: #fff;">
-                                <small class="muted">How often to send batch summaries (5-1440 minutes)</small>
+                                <small class="muted">How often to send batch alert summaries (5-1440 minutes)</small>
                             </div>
 
                             <div>

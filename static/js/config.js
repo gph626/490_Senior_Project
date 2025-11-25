@@ -1,6 +1,29 @@
 // Config page logic
 (function(){
   const API_KEY = localStorage.getItem('api_key') || '';
+  let CURRENT_USER_ID = null;
+
+  // Get current user's ID from backend
+  async function getCurrentUserId() {
+    if (CURRENT_USER_ID !== null) return CURRENT_USER_ID;
+    
+    try {
+      const res = await fetch('/api/me', {
+        headers: { 'X-API-Key': API_KEY }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        CURRENT_USER_ID = data.user_id;
+        return CURRENT_USER_ID;
+      }
+    } catch(e) {
+      console.error('Failed to get current user ID:', e);
+    }
+    
+    // Fallback to localStorage for backwards compatibility
+    CURRENT_USER_ID = localStorage.getItem('org_id') || '123';
+    return CURRENT_USER_ID;
+  }
 
   // Tab switching
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -20,9 +43,9 @@
     status.style.color = '#666';
 
     try {
-      // Get current user's org_id (defaulting to 123 for now)
-      const orgId = localStorage.getItem('org_id') || '123';
-      const res = await fetch(`/v1/config/org/${orgId}`, {
+      // Get current user's ID from backend
+      const userId = await getCurrentUserId();
+      const res = await fetch(`/v1/config/org/${userId}`, {
         headers: { 'X-API-Key': API_KEY }
       });
 
@@ -127,8 +150,8 @@
       const splitClean = (value) => value.split(',').map(s => s.trim()).filter(Boolean);
       
       // Get current config to preserve existing hashed values
-      const orgId = localStorage.getItem('org_id') || '123';
-      const currentRes = await fetch(`/v1/config/org/${orgId}`, {
+      const userId = await getCurrentUserId();
+      const currentRes = await fetch(`/v1/config/org/${userId}`, {
         headers: { 'X-API-Key': API_KEY }
       });
       const currentConfig = await currentRes.json();
@@ -193,7 +216,7 @@
         }
       };
 
-      const res = await fetch(`/v1/config/org/${orgId}`, {
+      const res = await fetch(`/v1/config/org/${userId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -229,8 +252,8 @@
     status.style.color = '#666';
 
     try {
-      const orgId = localStorage.getItem('org_id') || '123';
-      const res = await fetch(`/v1/config/org/${orgId}/reset`, {
+      const userId = await getCurrentUserId();
+      const res = await fetch(`/v1/config/org/${userId}/reset`, {
         method: 'POST',
         headers: { 'X-API-Key': API_KEY }
       });

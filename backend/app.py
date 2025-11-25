@@ -2853,6 +2853,15 @@ def api_check_username():
         session_db.close()
     return jsonify({"available": not exists})
 
+@app.route('/api/me')
+@login_required
+def api_get_current_user():
+    """Return current authenticated user's ID and username"""
+    return jsonify({
+        "user_id": current_user.id,
+        "username": current_user.username
+    })
+
 # Legacy path served as static file previously; redirect to dynamic template route
 @app.route('/auth/register.html', methods=['GET'])
 def legacy_register_static():

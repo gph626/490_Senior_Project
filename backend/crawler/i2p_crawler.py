@@ -24,14 +24,28 @@ logger.setLevel(logging.INFO)
 init_db()
 
 # --- CONFIG ---
-ORG_ID = 123  # Make dynamic later if needed
-CONFIG = load_config(f"http://127.0.0.1:5000/v1/config/org/{ORG_ID}")
-
 USE_I2P = True
 I2P_PROXY = {
     "http": "http://127.0.0.1:4444",
     "https": "http://127.0.0.1:4444",
 }
+
+_CONFIG_CACHE: dict = {}
+
+def load_user_config(user_id: int | None = None) -> dict:
+    """Load user-specific config."""
+    global _CONFIG_CACHE
+    if not user_id:
+        return {}
+    if user_id in _CONFIG_CACHE:
+        return _CONFIG_CACHE[user_id]
+    try:
+        _CONFIG_CACHE[user_id] = load_config(user_id) or {}
+        logger.info(f"Loaded config for user_id={user_id}")
+    except Exception as e:
+        logger.warning(f"Config load failed for user_id={user_id}: {e}")
+        _CONFIG_CACHE[user_id] = {}
+    return _CONFIG_CACHE[user_id]
 
 
 # --- HEALTH CHECK ---
@@ -54,6 +68,7 @@ def health_check():
 
 # --- FETCH & PROCESS ---
 def fetch_and_store(url: str, retries: int = 3, delay: int = 10, user_id: int | None = None) -> bool:
+    config = load_user_config(user_id)
     session = requests.Session()
     if USE_I2P:
         session.proxies = I2P_PROXY
@@ -81,7 +96,7 @@ def fetch_and_store(url: str, retries: int = 3, delay: int = 10, user_id: int | 
 
             # --- Tagging & Matching ---
             lang = detect_language(content)
-            matched_assets = match_assets(entities, CONFIG.get("watchlist", {}))
+            matched_assets = match_assets(entities, config.get("watchlist", {}))
             tags = guess_tags(entities, matched_assets)
 
             # --- Redact ---
@@ -113,33 +128,8 @@ def fetch_and_store(url: str, retries: int = 3, delay: int = 10, user_id: int | 
             )
 
 
-            # --- Event Payload ---
-            event_uid = hashlib.sha256((url + content_hash).encode()).hexdigest()
-            event = {
-                "uid": event_uid,
-                "source": "I2P",
-                "url": url,
-                "title": title,
-                "content": redacted_text,
-                "content_hash": content_hash,
-                "entities": entities,
-                "language": lang,
-                "tags": tags,
-                "severity": severity,
-                "matched_assets": matched_assets,
-                "timestamp": time.time(),
-                "ssn": entities.get("ssns"),
-                "names": entities.get("names"),
-                "phone_numbers": entities.get("phone_numbers"),
-                "physical_addresses": entities.get("physical_addresses"),
-                "passwords": entities.get("passwords"),
-            }
-
-
-
-            # --- Send to API ---
-            send_event_to_api(event)
-            logger.info(f"[I2PCrawler] Stored & sent: {title} | dup={is_dup}")
+            # Data already stored in database
+            logger.info(f"[I2PCrawler] Stored: {title} | dup={is_dup}")
             return True
 
         except Exception as e:
@@ -150,7 +140,6 @@ def fetch_and_store(url: str, retries: int = 3, delay: int = 10, user_id: int | 
 
 # --- MAIN ---
 if __name__ == "__main__":
-    CONFIG = load_config(f"http://127.0.0.1:5000/v1/config/org/{ORG_ID}")
     if not health_check():
         logger.warning("I2P not reachable. Exiting.")
     else:

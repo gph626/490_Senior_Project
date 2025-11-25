@@ -30,41 +30,50 @@ logger = logging.getLogger("github_crawler")
 logger.setLevel(logging.INFO)
 init_db()
 
-ORG_ID = int(os.environ.get("DARKWEB_ORG_ID", "123"))
-_CONFIG_CACHE: Dict[str, Any] = {}
+# Config is loaded per-user to respect individual crawler settings
+_CONFIG_CACHE: Dict[int, Dict[str, Any]] = {}
 
-def get_config() -> Dict[str, Any]:
+def get_config(user_id: int | None = None) -> Dict[str, Any]:
+    """Load user-specific crawler configuration."""
     global _CONFIG_CACHE
-    if not _CONFIG_CACHE:
-        try:
-            _CONFIG_CACHE = load_config(ORG_ID) or {}
-            logger.info("Loaded config for org_id=%s", ORG_ID)
-        except Exception as e:
-            logger.warning("Config load failed (%s). Using defaults.", e)
-            _CONFIG_CACHE = {}
-    return _CONFIG_CACHE
+    if not user_id:
+        return {}  # No config without user context
+    
+    # Check cache first
+    if user_id in _CONFIG_CACHE:
+        return _CONFIG_CACHE[user_id]
+    
+    try:
+        # Load config for this specific user (using user_id as org_id for now)
+        _CONFIG_CACHE[user_id] = load_config(user_id) or {}
+        logger.info("Loaded config for user_id=%s", user_id)
+    except Exception as e:
+        logger.warning("Config load failed for user_id=%s: %s. Using defaults.", user_id, e)
+        _CONFIG_CACHE[user_id] = {}
+    return _CONFIG_CACHE[user_id]
 
-def get_source_cfg() -> Dict[str, Any]:
-    cfg = get_config()
+def get_source_cfg(user_id: int | None = None) -> Dict[str, Any]:
+    cfg = get_config(user_id)
     return (cfg.get("sources") or {}).get("github", {})
 
-def build_session() -> tuple[requests.Session, int]:
+def build_session(user_id: int | None = None) -> tuple[requests.Session, int]:
     s = requests.Session()
-    sc = get_source_cfg()
+    sc = get_source_cfg(user_id)
     ua = sc.get("user_agent", "Mozilla/5.0 (GitHubCrawler/1.0)")
     s.headers.update({"User-Agent": ua})
 
-    # Token resolution order
+    # Token resolution order: user config > env var > fallback
     token = (
-        os.getenv("GITHUB_TOKEN")                       # local env var
-        or sc.get("token")                              # org config API
-        or os.getenv("DEFAULT_GITHUB_TOKEN")             # fallback token (for deployment)
+        sc.get("token")                                  # user's saved config token (primary)
+        or os.getenv("GITHUB_TOKEN")                     # local env var (testing)
+        or os.getenv("DEFAULT_GITHUB_TOKEN")             # fallback token (optional)
     )
-    print(f"[DEBUG] Using token: {token}")
+    
     if token:
         s.headers["Authorization"] = f"token {token}"
+        logger.info("Using GitHub token from user config")
     else:
-        logger.warning("No GitHub token found. Using unauthenticated mode (rate limit = 10/hr).")
+        logger.warning("No GitHub token configured. Rate limit = 10 requests/hour. Add token in Crawler Settings.")
 
     timeout_sec = int(sc.get("timeout_sec", 20))
     return s, timeout_sec
@@ -75,9 +84,9 @@ def stable_uid(repo: str, path: str, html_url: str) -> str:
     return "evt:" + hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
-def health_check() -> bool:
+def health_check(user_id: int | None = None) -> bool:
     try:
-        s, timeout = build_session()
+        s, timeout = build_session(user_id)
         r = s.get("https://api.github.com/rate_limit", timeout=timeout)
         ok = r.status_code == 200
         logger.info("GitHub API health: %s", "OK" if ok else f"HTTP {r.status_code}")
@@ -92,7 +101,11 @@ def fetch_and_store(limit: int = 10, rate_limit_ms: int = 1500, user_id: int | N
     Search GitHub public code for common secret keywords, process results,
     and store any suspicious findings in the DB.
     """
-    sc = get_source_cfg()
+    if not user_id:
+        logger.warning("GitHub crawler requires user_id for config loading")
+        return 0
+    
+    sc = get_source_cfg(user_id)
     keywords = sc.get("keywords") or ["password", "apikey", "secret", "aws_access_key_id", "private_key"]
     # Prefer explicit function arguments over config defaults
     if not (isinstance(limit, int) and limit > 0):
@@ -106,7 +119,7 @@ def fetch_and_store(limit: int = 10, rate_limit_ms: int = 1500, user_id: int | N
         except Exception:
             rate_limit_ms = 1500
 
-    s, timeout = build_session()
+    s, timeout = build_session(user_id)
 
     api_url = "https://api.github.com/search/code"
     inserted = 0
@@ -141,7 +154,7 @@ def fetch_and_store(limit: int = 10, rate_limit_ms: int = 1500, user_id: int | N
             # Entity & Asset extraction (optional raw fetch skipped for speed)
             entities = extract_entities(snippet)
             try:
-                asset_matches = match_assets(snippet, get_config())
+                asset_matches = match_assets(snippet, get_config(user_id))
                 asset_hit_count = len(asset_matches.get("hits", [])) if isinstance(asset_matches, dict) else 0
             except Exception as e:
                 logger.warning("match_assets failed: %s", e)
@@ -178,37 +191,7 @@ def fetch_and_store(limit: int = 10, rate_limit_ms: int = 1500, user_id: int | N
                 if remaining <= 0:
                     break
 
-            # Prepare event payload
-            event: Dict[str, Any] = {
-                "uid": uid,
-                "org_id": ORG_ID,
-                "source": "github",
-                "source_type": "repo_code",
-                "url": html_url,
-                "repo": repo,
-                "path": path,
-                "keyword": kw,
-                "language": lang,
-                "entities": entities,
-                "asset_matches": asset_matches,
-                "severity": sev,
-                "tags": tags,
-                "content": redacted,
-                "content_preview": redacted[:2000],
-            }
-            os.environ.setdefault("API_KEY", os.getenv("API_KEY", ""))
-
-            for attempt in range(3):
-                try:
-                    # Pass API key automatically with request
-                    event["api_key"] = os.getenv("API_KEY", "")
-                    send_event_to_api(event)
-                    break
-                except Exception as e:
-                    wait = (2 ** attempt)
-                    logger.warning("send_event_to_api failed (attempt %s): %s; retrying in %ss", attempt + 1, e, wait)
-                    time.sleep(wait)
-
+            # Rate limit between searches
             time.sleep(max(0, rate_limit_ms) / 1000.0)
         if remaining <= 0:
             break

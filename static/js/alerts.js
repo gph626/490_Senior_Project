@@ -128,11 +128,11 @@
       document.getElementById('webhookUrl').value = alerts.webhook || '';
       document.getElementById('alertEmail').value = alerts.email || '';
       document.getElementById('alertThreshold').value = alerts.threshold || 'critical';
-      document.getElementById('notificationMode').value = alerts.notification_mode || 'immediate';
       document.getElementById('checkInterval').value = alerts.check_interval_min || 15;
       
-      // Show/hide batch interval based on mode
-      updateBatchIntervalVisibility();
+      // Save alerts enabled state to localStorage for timer visibility
+      localStorage.setItem('alerts_enabled', alerts.enabled !== false ? 'true' : 'false');
+      localStorage.setItem('notification_mode', 'batch');
       
       // Hide status after successful load
       status.style.display = 'none';
@@ -144,17 +144,7 @@
     }
   }
   
-  // Show/hide batch interval section based on notification mode
-  function updateBatchIntervalVisibility() {
-    const mode = document.getElementById('notificationMode').value;
-    const section = document.getElementById('batchIntervalSection');
-    // Only show for batch mode (periodic)
-    if (mode === 'batch') {
-      section.style.display = 'block';
-    } else {
-      section.style.display = 'none';
-    }
-  }
+
 
   // Save alert settings
   async function saveAlertSettings(e){
@@ -181,7 +171,7 @@
         webhook: document.getElementById('webhookUrl').value,
         email: document.getElementById('alertEmail').value,
         threshold: document.getElementById('alertThreshold').value,
-        notification_mode: document.getElementById('notificationMode').value,
+        notification_mode: 'batch',  // Always use batch mode
         check_interval_min: parseInt(document.getElementById('checkInterval').value) || 15
       };
       
@@ -201,9 +191,10 @@
         status.style.border = '1px solid #2d5a2d';
         status.innerHTML = '<i class="fa-solid fa-circle-check"></i> Configuration saved successfully!';
         
-        // Save notification mode to localStorage for timer visibility
-        const notificationMode = document.getElementById('notificationMode').value;
-        localStorage.setItem('notification_mode', notificationMode);
+        // Save alerts enabled state and mode to localStorage for timer visibility
+        const alertsEnabled = document.getElementById('alertsEnabled').checked;
+        localStorage.setItem('alerts_enabled', alertsEnabled ? 'true' : 'false');
+        localStorage.setItem('notification_mode', 'batch');
         
         // Reset timer with new interval
         const newInterval = parseInt(document.getElementById('checkInterval').value) || 15;
@@ -375,7 +366,6 @@
     document.getElementById('alertSettingsForm')?.addEventListener('submit', saveAlertSettings);
     document.getElementById('testWebhook')?.addEventListener('click', testWebhook);
     document.getElementById('testBatchWebhook')?.addEventListener('click', testBatchWebhook);
-    document.getElementById('notificationMode')?.addEventListener('change', updateBatchIntervalVisibility);
     
     // Load initial tab content
     loadAlerts();

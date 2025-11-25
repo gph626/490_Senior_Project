@@ -36,34 +36,38 @@ def compute_severity_from_entities(entities: dict[str, Any] | None) -> str:
     if not any_entities:
         return 'zero severity'
 
-    # Weights per type (tuned to emphasize sensitive data)
+    # Weights per type (tuned so 1 SSN/password/credit card = CRITICAL)
+    # Critical threshold is score >= 100
     weights = {
-        'ssns': 40,
-        'passwords': 25,
-        'physical_addresses': 18,
-        'phone_numbers': 12,
-        'btc_wallets': 12,
-        'ips': 8,
-        'emails': 5,
-        'domains': 3,
-        'names': 1,
+        'ssns': 100,           # Even 1 SSN = CRITICAL (most sensitive PII)
+        'passwords': 100,      # Even 1 password = CRITICAL (direct account access)
+        'credit_cards': 100,   # Even 1 credit card = CRITICAL (financial data)
+        'physical_addresses': 35,  # 3 addresses = HIGH (100+)
+        'phone_numbers': 20,   # 5 phones = HIGH (100)
+        'btc_wallets': 20,     # 5 wallets = HIGH (financial)
+        'ips': 10,             # 10 IPs = HIGH
+        'emails': 8,           # 13 emails = HIGH
+        'domains': 5,          # 20 domains = HIGH
+        'names': 3,            # 34 names = HIGH
     }
-    # Cap per-type counts
+    # Cap per-type counts to prevent runaway scores
     caps = {
-        'ssns': 3,
-        'passwords': 5,
+        'ssns': 5,             # Max 5 SSNs counted
+        'passwords': 5,        # Max 5 passwords counted
+        'credit_cards': 5,     # Max 5 cards counted
         'physical_addresses': 5,
-        'phone_numbers': 8,
-        'btc_wallets': 5,
-        'ips': 10,
-        'emails': 20,
-        'domains': 20,
-        'names': 20,
+        'phone_numbers': 10,
+        'btc_wallets': 8,
+        'ips': 15,
+        'emails': 25,
+        'domains': 25,
+        'names': 50,
     }
 
     counts = {
         'ssns': len(ssns),
         'passwords': len(passwords),
+        'credit_cards': len(_to_list(e.get('credit_cards', []))),  # Add credit card support
         'physical_addresses': len(addresses),
         'phone_numbers': len(phones),
         'btc_wallets': len(btcs),
@@ -79,13 +83,14 @@ def compute_severity_from_entities(entities: dict[str, Any] | None) -> str:
         score += n_cap * weights[k]
 
     # Map numeric score to severity label
-    if score >= 40:
+    # Now: 1 SSN/password/credit card = 100+ = CRITICAL
+    if score >= 100:
         return 'critical'
-    if score >= 20:
+    if score >= 60:
         return 'high'
-    if score >= 8:
+    if score >= 25:
         return 'medium'
-    if score >= 1:
+    if score >= 5:
         return 'low'
     return 'zero severity'
 

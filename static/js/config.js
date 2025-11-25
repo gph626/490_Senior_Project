@@ -1,6 +1,29 @@
 // Config page logic
 (function(){
   const API_KEY = localStorage.getItem('api_key') || '';
+  let CURRENT_USER_ID = null;
+
+  // Get current user's ID from backend
+  async function getCurrentUserId() {
+    if (CURRENT_USER_ID !== null) return CURRENT_USER_ID;
+    
+    try {
+      const res = await fetch('/api/me', {
+        headers: { 'X-API-Key': API_KEY }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        CURRENT_USER_ID = data.user_id;
+        return CURRENT_USER_ID;
+      }
+    } catch(e) {
+      console.error('Failed to get current user ID:', e);
+    }
+    
+    // Fallback to localStorage for backwards compatibility
+    CURRENT_USER_ID = localStorage.getItem('org_id') || '123';
+    return CURRENT_USER_ID;
+  }
 
   // Tab switching
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -20,9 +43,9 @@
     status.style.color = '#666';
 
     try {
-      // Get current user's org_id (defaulting to 123 for now)
-      const orgId = localStorage.getItem('org_id') || '123';
-      const res = await fetch(`/v1/config/org/${orgId}`, {
+      // Get current user's ID from backend
+      const userId = await getCurrentUserId();
+      const res = await fetch(`/v1/config/org/${userId}`, {
         headers: { 'X-API-Key': API_KEY }
       });
 
@@ -107,25 +130,13 @@
     // Alerts
     document.getElementById('alertsEnabled').checked = alerts.enabled !== false;
     document.getElementById('alertThreshold').value = alerts.threshold || 'critical';
-    document.getElementById('notificationMode').value = alerts.notification_mode || 'immediate';
     document.getElementById('alertEmail').value = alerts.email || '';
     document.getElementById('alertWebhook').value = alerts.webhook || '';
     document.getElementById('alertInterval').value = alerts.check_interval_min || 15;
     
-    // Show/hide batch interval based on mode
-    updateBatchIntervalVisibility();
-  }
-  
-  // Show/hide batch interval section based on notification mode
-  function updateBatchIntervalVisibility() {
-    const mode = document.getElementById('notificationMode').value;
-    const section = document.getElementById('batchIntervalSection');
-    // Only show for batch mode (periodic)
-    if (mode === 'batch') {
-      section.style.display = 'block';
-    } else {
-      section.style.display = 'none';
-    }
+    // Save alerts enabled state to localStorage for timer visibility
+    localStorage.setItem('alerts_enabled', alerts.enabled !== false ? 'true' : 'false');
+    localStorage.setItem('notification_mode', 'batch');
   }
 
   // Save configuration
@@ -139,8 +150,8 @@
       const splitClean = (value) => value.split(',').map(s => s.trim()).filter(Boolean);
       
       // Get current config to preserve existing hashed values
-      const orgId = localStorage.getItem('org_id') || '123';
-      const currentRes = await fetch(`/v1/config/org/${orgId}`, {
+      const userId = await getCurrentUserId();
+      const currentRes = await fetch(`/v1/config/org/${userId}`, {
         headers: { 'X-API-Key': API_KEY }
       });
       const currentConfig = await currentRes.json();
@@ -198,14 +209,14 @@
         alerts: {
           enabled: document.getElementById('alertsEnabled').checked,
           threshold: document.getElementById('alertThreshold').value,
-          notification_mode: document.getElementById('notificationMode').value,
+          notification_mode: 'batch',  // Always use batch mode
           email: document.getElementById('alertEmail').value,
           webhook: document.getElementById('alertWebhook').value,
           check_interval_min: parseInt(document.getElementById('alertInterval').value) || 15
         }
       };
 
-      const res = await fetch(`/v1/config/org/${orgId}`, {
+      const res = await fetch(`/v1/config/org/${userId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -216,9 +227,10 @@
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      // Save notification mode to localStorage for timer visibility
-      const notificationMode = document.getElementById('notificationMode').value;
-      localStorage.setItem('notification_mode', notificationMode);
+      // Save alerts enabled state and mode to localStorage for timer visibility
+      const alertsEnabled = document.getElementById('alertsEnabled').checked;
+      localStorage.setItem('alerts_enabled', alertsEnabled ? 'true' : 'false');
+      localStorage.setItem('notification_mode', 'batch');
 
       status.textContent = 'Configuration saved successfully!';
       status.style.color = '#4CAF50';
@@ -240,8 +252,8 @@
     status.style.color = '#666';
 
     try {
-      const orgId = localStorage.getItem('org_id') || '123';
-      const res = await fetch(`/v1/config/org/${orgId}/reset`, {
+      const userId = await getCurrentUserId();
+      const res = await fetch(`/v1/config/org/${userId}/reset`, {
         method: 'POST',
         headers: { 'X-API-Key': API_KEY }
       });
@@ -264,6 +276,5 @@
     loadConfig();
     document.getElementById('saveConfigBtn')?.addEventListener('click', saveConfig);
     document.getElementById('resetConfigBtn')?.addEventListener('click', resetConfig);
-    document.getElementById('notificationMode')?.addEventListener('change', updateBatchIntervalVisibility);
   });
 })();

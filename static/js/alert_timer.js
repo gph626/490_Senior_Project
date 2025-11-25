@@ -67,12 +67,13 @@
     const elements = document.querySelectorAll('.alert-timer');
     if (!elements.length) return;
     
-    // Check if timer should be visible based on notification mode
-    const notificationMode = localStorage.getItem('notification_mode') || 'immediate';
+    // Check if alerts are enabled and get notification mode
+    const alertsEnabled = localStorage.getItem('alerts_enabled') === 'true';
+    const notificationMode = localStorage.getItem('notification_mode') || 'batch';
     
     elements.forEach(el => {
-      // Hide timer if mode is not batch (only show for periodic batch mode)
-      if (notificationMode !== 'batch') {
+      // Hide timer if alerts are disabled or mode is not batch
+      if (!alertsEnabled || notificationMode !== 'batch') {
         el.style.display = 'none';
         return;
       }

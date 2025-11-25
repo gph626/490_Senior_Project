@@ -1972,20 +1972,18 @@ def api_run_pastebin():
     # Create a crawl run record at start
     run_id = insert_crawl_run(source="pastebin", user_id=current_user_id, status="running")
 
-    # Accept optional limit in JSON body
-    limit = 10
+    # Accept optional limit in JSON body, otherwise use user's saved config
+    limit = None  # Let crawler load from user config
     if request.is_json:
         body = request.get_json(silent=True) or {}
-        try:
-            limit = int(body.get('limit', limit))
-        except (TypeError, ValueError):
-            pass
+        if 'limit' in body:
+            try:
+                limit = int(body.get('limit'))
+            except (TypeError, ValueError):
+                pass
     try:
-        # Our fetch may or may not accept limit; handle both signatures
-        try:
-            inserted = pastebin_fetch(limit=limit, user_id=current_user_id)
-        except TypeError:
-            inserted = pastebin_fetch() or 0
+        # Pass limit=None to use user's config, or explicit limit if provided
+        inserted = pastebin_fetch(limit=limit, user_id=current_user_id)
         # Update run status to completed
         update_crawl_run_status(run_id, "completed")
 
@@ -2854,6 +2852,15 @@ def api_check_username():
     finally:
         session_db.close()
     return jsonify({"available": not exists})
+
+@app.route('/api/me')
+@login_required
+def api_get_current_user():
+    """Return current authenticated user's ID and username"""
+    return jsonify({
+        "user_id": current_user.id,
+        "username": current_user.username
+    })
 
 # Legacy path served as static file previously; redirect to dynamic template route
 @app.route('/auth/register.html', methods=['GET'])

@@ -132,31 +132,16 @@
                                 </label>
                             </div>
                             
-                            <!-- Notification Mode -->
-                            <div style="margin-bottom: 24px;">
+                            <!-- Batch Check Interval -->
+                            <div id="batchIntervalSection" style="margin-bottom: 24px;">
                                 <label style="display: block; font-weight: 600; color: #ECECEC; margin-bottom: 8px;">
-                                    <i class="fa-solid fa-bell"></i> Notification Mode
-                                </label>
-                                <select id="notificationMode" name="notification_mode"
-                                        style="width: 100%; padding: 12px; background: #23272F; border: 1px solid #3D4754; border-radius: 6px; color: #ECECEC; font-size: 14px; cursor: pointer;">
-                                    <option value="immediate">Immediate (Batch sent on leak detection)</option>
-                                    <option value="batch">Periodic (Batch sent at intervals)</option>
-                                </select>
-                                <small style="display: block; margin-top: 6px; color: #9aa2ac; font-size: 13px;">
-                                    <i class="fa-solid fa-circle-info"></i> Both modes batch non-alerted leaks. Immediate sends on detection, Periodic sends on schedule.
-                                </small>
-                            </div>
-                            
-                            <!-- Batch Check Interval (shown only for batch/both modes) -->
-                            <div id="batchIntervalSection" style="margin-bottom: 24px; display: none;">
-                                <label style="display: block; font-weight: 600; color: #ECECEC; margin-bottom: 8px;">
-                                    <i class="fa-solid fa-clock"></i> Periodic Check Interval
+                                    <i class="fa-solid fa-clock"></i> Batch Check Interval
                                 </label>
                                 <input type="number" id="checkInterval" name="check_interval_min" 
                                        placeholder="15" min="5" max="1440" value="15"
                                        style="width: 100%; padding: 12px; background: #23272F; border: 1px solid #3D4754; border-radius: 6px; color: #ECECEC; font-size: 14px;">
                                 <small style="display: block; margin-top: 6px; color: #9aa2ac; font-size: 13px;">
-                                    <i class="fa-solid fa-circle-info"></i> How often (in minutes) to check for and batch non-alerted leaks (5-1440)
+                                    <i class="fa-solid fa-circle-info"></i> How often (in minutes) to automatically check for and batch non-alerted leaks (5-1440)
                                 </small>
                             </div>
                             
@@ -180,12 +165,18 @@
                                 </label>
                                 <select id="alertThreshold" name="threshold"
                                         style="width: 100%; padding: 12px; background: #23272F; border: 1px solid #3D4754; border-radius: 6px; color: #ECECEC; font-size: 14px; cursor: pointer;">
-                                    <option value="critical">Critical Only (Severity ≥ 70)</option>
-                                    <option value="high">High & Critical (Severity ≥ 50)</option>
-                                    <option value="medium">Medium & Above (Severity ≥ 30)</option>
+                                    <option value="critical">Critical Only (Score ≥ 100) - Only most severe leaks</option>
+                                    <option value="high">High & Critical (Score ≥ 75) - Major security risks</option>
+                                    <option value="medium">Medium & Above (Score ≥ 50) - Moderate threats</option>
+                                    <option value="low">Low & Above (Score ≥ 25) - All suspicious activity</option>
                                 </select>
                                 <small style="display: block; margin-top: 6px; color: #9aa2ac; font-size: 13px;">
-                                    <i class="fa-solid fa-circle-info"></i> Lower thresholds may result in more frequent notifications
+                                    <i class="fa-solid fa-circle-info"></i> <strong>What this means:</strong> Only leaks with severity at or above your threshold will trigger alerts.<br>
+                                    <span style="margin-left: 20px;">• <strong>Critical (100+):</strong> Even 1 SSN, password, or credit card number = CRITICAL</span><br>
+                                    <span style="margin-left: 20px;">• <strong>High (60-99):</strong> Multiple physical addresses (3+), phone numbers (5+), or bitcoin wallets</span><br>
+                                    <span style="margin-left: 20px;">• <strong>Medium (25-59):</strong> Few phone numbers, emails, or IPs detected</span><br>
+                                    <span style="margin-left: 20px;">• <strong>Low (5-24):</strong> Minimal suspicious content (domains, names only)</span><br>
+                                    <span style="margin-left: 20px; color: #f39c12;">⚠️ Lower thresholds = more frequent notifications</span>
                                 </small>
                             </div>
                             

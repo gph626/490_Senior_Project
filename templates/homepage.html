@@ -6,34 +6,14 @@
     <meta name="description" content="Homepage with dashboard, resources, and account management for users.">
     <meta name="keywords" content="homepage, dashboard, resources, account, user, web">
     <title>Homepage</title>
+    <script src="https://kit.webawesome.com/461238d3414d4966.js" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="/dashboard/new.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"
-  />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
 </head>
 <body>
-    <!-- <header>
-        <div class="header-flex">
-            <div class="logo">
-                <img src="../dashboard/logo.png" alt="Site Logo" height="80" width="80" onerror="this.onerror=null;this.src='https://via.placeholder.com/80x80?text=Logo';">
-            </div>
-            <h1 class="site-heading">DarkWidow</h1>
-        </div>
-    </header> -->
     <div class="container">
         <aside class="sidebar">
-            <!-- <div class="sidebar-user">
-                <div class="user-info user-dropdown">
-                    <span class="user-label">Logged in as</span>
-                    <div class="dropdown">
-                        <a href="#" class="dropbtn user-name user-dropdown-btn">{{ username }} ▼</a>
-                        <div class="dropdown-content user-dropdown-content">
-                            <a href="{{ url_for('account') }}">Account</a>
-                            <a href="/logout">Logout</a>
-                        </div>
-                    </div>
-                </div>
-            </div> -->
             <nav>
                 <ul>
                     <li><a class="active" href="{{ url_for('homepage') }}" data-tooltip="Home"><i class="fa-regular fa-house"></i></a></li>
@@ -42,7 +22,7 @@
                     <li><a href="{{ url_for('dashboard') }}" data-tooltip="Dashboard"><i class="fa-regular fa-chart-bar"></i></a></li>
                     <li><a href="{{ url_for('reports') }}" data-tooltip="Reports"><i class="fa-regular fa-file-lines"></i></a></li>
                     <li><a href="{{ url_for('config') }}" data-tooltip="Settings"><i class="fa-solid fa-gear"></i></a></li>
-                    <li><a href="{{ url_for('resources_route') }}" data-tooltip="Resources"><i class="fa-regular fa-file"></i></a></li>
+                    <li><a href="{{ url_for('resources_route') }}" data-tooltip="Resources"><i class="fa-solid fa-book-open"></i></a></li>
                     <li><a href="{{ url_for('account') }}" data-tooltip="Account"><i class="fa-regular fa-circle-user"></i></a></li>
                 </ul>
             </nav>
@@ -93,7 +73,30 @@
                 <h3>Your security matters</h3>
                 <p>Every second, new data breaches expose sensitive information across underground forums. Our crawler brings that hidden activity 
                     to light, empowering organizations to respond before real damage is done.</p>
+                    <div class="feature-section">
+                        <div class="feature-header"><h3 id="commitment-subhead">How we respond</h3></div>
+                        <wa-details summary="Alerts" icon-placement="start" class="expand-feature" appearance="filled">
+                            Alerts notify you of important security events detected by the system, such as data leaks, suspicious activity, or 
+                            phishing attempts. Each alert is categorized by severity to help you prioritize your response.
+                        </wa-details>
+                        <wa-details summary="Reports" icon-placement="start" class="expand-feature">
+                            Reports offer detailed summaries and historical data on security incidents, alerts, and risk assessments. 
+                            Use reports to track trends, review past events, and support compliance or audit requirements.
+                        </wa-details>
+                        <wa-details summary="Risk Analysis" icon-placement="start" class="expand-feature" id="ep3">
+                            Risk Analysis provides an assessment of your organization's assets, highlighting potential vulnerabilities and their 
+                            associated risk levels. This helps you understand and address areas that may require additional security measures.
+                        </wa-details>
+                    </div>
            </div>
+           <!-- <div class="how-to">
+                <h3>Get started on your security</h3>
+                <ol class="steps">
+                    <li>Watchlist Configuration</li>
+                    <p>Define your organization's critical assets to monitor</p>
+                    <li>...</li>
+                </ol>
+           </div>      -->
         </main>
     </div>
 </body>

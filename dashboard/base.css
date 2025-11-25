@@ -237,18 +237,7 @@ body {
     min-height: 100vh;
 }
 
-.sidebar {
-    background: #222831;
-    color: #ECECEC;
-    width: 65px; /* unify with new.css */
-    padding: 40px 0 0 0;
-    box-shadow: 2px 0 8px rgba(0,0,0,0.08);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    position: fixed; /* keep consistent fixed narrow sidebar */
-    height: 100vh;
-}
+
 
 .sidebar-user {
     display: flex;
@@ -346,21 +335,7 @@ body {
     width: 100%;
 }
 
-.sidebar nav a {
-    color: #ECECEC;
-    text-decoration: none;
-    font-weight: bold;
-    font-size: 1.2em;
-    display: block;
-    padding: 12px 24px;
-    border-radius: 6px;
-    transition: background 0.2s;
-}
 
-.sidebar nav a:hover {
-    background: #A7001D;
-    color: #ECECEC;
-}
 
 main {
     flex: 1;
@@ -520,7 +495,7 @@ section.report-section {
 }
 
 /* Slightly shift tables left inside card to align with page baseline */
-.align-left-tight { margin-left: -16px; }
+
 
 table.data {
     width: 100%;

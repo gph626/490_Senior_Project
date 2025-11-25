@@ -211,73 +211,6 @@ body {
     position: fixed;
 }
 
-.sidebar-user {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background: #A7001D;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-    padding: 18px 0 12px 0;
-    margin-bottom: 24px;
-    width: 80%;
-}
-.user-info {
-    text-align: center;
-    position: relative;
-}
-
-.user-dropdown-btn {
-    background: none;
-    border: none;
-    color: #ECECEC;
-    font-size: 1.15em;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    cursor: pointer;
-    padding: 0;
-    margin: 0;
-    outline: none;
-    transition: color 0.2s;
-    text-decoration: none;
-}
-.user-dropdown-btn:hover {
-    color: #430A0C;
-}
-.user-dropdown-content {
-    display: none;
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    top: 110%;
-    background: #23272F;
-    min-width: 120px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
-    border-radius: 8px;
-    z-index: 10;
-    flex-direction: column;
-    align-items: stretch;
-    padding: 8px 0;
-}
-.user-dropdown-content a {
-    color: #ECECEC;
-    padding: 10px 18px;
-    text-decoration: none;
-    display: block;
-    font-size: 1em;
-    border-bottom: 1px solid #3D4754;
-    transition: background 0.2s;
-}
-.user-dropdown-content a:last-child {
-    border-bottom: none;
-}
-.user-dropdown-content a:hover {
-    background: #3D4754;
-    color: #A7001D;
-}
-.show {
-    display: flex !important;
-}
 .user-label {
     color: #ECECEC;
     font-size: 0.95em;
@@ -523,8 +456,8 @@ table.data {
 
 /* Make the leaks table section wider for better readability */
 #leaksSection {
-    max-width: 100% !important;
-    width: 100% !important;
+    max-width: 100%;
+    width: 97%;
     overflow: visible;
 }
 
@@ -534,7 +467,7 @@ table.data {
 }
 
 #leaksSection table.data {
-    width: 100%;
+    max-width: 100%;
     table-layout: fixed;
 }
 
@@ -644,39 +577,7 @@ table.data tr:hover {
 }
 
 /* Tabs */
-.tabs { display: flex; gap: 8px; margin: 8px 0 12px; }
-.tab-btn {
-    background: #0f1216;
-    color: #e6e6e6;
-    border: 1px solid rgba(255,255,255,0.06);
-    padding: 8px 12px;
-    border-radius: 6px;
-    cursor: pointer;
-}
 .tab-btn.active { background: #A7001D; color: #fff; border-color: transparent; }
-
-/* Professional tab buttons for alerts page */
-.tab-button {
-    background: #23272F;
-    color: #9aa2ac;
-    border: none;
-    border-bottom: 3px solid transparent;
-    padding: 14px 24px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border-radius: 8px 8px 0 0;
-}
-.tab-button:hover {
-    background: #2e3143;
-    color: #ECECEC;
-}
-.tab-button.active {
-    background: #2e3143;
-    color: #ECECEC;
-    border-bottom-color: #A7001D;
-}
 
 .tab-content { display: none; width: 100%; max-width: 100%; }
 .tab-content.active { display: block; width: 100%; max-width: 100%; }
@@ -835,7 +736,13 @@ table.data tr:hover {
     text-align: center;
 }
 
-.dynamic-highlight, li {
+h3>a {
+    text-decoration: none;
+}
+
+.dynamic-highlight, 
+li, 
+h3>a {
     color: var(--text-color);
     padding-bottom: 3px;
     background-image: linear-gradient(var(--secondary-color));
@@ -846,12 +753,14 @@ table.data tr:hover {
     font-weight: bold;
 }
 
-.dynamic-highlight:hover {
+.dynamic-highlight:hover, 
+h3>a:hover {
     color: var(--secondary-color);
     background-size: 100% 2px, auto;
 }
 
-li:hover {
+li:hover, 
+h3>a:hover {
     cursor: pointer;
     color: var(--secondary-color);
     background-size: 50% 2px, auto;
@@ -946,4 +855,32 @@ ul li a.active {
 
 .report-link:hover {
     background-color: #45000c;
+}
+
+.sub-tabs {
+    display: flex;
+    flex-direction: row;
+    color: white;
+    gap: 15px;
+    margin-left: auto;
+    align-self: center;
+    font-size: 20px;
+}
+
+.head-and-sub {
+    display: flex;
+    flex-direction: row;
+}
+
+.tab-button {
+    transition: all .3s;
+}
+
+.tab-button:hover {
+    text-shadow: 0 0 5px #ffffff;
+    cursor: pointer;
+}
+
+.tab-button.active {
+    font-weight: 600;
 }

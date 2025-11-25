@@ -6,8 +6,8 @@
     <meta name="description" content="Alerts for dark web monitoring dashboard.">
     <meta name="keywords" content="alerts, dashboard, security, dark web">
     <title>Alerts</title>
+
     <link rel="stylesheet" href="/dashboard/new.css">
-    <link rel="stylesheet" href="/dashboard/base.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
 </head>
 <body>
@@ -27,8 +27,13 @@
             </nav>
         </aside>
         <main>
-            <div class="section-heading">
+            <div class="section-heading head-and-sub">
                 <h2>Alerts & Notifications</h2>
+                <nav class="sub-tabs">
+                    <ul class="tab-button active" data-tab="critical">Critical Leaks</ul>
+                    <ul class="tab-button" data-tab="history">Delivery History</ul>
+                    <ul class="tab-button" data-tab="settings">Configuration</ul>
+                </nav>
             </div>
             
             <!-- Timer Display -->
@@ -38,11 +43,11 @@
             
             <!-- Professional Tabs Layout -->
             <div style="max-width: 1400px; margin: 0 auto; padding: 0 40px;">
-                <div class="tabs" style="margin-bottom: 30px;">
+                <!-- <div class="tabs" style="margin-bottom: 30px;">
                     <button class="tab-button active" data-tab="critical">Critical Leaks</button>
                     <button class="tab-button" data-tab="history">Delivery History</button>
                     <button class="tab-button" data-tab="settings">Configuration</button>
-                </div>
+                </div> -->
                 
                 <!-- Critical Leaks Tab -->
                 <div id="critical-tab" class="tab-content active">

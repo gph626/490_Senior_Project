@@ -6,8 +6,8 @@
     <meta name="description" content="Homepage with dashboard, resources, and account management for users.">
     <meta name="keywords" content="homepage, dashboard, resources, account, user, web">
     <title>Dashboard</title>
-    <link rel="stylesheet" href="/dashboard/new.css">
     <link rel="stylesheet" href="/dashboard/base.css">
+    <link rel="stylesheet" href="/dashboard/new.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
 </head>
 <body>
@@ -32,23 +32,23 @@
             </div>
             <div class="columns">
                 <div class="col">
-                    <section id="dashboard-section">
+                    <!-- <section id="dashboard-section">
                         <h2><a href="/dashboard/" style="text-decoration:none;color:inherit;">Dashboard</a></h2>
                         <section class="dashboard-item">
                             <p>Overview and quick stats for your account.</p>
                         </section>
-                    </section>
+                    </section> -->
                     <section id="leaks-bar-section" class="chart-section">
                         <h3>Leaks per Crawler</h3>
                         <canvas id="leaksChart" width="300" height="120"></canvas>
                         <div id="leaksChartMsg" style="color: #ffffff; font-size: 0.9em;"></div>
                     </section>
-                    <section id="reports-section">
+                    <!-- <section id="reports-section">
                         <h2><a href="/reports/" style="text-decoration:none;color:inherit;">Reports</a></h2>
                         <section class="reports-item">
                             <p>Reports offer detailed summaries and historical data on security incidents, alerts, and risk assessments. Use reports to track trends, review past events, and support compliance or audit requirements.</p>
                         </section>
-                    </section>
+                    </section> -->
                     <section id="severity-trend-section" class="chart-section">
                         <h3>Risk by Severity Over Time</h3>
                         <canvas id="severityTrendChart" width="400" height="160"></canvas>
@@ -68,12 +68,12 @@
                     </section>
                 </div>
                 <div class="col">
-                    <section id="alerts-section">
+                    <!-- <section id="alerts-section">
                         <h2><a href="/alerts/" style="text-decoration:none;color:inherit;">Alerts</a></h2>
                         <section class="alerts-item">
                             <p>Alerts notify you of important security events detected by the system, such as data leaks, suspicious activity, or phishing attempts. Each alert is categorized by severity to help you prioritize your response.</p>
                         </section>
-                    </section>
+                    </section> -->
                     <section id="alerts-line-section" class="chart-section">
                         <h3>Critical Alerts Over Time</h3>
                         <canvas id="alertsChart" width="300" height="120"></canvas>
@@ -86,12 +86,12 @@
                     </section>
                 </div>
                 <div class="col">
-                    <section id="risk-analysis-section">
+                    <!-- <section id="risk-analysis-section">
                         <h2 style="text-decoration:none;color:inherit;">Risk Analysis</h2>
                         <section class="risk-analysis-item">
                             <p>Risk Analysis provides an assessment of your organization's assets, highlighting potential vulnerabilities and their associated risk levels. This helps you understand and address areas that may require additional security measures.</p>
                         </section>
-                    </section>
+                    </section> -->
                     <section id="risk-pie-section" class="chart-section">
                         <h3>Risk Severity Breakdown</h3>
                         <canvas id="riskChart" width="300" height="120"></canvas>

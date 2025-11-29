@@ -714,11 +714,11 @@ table.data tr:hover {
 }
 
 #tagline-highlight {
-    color: #d90429;
+    color: #FF2C4F;
 }
 
 #tagline-highlight2 {
-    color: var(--secondary-color);
+    color: #d90429;
 }
 
 .guide-section {
@@ -883,4 +883,9 @@ ul li a.active {
 
 .tab-button.active {
     font-weight: 600;
+}
+
+.how-to-section {
+    display: flex;
+    flex-direction: row;
 }

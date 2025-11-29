@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Custom Report Builder</title>
-    <link rel="stylesheet" href="/dashboard/new.css">
+    
     <link rel="stylesheet" href="/dashboard/base.css">
+    <link rel="stylesheet" href="/dashboard/new.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
     <style>
         .builder-container {
@@ -13,24 +14,40 @@
             grid-template-columns: 300px 1fr 400px;
             gap: 20px;
             height: calc(100vh - 100px);
+            margin: auto;
+            margin-bottom: 30px;
+        }
+
+        .tools-panel,
+        .canvas-area,
+        .preview-panel {
+            border-radius: 1rem;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .tools-panel:hover,
+        .canvas-area:hover,
+        .preview-panel {
+            box-shadow: 0 4px 24px rgba(0,0,0,0.18);
         }
 
         .tools-panel {
-            background: var(--card-bg, #1e1e1e);
+            background: #2e3143;
             border-radius: 8px;
             padding: 20px;
             overflow-y: auto;
         }
 
         .canvas-area {
-            background: var(--card-bg, #1e1e1e);
+            background: #2e3143;
             border-radius: 8px;
             padding: 20px;
             overflow-y: auto;
         }
 
         .preview-panel {
-            background: var(--card-bg, #1e1e1e);
+            background: #2e3143;
             border-radius: 8px;
             padding: 20px;
             overflow-y: auto;
@@ -51,7 +68,7 @@
         }
 
         .tool-button:hover {
-            background: var(--primary-hover, #357ABD);
+            background: #A7001D;
         }
 
         .tool-button i {
@@ -101,6 +118,7 @@
 
         .form-group {
             margin-bottom: 15px;
+            margin-right: 20px;
         }
 
         .form-group label {
@@ -150,7 +168,7 @@
         }
 
         .btn-preview:hover {
-            background: var(--secondary-hover, #45B068);
+            background: var(--secondary-hover, #d90429);
         }
 
         .btn-download {
@@ -387,7 +405,7 @@
                         <button class="btn-preview" onclick="generatePreview()">
                             <i class="fa-solid fa-eye"></i> Generate Preview
                         </button>
-                        <button class="btn-preview" onclick="saveReport()" style="background: #9b59b6;">
+                        <button class="btn-preview" onclick="saveReport()" style="background: #50C878;">
                             <i class="fa-solid fa-save"></i> Save Report
                         </button>
                         <button class="btn-download" onclick="downloadPDF()">

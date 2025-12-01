@@ -39,26 +39,43 @@
         <div class="dashboard-item" style="margin-bottom:12px;">
           <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content: space-between;">
             <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; flex: 1;">
-              <button id="runPastebinBtn" class="btn-primary">Run Pastebin</button>
+              <button id="crawler-btn" class="btn-primary">Run crawler</button>
               <span id="runStatus" class="muted"></span>
 
-              <button id="runGithubBtn" class="btn-primary">Run GitHub</button>
-              <span id="githubStatus" class="muted"></span>
+              <details>
+                <summary>Data Sources</summary>
+                <div class="crawler_options">
+                  <input type="radio" name="crawler" id="runPastebinBtn" value="pastebin">
+                  <label for="runPastebinBtn">Pastebin</label>
 
-              <button id="runTorBtn" class="btn-primary">Fetch via Tor</button>
+                  <input type="radio" name="crawler" id="runGithubBtn" value="github">
+                  <label for="runGithubBtn">Run GitHub</label>
+
+                  <input type="radio" name="crawler" id="runTorBtn" value="tor">
+                  <label for="runTorBtn">Tor</label>
+
+                  <input type="radio" name="crawler" id="runI2PBtn" value="I2P">
+                  <label for="runI2PBtn">I2P</label>
+                </div>
+
+                
+              </details>
+
+              <!-- <button id="runTorBtn" class="btn-primary">Fetch via Tor</button>
               <input id="torPort" type="number" placeholder="9150" value="9150" class="input-compact" style="width: 80px;" />
               <span id="torStatus" class="muted"></span>
 
               <button id="runI2PBtn" class="btn-primary">Fetch via I2P</button>
               <input id="i2pUrl" placeholder="http://zzz.i2p/" class="input-wide" style="width: 180px;" />
               <input id="i2pPort" type="number" placeholder="4444" class="input-compact" style="width: 80px;" />
-              <span id="i2pStatus" class="muted"></span>
+              <span id="i2pStatus" class="muted"></span> -->
 
-              <button id="insertMockLeaksBtn" class="btn-secondary">Insert Mock Leaks</button>
+              
               <span id="mockInsertStatus" class="muted"></span>
             </div>
             
             <!-- Settings Button -->
+             <button id="insertMockLeaksBtn" class="btn-secondary">Insert Mock Leaks</button>
             <a href="{{ url_for('config') }}" style="text-decoration: none;">
               <button class="btn-secondary" style="display: flex; align-items: center; gap: 6px; white-space: nowrap;">
                 <i class="fa-solid fa-gear"></i>
@@ -66,9 +83,9 @@
               </button>
             </a>
           </div>
-          <div class="muted" style="font-size: 12px; margin-top:6px;">
+          <!-- <div class="muted" style="font-size: 12px; margin-top:6px;">
             Note: Tor requires a local SOCKS proxy (127.0.0.1:9050 or 9150). I2P requires a local HTTP proxy (127.0.0.1:4444).
-          </div>
+          </div> -->
         </div>
 
         <!-- Leaks section (no tabs, just content) -->
@@ -92,7 +109,7 @@
             </select>
             <button id="applyFilters" class="btn-primary">Apply</button>
           </div>
-          <div class="pager align-left-tight" id="leaksPagerTop" style="display:flex; align-items:center; gap:10px; margin:6px 0;">
+          <div class="pager align-right-tight" id="leaksPagerTop" style="display:flex; align-items:right; gap:10px; margin:6px 0;">
             <button id="prevPage" class="btn-primary" title="Previous" style="padding:4px 10px;">‹</button>
             <span id="pageInfo" class="muted">Showing 0 of 0</span>
             <button id="nextPage" class="btn-primary" title="Next" style="padding:4px 10px;">›</button>

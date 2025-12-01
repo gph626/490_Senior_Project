@@ -542,8 +542,10 @@ table.data tr:hover {
     color: #fff;
     border-radius: 6px;
     cursor: pointer;
+    font-family: Montserrat;
 }
 .btn-primary:hover { background: #C80024; }
+
 .btn-secondary {
     padding: 8px 12px;
     border: none;
@@ -551,6 +553,7 @@ table.data tr:hover {
     color: #fff;
     border-radius: 6px;
     cursor: pointer;
+    font-family: Montserrat;
 }
 
 /* Pager */
@@ -714,11 +717,11 @@ table.data tr:hover {
 }
 
 #tagline-highlight {
-    color: #d90429;
+    color: #FF2C4F;
 }
 
 #tagline-highlight2 {
-    color: var(--secondary-color);
+    color: #d90429;
 }
 
 .guide-section {
@@ -883,4 +886,44 @@ ul li a.active {
 
 .tab-button.active {
     font-weight: 600;
+}
+
+.how-to-section {
+    display: flex;
+    flex-direction: row;
+}
+
+details {
+    color: var(--text-color);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    cursor: pointer;
+}
+
+summary {
+    outline:none;
+    list-style: none;
+}
+
+details summary::marker,
+details summary::--webkit-details-marker {
+    display:none;
+    content: "";
+}
+
+summary:after {
+    content: "\f105";
+    font-family: "Font Awesome 7 Free";
+    font-weight: 900;
+    display: inline-block;
+    padding: 8px;
+}
+
+details[open] summary:after {
+    content: "\f107";
+}
+
+.crawler_options {
+    text-align: center;
 }

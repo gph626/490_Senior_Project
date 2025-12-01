@@ -278,15 +278,63 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     loadLeaks();
+
+    // runs on Run Crawler button click
+    const runBtn = document.getElementById('crawler-btn');
+    const statusSpan = document.getElementById('runStatus');
+
+    runBtn.addEventListener('click', async () => {
+      const selectedCrawler = document.querySelector('input[name="crawler"]:checked');
+
+
+      if (!selectedCrawler) {
+            statusSpan.textContent = 'Please select a crawler.';
+            return;
+      }
+
+      statusSpan.textContent = `Running ${selectedCrawler.id.replace('Btn','')}...`;
+
+      const crawler = selectedCrawler.value;
+          try {
+            switch (crawler) {
+                case 'pastebin':
+                    await runPastebin();
+                    break;
+                case 'github':
+                    await runGithub();
+                    break;
+                case 'tor':
+                    await runTor();
+                    break;
+                case 'I2P':
+                    await runI2P();
+                    break;
+                default:
+                    statusSpan.textContent = 'Unknown crawler selected.';
+                    return;
+            }
+
+            statusSpan.textContent = `${crawler} completed successfully.`;
+        } catch (err) {
+            console.error(err);
+            statusSpan.textContent = `Error running ${crawler}.`;
+        } finally {
+            runBtn.disabled = false;
+        }
+      
+      });
+    
+
+
     // Removed tab switching - no longer using tabs on leaks page
-    document.getElementById('runPastebinBtn')?.addEventListener('click', runPastebin);
-    document.getElementById('runTorBtn')?.addEventListener('click', runTor);
-    document.getElementById('runI2PBtn')?.addEventListener('click', runI2P);
-    document.getElementById('applyFilters')?.addEventListener('click', () => applyAndRender(true));
-    document.getElementById('prevPage')?.addEventListener('click', () => { CURRENT_PAGE -= 1; applyAndRender(false); });
-    document.getElementById('nextPage')?.addEventListener('click', () => { CURRENT_PAGE += 1; applyAndRender(false); });
-    // Removed watchlist/assets code - now managed in config page
-    document.getElementById('runGithubBtn')?.addEventListener('click', runGithub);
+    // document.getElementById('runPastebinBtn')?.addEventListener('click', runPastebin);
+    // document.getElementById('runTorBtn')?.addEventListener('click', runTor);
+    // document.getElementById('runI2PBtn')?.addEventListener('click', runI2P);
+    // document.getElementById('applyFilters')?.addEventListener('click', () => applyAndRender(true));
+    // document.getElementById('prevPage')?.addEventListener('click', () => { CURRENT_PAGE -= 1; applyAndRender(false); });
+    // document.getElementById('nextPage')?.addEventListener('click', () => { CURRENT_PAGE += 1; applyAndRender(false); });
+    // // Removed watchlist/assets code - now managed in config page
+    // document.getElementById('runGithubBtn')?.addEventListener('click', runGithub);
     document.getElementById('insertMockLeaksBtn')?.addEventListener('click', async () => {
       const status = document.getElementById('mockInsertStatus');
       status.textContent = 'Inserting…';

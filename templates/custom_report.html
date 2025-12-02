@@ -10,10 +10,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
     <style>
         .builder-container {
-            display: grid;
-            grid-template-columns: 300px 1fr 400px;
-            gap: 20px;
-            height: calc(100vh - 100px);
+            display: flex;
+            justify-content: center;
+            height: 100%;
             margin: auto;
             margin-bottom: 30px;
         }
@@ -43,7 +42,7 @@
             background: #2e3143;
             border-radius: 8px;
             padding: 20px;
-            overflow-y: auto;
+            width: 800px;
         }
 
         .preview-panel {
@@ -53,27 +52,53 @@
             overflow-y: auto;
         }
 
-        .tool-button {
-            display: block;
+        .toolbar {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
             width: 100%;
-            padding: 12px;
-            margin-bottom: 10px;
-            background: var(--primary-color, #4A90E2);
+            margin-top: 25px;
+        }
+
+        .action-btn,
+        .tool-button {
+            border-style: none;
+            background-color: #2e3143;
             color: white;
-            border: none;
-            border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
-            transition: background 0.3s;
+            padding: 15px;
+            position: relative;
         }
 
+        .tool-button::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-8px);
+            background: #23272F;
+            color: #ECECEC;
+            padding: 8px 12px;
+            border-radius: 6px;
+            white-space: nowrap;
+            font-size: 0.9rem;
+            font-weight: 600;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s, left 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            z-index: 9999;
+        }
+
+        .tool-button:hover::after {
+            opacity: 1;
+            transform: translateX(-50%) translateY(-8px);
+        }
+
+        /* .action-btn:hover,
         .tool-button:hover {
-            background: #A7001D;
-        }
-
-        .tool-button i {
-            margin-right: 8px;
-        }
+            background-color: #9aa2ac;
+        } */
 
         .element-card {
             background: var(--bg-secondary, #2a2a2a);
@@ -145,10 +170,11 @@
             min-height: 80px;
         }
 
-        .action-buttons {
+        .actions {
             display: flex;
             gap: 10px;
             margin-top: 20px;
+            justify-content: flex-end;
         }
 
         .action-buttons button {
@@ -346,34 +372,14 @@
             </div>
             
             <div class="builder-container">
-                <!-- Tools Panel -->
-                <div class="tools-panel">
-                    <h3>Add Elements</h3>
-                    <button class="tool-button" onclick="addElement('title')">
-                        <i class="fa-solid fa-heading"></i> Title
-                    </button>
-                    <button class="tool-button" onclick="addElement('heading')">
-                        <i class="fa-solid fa-h"></i> Heading
-                    </button>
-                    <button class="tool-button" onclick="addElement('paragraph')">
-                        <i class="fa-solid fa-paragraph"></i> Paragraph
-                    </button>
-                    <button class="tool-button" onclick="addChartElement()">
-                        <i class="fa-solid fa-chart-bar"></i> Chart
-                    </button>
-                    <button class="tool-button" onclick="addElement('image')">
-                        <i class="fa-solid fa-image"></i> Image
-                    </button>
-                    <button class="tool-button" onclick="addElement('spacer')">
-                        <i class="fa-solid fa-arrows-up-down"></i> Spacer
-                    </button>
-                    <button class="tool-button" onclick="addElement('pageBreak')">
-                        <i class="fa-solid fa-file"></i> Page Break
-                    </button>
-                </div>
 
                 <!-- Canvas Area -->
                 <div class="canvas-area">
+                    <div class="actions">
+                        <button class="action-btn" onclick="generatePreview()"><i class="fa-solid fa-eye"></i></button>
+                        <button class="action-btn" onclick="saveReport()"><i class="fa-solid fa-save"></i></button>
+                        <button class="action-btn" onclick="downloadPDF()"><i class="fa-solid fa-download"></i></button>
+                    </div>
                     <div class="form-group">
                         <label>Report Title</label>
                         <input type="text" id="reportTitle" value="Custom Security Report" placeholder="Enter report title">
@@ -382,6 +388,16 @@
                     <div class="form-group">
                         <label>Filename</label>
                         <input type="text" id="reportFilename" value="custom_report" placeholder="Enter filename (without .pdf)">
+                    </div>
+
+                    <div class="toolbar">
+                        <button class="tool-button" onclick="addElement('title')" data-tooltip="Title"><i class="fa-solid fa-heading"></i></button>
+                        <button class="tool-button" onclick="addElement('heading')" data-tooltip="Heading"><i class="fa-solid fa-h"></i></button>
+                        <button class="tool-button" onclick="addElement('paragraph')" data-tooltip="Paragraph"><i class="fa-solid fa-paragraph"></i></button>
+                        <button class="tool-button" onclick="addChartElement()" data-tooltip="Charts"><i class="fa-solid fa-chart-bar"></i></button>
+                        <button class="tool-button" onclick="addElement('image')" data-tooltip="Image"><i class="fa-solid fa-image"></i></button>
+                        <button class="tool-button" onclick="addElement('spacer')" data-tooltip="Spacer"><i class="fa-solid fa-arrows-up-down"></i></button>
+                        <button class="tool-button" onclick="addElement('pageBreak')" data-tooltip="Page break"><i class="fa-solid fa-file"></i></button>
                     </div>
 
                     <h3>Elements</h3>
@@ -394,7 +410,7 @@
                 </div>
 
                 <!-- Preview Panel -->
-                <div class="preview-panel">
+                <!-- <div class="preview-panel">
                     <h3>Preview</h3>
                     <div id="previewContainer" class="preview-placeholder">
                         <i class="fa-regular fa-file-pdf"></i>
@@ -412,7 +428,7 @@
                             <i class="fa-solid fa-download"></i> Download PDF
                         </button>
                     </div>
-                </div>
+                </div> -->
             </div>
         </main>
     </div>

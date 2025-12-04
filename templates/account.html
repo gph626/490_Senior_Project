@@ -6,7 +6,6 @@
     <meta name="description" content="Homepage with dashboard, resources, and account management for users.">
     <meta name="keywords" content="homepage, dashboard, resources, account, user, web">
     <title>Account Page</title>
-    <link rel="stylesheet" href="/dashboard/base.css">
     <link rel="stylesheet" href="/dashboard/new.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
 </head>
@@ -34,9 +33,9 @@
                 <section class="account-item">
                     <p>Manage your profile and settings here.</p>
                     <form action="/logout" method="get" style="margin-top: 20px;">
-                        <button type="submit" class="logout-btn">Logout</button>
+                        <button type="submit" class="logout-btn" id="logout">Logout</button>
                     </form>
-                    <button id="delete-account-btn" class="logout-btn" style="background:#c00; color:#fff; margin-top:20px;">Delete Account</button>
+                    <button id="delete-account-btn" class="logout-btn">Delete Account</button>
                     <script>
                     document.getElementById('delete-account-btn').onclick = function(e) {
                         e.preventDefault();
@@ -67,7 +66,7 @@
                     <form id="reset-password-form" style="margin-top: 1em;">
                         <label for="reset-new-password">New Password</label>
                         <input type="password" id="reset-new-password" name="new_password" required placeholder="Enter new password" style="margin-bottom: 1em;">
-                        <button type="submit" class="logout-btn" style="background:#007bff; color:#fff;">Change Password</button>
+                        <button type="submit" class="logout-btn" id="password">Change Password</button>
                     </form>
                     <div id="reset-password-message" style="margin-top:1em;color:#c00;"></div>
                     <script>

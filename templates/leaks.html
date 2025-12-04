@@ -42,7 +42,7 @@
               <button id="crawler-btn" class="btn-primary">Run crawler</button>
               <span id="runStatus" class="muted"></span>
 
-              <details>
+              <details class="sources">
                 <summary>Data Sources</summary>
                 <div class="crawler_options">
                   <input type="radio" name="crawler" id="runPastebinBtn" value="pastebin">
@@ -56,21 +56,8 @@
 
                   <input type="radio" name="crawler" id="runI2PBtn" value="I2P">
                   <label for="runI2PBtn">I2P</label>
-                </div>
-
-                
-              </details>
-
-              <!-- <button id="runTorBtn" class="btn-primary">Fetch via Tor</button>
-              <input id="torPort" type="number" placeholder="9150" value="9150" class="input-compact" style="width: 80px;" />
-              <span id="torStatus" class="muted"></span>
-
-              <button id="runI2PBtn" class="btn-primary">Fetch via I2P</button>
-              <input id="i2pUrl" placeholder="http://zzz.i2p/" class="input-wide" style="width: 180px;" />
-              <input id="i2pPort" type="number" placeholder="4444" class="input-compact" style="width: 80px;" />
-              <span id="i2pStatus" class="muted"></span> -->
-
-              
+                </div>          
+              </details>   
               <span id="mockInsertStatus" class="muted"></span>
             </div>
             
@@ -83,9 +70,6 @@
               </button>
             </a>
           </div>
-          <!-- <div class="muted" style="font-size: 12px; margin-top:6px;">
-            Note: Tor requires a local SOCKS proxy (127.0.0.1:9050 or 9150). I2P requires a local HTTP proxy (127.0.0.1:4444).
-          </div> -->
         </div>
 
         <!-- Leaks section (no tabs, just content) -->

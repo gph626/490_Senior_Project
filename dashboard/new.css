@@ -582,9 +582,19 @@ table.data tr:hover {
 }
 .btn-primary:hover { background: #C80024; }
 
+
+.btn-secondary {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 8px;
+    background:#007bff; 
+    color:#fff;
+    cursor: pointer;
+    transition: all .2s;
+}
 .btn-secondary:hover {
     color: #fff;
-    background: #1b263a;
+    background-color: #004997;
 }
 
 /* Pager */
@@ -793,7 +803,7 @@ h3>a:hover {
     background-size: 100% 2px, auto;
 }
 
-li:hover, 
+.sidebar nav ul li:hover, 
 h3>a:hover {
     cursor: pointer;
     color: var(--secondary-color);

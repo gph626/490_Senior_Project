@@ -70,6 +70,7 @@
             position: relative;
         }
 
+        .action-btn::after,
         .tool-button::after {
             content: attr(data-tooltip);
             position: absolute;
@@ -90,15 +91,11 @@
             z-index: 9999;
         }
 
+        .action-btn:hover::after,
         .tool-button:hover::after {
             opacity: 1;
             transform: translateX(-50%) translateY(-8px);
         }
-
-        /* .action-btn:hover,
-        .tool-button:hover {
-            background-color: #9aa2ac;
-        } */
 
         .element-card {
             background: var(--bg-secondary, #2a2a2a);
@@ -376,20 +373,21 @@
                 <!-- Canvas Area -->
                 <div class="canvas-area">
                     <div class="actions">
-                        <button class="action-btn" onclick="generatePreview()"><i class="fa-solid fa-eye"></i></button>
-                        <button class="action-btn" onclick="saveReport()"><i class="fa-solid fa-save"></i></button>
-                        <button class="action-btn" onclick="downloadPDF()"><i class="fa-solid fa-download"></i></button>
+                        <button class="action-btn" onclick="generatePreview()" data-tooltip="Preview"><i class="fa-solid fa-eye"></i></button>
+                        <button class="action-btn" onclick="saveReport()" data-tooltip="Save"><i class="fa-solid fa-save"></i></button>
+                        <button class="action-btn" onclick="downloadPDF()" data-tooltip="Download"><i class="fa-solid fa-download"></i></button>
                     </div>
                     <div class="form-group">
-                        <label>Report Title</label>
+                        <label><h4>Report Title</h4></label>
                         <input type="text" id="reportTitle" value="Custom Security Report" placeholder="Enter report title">
                     </div>
                     
                     <div class="form-group">
-                        <label>Filename</label>
+                        <label><h4>Filename</h4></label>
                         <input type="text" id="reportFilename" value="custom_report" placeholder="Enter filename (without .pdf)">
                     </div>
 
+                    <h3>Elements</h3>
                     <div class="toolbar">
                         <button class="tool-button" onclick="addElement('title')" data-tooltip="Title"><i class="fa-solid fa-heading"></i></button>
                         <button class="tool-button" onclick="addElement('heading')" data-tooltip="Heading"><i class="fa-solid fa-h"></i></button>
@@ -400,11 +398,11 @@
                         <button class="tool-button" onclick="addElement('pageBreak')" data-tooltip="Page break"><i class="fa-solid fa-file"></i></button>
                     </div>
 
-                    <h3>Elements</h3>
+                    
                     <div id="elementsContainer">
                         <div class="empty-state">
                             <i class="fa-regular fa-file"></i>
-                            <p>No elements yet. Add elements using the tools on the left.</p>
+                            <p>No elements yet. Add elements by clicking the tools above.</p>
                         </div>
                     </div>
                 </div>

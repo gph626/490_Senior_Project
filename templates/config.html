@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crawler Configuration</title>
+    <script src="https://kit.webawesome.com/461238d3414d4966.js" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="/dashboard/base.css">
     <link rel="stylesheet" href="/dashboard/new.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
@@ -18,9 +19,9 @@
                     <li><a href="{{ url_for('alerts') }}" data-tooltip="Alerts"><i class="fa-regular fa-bell"></i></a></li>
                     <li><a href="{{ url_for('dashboard') }}" data-tooltip="Dashboard"><i class="fa-regular fa-chart-bar"></i></a></li>
                     <li><a href="{{ url_for('reports') }}" data-tooltip="Reports"><i class="fa-regular fa-file-lines"></i></a></li>
-                    <li><a class="active" href="{{ url_for('config') }}" data-tooltip="Settings"><i class="fa-solid fa-gear"></i></a></li>
                     <li><a href="{{ url_for('resources_route') }}" data-tooltip="Resources"><i class="fa-solid fa-book-open"></i></a></li>
                     <li><a href="{{ url_for('account') }}" data-tooltip="Account"><i class="fa-regular fa-circle-user"></i></a></li>
+                    <li><a class="active" href="{{ url_for('config') }}" data-tooltip="Settings"><i class="fa-solid fa-gear"></i></a></li>
                 </ul>
             </nav>
         </aside>
@@ -190,7 +191,39 @@
                         
                         <!-- Pastebin How It Works -->
                         <div style="background: #1a1d23; border-left: 3px solid #4a9eff; padding: 12px 16px; margin-top: 16px; border-radius: 4px;">
-                            <h4 style="margin: 0 0 8px 0; color: #4a9eff; font-size: 14px;"><i class="fa-solid fa-info-circle" style="margin-right: 6px;"></i>How Pastebin Crawler Works</h4>
+                           <details class="config-dropdown">
+                                <summary>
+                                    <wa-icon name="info-circle" style="color: #4a9eff"></wa-icon><span style="color: #4a9eff"> How Pastebin Crawler Works</span>
+                                </summary>
+                                <div style="font-size: 13px; line-height: 1.6; color: #b8bcc4;">
+                                    <p style="margin: 6px 0;"><strong>Data Collection Method:</strong></p>
+                                        <ul style="margin: 4px 0 8px 20px; padding: 0;">
+                                            <li>Fetches the public Pastebin archive page (pastebin.com/archive)</li>
+                                            <li>Extracts recent paste links from the archive table</li>
+                                            <li>Visits each paste URL to retrieve full content</li>
+                                            <li>Respects rate limits between requests (configurable delay)</li>
+                                        </ul>
+                                    
+                                    <p style="margin: 6px 0;"><strong>Data Extracted:</strong></p>
+                                        <ul style="margin: 4px 0 8px 20px; padding: 0;">
+                                            <li><strong>Paste Content:</strong> Full text from paste_code textarea or source div</li>
+                                            <li><strong>Metadata:</strong> Title, paste ID, poster username (if available), URL</li>
+                                            <li><strong>Entities:</strong> SSNs, emails, passwords, phone numbers, physical addresses, credit cards</li>
+                                            <li><strong>Language:</strong> Detected programming/natural language of content</li>
+                                        </ul>
+                                    
+                                    <p style="margin: 6px 0;"><strong>Classification Process:</strong></p>
+                                        <ul style="margin: 4px 0 8px 20px; padding: 0;">
+                                            <li><strong>Entity Extraction:</strong> Scans content using regex patterns for sensitive data (SSN, emails, passwords, etc.)</li>
+                                            <li><strong>Asset Matching:</strong> Compares extracted entities against your configured watchlist (names, SSNs, phones, addresses)</li>
+                                            <li><strong>Threat Typing:</strong> Classifies as "credential_dump" if keywords like "combo list", "password", "leak" are present; otherwise "generic_paste"</li>
+                                            <li><strong>Severity Scoring:</strong> Calculates severity based on entity types and asset matches (critical → high → medium → low → zero)</li>
+                                            <li><strong>Confidence Rating:</strong> High confidence (0.9) if asset matches found, lower (0.4) otherwise</li>
+                                            <li><strong>Deduplication:</strong> Uses SHA-256 hash of content to prevent storing duplicate pastes</li>
+                                        </ul>
+                                    <p style="margin: 6px 0;"><strong>Best Use Cases:</strong> Monitoring for leaked credentials, combo lists, database dumps, and publicly posted sensitive information</p>
+                                </div>
+                        
                             <div style="font-size: 13px; line-height: 1.6; color: #b8bcc4;">
                                 <p style="margin: 6px 0;"><strong>Data Collection Method:</strong></p>
                                 <ul style="margin: 4px 0 8px 20px; padding: 0;">
@@ -217,9 +250,9 @@
                                     <li><strong>Confidence Rating:</strong> High confidence (0.9) if asset matches found, lower (0.4) otherwise</li>
                                     <li><strong>Deduplication:</strong> Uses SHA-256 hash of content to prevent storing duplicate pastes</li>
                                 </ul>
-                                
                                 <p style="margin: 6px 0;"><strong>Best Use Cases:</strong> Monitoring for leaked credentials, combo lists, database dumps, and publicly posted sensitive information</p>
                             </div>
+                            </details>
                         </div>
                     </section>
 
@@ -248,41 +281,40 @@
                         </div>
                         
                         <!-- Tor How It Works -->
-                        <div style="background: #1a1d23; border-left: 3px solid #7851a9; padding: 12px 16px; margin-top: 16px; border-radius: 4px;">
-                            <h4 style="margin: 0 0 8px 0; color: #9370db; font-size: 14px;"><i class="fa-solid fa-info-circle" style="margin-right: 6px;"></i>How Tor Crawler Works</h4>
-                            <div style="font-size: 13px; line-height: 1.6; color: #b8bcc4;">
-                                <p style="margin: 6px 0;"><strong>Data Collection Method:</strong></p>
-                                <ul style="margin: 4px 0 8px 20px; padding: 0;">
-                                    <li>Routes requests through Tor SOCKS5 proxy (127.0.0.1:9050 or 9150)</li>
-                                    <li>Fetches .onion hidden service URLs you provide</li>
-                                    <li>Uses BeautifulSoup to parse HTML content</li>
-                                    <li>Implements retry logic with configurable delays for unreliable Tor connections</li>
-                                    <li>Performs health check against DuckDuckGo onion service before crawling</li>
-                                </ul>
-                                
-                                <p style="margin: 6px 0;"><strong>Data Extracted:</strong></p>
-                                <ul style="margin: 4px 0 8px 20px; padding: 0;">
-                                    <li><strong>Page Content:</strong> Full text extracted from HTML body</li>
-                                    <li><strong>Title:</strong> Page title from &lt;title&gt; tag</li>
-                                    <li><strong>Entities:</strong> SSNs, names, emails, passwords, phone numbers, physical addresses extracted via regex</li>
-                                    <li><strong>Language:</strong> Automatically detected from content</li>
-                                    <li><strong>Tags:</strong> Auto-generated based on entity types and content patterns</li>
-                                </ul>
-                                
-                                <p style="margin: 6px 0;"><strong>Classification Process:</strong></p>
-                                <ul style="margin: 4px 0 8px 20px; padding: 0;">
-                                    <li><strong>Entity Extraction:</strong> Regex-based pattern matching for SSNs, emails, passwords, phone numbers, addresses, names</li>
-                                    <li><strong>Asset Matching:</strong> Cross-references extracted entities with your watchlist configuration</li>
-                                    <li><strong>Tag Generation:</strong> Automatically assigns tags based on detected entity types and matched assets</li>
-                                    <li><strong>Severity Computation:</strong> Uses entity-based scoring algorithm (compute_severity_from_entities)</li>
-                                    <li><strong>Content Redaction:</strong> Sensitive data is redacted before storage for security</li>
-                                    <li><strong>Fingerprinting:</strong> SHA-256 hash of content prevents duplicate storage</li>
-                                    <li><strong>Event API:</strong> Sends structured event payload to backend API for centralized tracking</li>
-                                </ul>
-                                
-                                <p style="margin: 6px 0;"><strong>Requirements:</strong> Local Tor instance running (Tor Browser on port 9150 or Tor service on port 9050)</p>
-                                <p style="margin: 6px 0;"><strong>Best Use Cases:</strong> Monitoring dark web marketplaces, forums, paste sites for leaked credentials and sensitive data exposure</p>
-                            </div>
+                         <div style="background: #1a1d23; border-left: 3px solid #7851a9; padding: 12px 16px; margin-top: 16px; border-radius: 4px;">
+                           <details class="config-dropdown">
+                                <summary>
+                                    <wa-icon name="info-circle" style="color: #9370db"></wa-icon><span style="color: #9370db"> How Tor Crawler Works</span>
+                                </summary>
+                                <div style="font-size: 13px; line-height: 1.6; color: #b8bcc4;">
+                                    <p style="margin: 6px 0;"><strong>Data Collection Method:</strong></p>
+                                        <ul style="margin: 4px 0 8px 20px; padding: 0;">
+                                            <li>Fetches the public Pastebin archive page (pastebin.com/archive)</li>
+                                            <li>Extracts recent paste links from the archive table</li>
+                                            <li>Visits each paste URL to retrieve full content</li>
+                                            <li>Respects rate limits between requests (configurable delay)</li>
+                                        </ul>
+                                    
+                                    <p style="margin: 6px 0;"><strong>Data Extracted:</strong></p>
+                                        <ul style="margin: 4px 0 8px 20px; padding: 0;">
+                                            <li><strong>Paste Content:</strong> Full text from paste_code textarea or source div</li>
+                                            <li><strong>Metadata:</strong> Title, paste ID, poster username (if available), URL</li>
+                                            <li><strong>Entities:</strong> SSNs, emails, passwords, phone numbers, physical addresses, credit cards</li>
+                                            <li><strong>Language:</strong> Detected programming/natural language of content</li>
+                                        </ul>
+                                    
+                                    <p style="margin: 6px 0;"><strong>Classification Process:</strong></p>
+                                        <ul style="margin: 4px 0 8px 20px; padding: 0;">
+                                            <li><strong>Entity Extraction:</strong> Scans content using regex patterns for sensitive data (SSN, emails, passwords, etc.)</li>
+                                            <li><strong>Asset Matching:</strong> Compares extracted entities against your configured watchlist (names, SSNs, phones, addresses)</li>
+                                            <li><strong>Threat Typing:</strong> Classifies as "credential_dump" if keywords like "combo list", "password", "leak" are present; otherwise "generic_paste"</li>
+                                            <li><strong>Severity Scoring:</strong> Calculates severity based on entity types and asset matches (critical → high → medium → low → zero)</li>
+                                            <li><strong>Confidence Rating:</strong> High confidence (0.9) if asset matches found, lower (0.4) otherwise</li>
+                                            <li><strong>Deduplication:</strong> Uses SHA-256 hash of content to prevent storing duplicate pastes</li>
+                                        </ul>
+                                    <p style="margin: 6px 0;"><strong>Best Use Cases:</strong> Monitoring for leaked credentials, combo lists, database dumps, and publicly posted sensitive information</p>
+                                </div>
+                           </details>
                         </div>
                     </section>
 
@@ -315,9 +347,12 @@
                         
                         <!-- I2P How It Works -->
                         <div style="background: #1a1d23; border-left: 3px solid #e74c3c; padding: 12px 16px; margin-top: 16px; border-radius: 4px;">
-                            <h4 style="margin: 0 0 8px 0; color: #e74c3c; font-size: 14px;"><i class="fa-solid fa-info-circle" style="margin-right: 6px;"></i>How I2P Crawler Works</h4>
-                            <div style="font-size: 13px; line-height: 1.6; color: #b8bcc4;">
-                                <p style="margin: 6px 0;"><strong>Data Collection Method:</strong></p>
+                           <details class="config-dropdown">
+                                <summary>
+                                    <wa-icon name="info-circle" style="color: #e74c3c"></wa-icon><span style="color: #e74c3c"> How I2P Crawler Works</span>
+                                </summary>
+                                <div style="font-size: 13px; line-height: 1.6; color: #b8bcc4;">
+                                    <p style="margin: 6px 0;"><strong>Data Collection Method:</strong></p>
                                 <ul style="margin: 4px 0 8px 20px; padding: 0;">
                                     <li>Routes requests through I2P HTTP proxy (127.0.0.1:4444)</li>
                                     <li>Fetches .i2p eepsites (I2P hidden services) you specify</li>
@@ -348,7 +383,8 @@
                                 
                                 <p style="margin: 6px 0;"><strong>Requirements:</strong> I2P router running locally with HTTP proxy on port 4444</p>
                                 <p style="margin: 6px 0;"><strong>Best Use Cases:</strong> Monitoring I2P eepsites for data leaks, credential dumps, and sensitive information exposure on the Invisible Internet</p>
-                            </div>
+                                </div>
+                           </details>
                         </div>
                     </section>
 
@@ -382,10 +418,13 @@
                         </div>
                         
                         <!-- GitHub How It Works -->
-                        <div style="background: #1a1d23; border-left: 3px solid #2ecc71; padding: 12px 16px; margin-top: 16px; border-radius: 4px;">
-                            <h4 style="margin: 0 0 8px 0; color: #2ecc71; font-size: 14px;"><i class="fa-solid fa-info-circle" style="margin-right: 6px;"></i>How GitHub Crawler Works</h4>
-                            <div style="font-size: 13px; line-height: 1.6; color: #b8bcc4;">
-                                <p style="margin: 6px 0;"><strong>Data Collection Method:</strong></p>
+                         <div style="background: #1a1d23; border-left: 3px solid #2ecc71; padding: 12px 16px; margin-top: 16px; border-radius: 4px;">
+                           <details class="config-dropdown">
+                                <summary>
+                                    <wa-icon name="info-circle" style="color: #2ecc71"></wa-icon><span style="color: #2ecc71"> How I2P Crawler Works</span>
+                                </summary>
+                                <div style="font-size: 13px; line-height: 1.6; color: #b8bcc4;">
+                                    <p style="margin: 6px 0;"><strong>Data Collection Method:</strong></p>
                                 <ul style="margin: 4px 0 8px 20px; padding: 0;">
                                     <li>Uses GitHub Code Search API (api.github.com/search/code)</li>
                                     <li>Searches for configured keywords in public repositories</li>
@@ -424,7 +463,8 @@
                                 </ul>
                                 
                                 <p style="margin: 6px 0;"><strong>Best Use Cases:</strong> Finding exposed API keys, hardcoded credentials, accidentally committed secrets, and configuration files with sensitive data in public repositories</p>
-                            </div>
+                                </div>
+                           </details>
                         </div>
                     </section>
                 </div>

@@ -16,9 +16,7 @@
     width: 80%;
     margin: 0 auto 24px auto;
     display: block;
-    background: linear-gradient(90deg, #A7001D 0%, #C80024 100%);
-    color: #fff;
-    border: none;
+    border-style: none;
     border-radius: 8px;
     padding: 12px 0;
     font-size: 1.1rem;
@@ -29,7 +27,7 @@
     letter-spacing: 1px;
 }
 .logout-btn:hover {
-    background: linear-gradient(90deg, #C80024 0%, #A7001D 100%);
+    /* background: linear-gradient(90deg, #C80024 0%, #A7001D 100%); */
     box-shadow: 0 4px 16px rgba(167,0,29,0.18);
 }
 /* Modern Auth Page Styles */
@@ -39,6 +37,40 @@
     align-items: center;
     justify-content: center;
     background: linear-gradient(135deg, #23272F 0%, #3D4754 100%);
+}
+
+#logout {
+    border: 3px solid var(--secondary-color);
+    background-color: white;
+    color: var(--secondary-color);
+    transition: all .2s;
+}
+
+#logout:hover {
+    transform: scale(1.05);
+    box-shadow: -1px 1px 8px 1px rgba(167,0,3,0.75);
+}
+
+#delete-account-btn {
+    background-color: var(--secondary-color);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+
+#delete-account-btn:hover {
+    background-color: #C80024;
+    box-shadow: 0 4px 16px rgba(167,0,29,0.18);
+}
+
+#password {
+    background:#007bff; 
+    color:#fff;
+}
+
+#password:hover {
+    background-color: #004997;
 }
 
 .modern-auth-card {
@@ -265,6 +297,10 @@ main {
     margin: 12px 12px 12px 77px; /* left accounts for 65px sidebar + cushion */
     border-radius: 12px;
     overflow-x: hidden;
+}
+
+#account {
+    margin: auto;
 }
 
 header {
@@ -546,14 +582,9 @@ table.data tr:hover {
 }
 .btn-primary:hover { background: #C80024; }
 
-.btn-secondary {
-    padding: 8px 12px;
-    border: none;
-    background: #2d6cdf;
+.btn-secondary:hover {
     color: #fff;
-    border-radius: 6px;
-    cursor: pointer;
-    font-family: Montserrat;
+    background: #1b263a;
 }
 
 /* Pager */
@@ -814,10 +845,10 @@ ul li a.active {
 /* dropdown styling */
 .feature-section {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     gap: 30px;
     margin-right: 100px;
-    margin-top: 80px;
+    margin-top: 40px;
 }
 
 .feature-header>h3 {
@@ -829,27 +860,26 @@ ul li a.active {
     display: inline-block;
 }
 
-.expand-feature {
-    max-width: 350px;
-    margin-top: 20px;
-    margin-bottom: 30px;
+.feature-container {
+   
+    margin-left: 95px;
 }
 
-.expand-feature::part(base) {
-    border-style: none;
-    background-color: var(--secondary-color);
-    color: var(--text-color)
+.feature-container>h4 {
+    font-size: 20px;
+    font-weight: 400;
+    transition: all .3s;
+    animation: glow 1s ease-in-out infinite alternate;
 }
 
-.expand-feature::part(header) {
-    background-color: #d90429;
-    color: var(--text-color);
-    border-bottom-left-radius: 12px;
-    border-bottom-right-radius: 12px;
-}
-
-.expand-feature::part(icon) {
-    color: var(--text-color);
+/* text glow animation */
+@keyframes glow {
+    from {
+       text-shadow: 0 0 5px #ffffff, 0 0 10px #ffffff, 0 0 20px #ffffff
+    }
+    to {
+        text-shadow: 0 0 15px #ffffff, 0 0 20px #ffffff, 0 0 40px #ffffff
+    }
 }
 
 .steps>li {
@@ -893,26 +923,30 @@ ul li a.active {
     flex-direction: row;
 }
 
+
 details {
+    cursor: pointer;
+}
+
+details.sources {
     color: var(--text-color);
     display: flex;
     flex-direction: row;
     align-items: center;
-    cursor: pointer;
 }
 
-summary {
+details summary {
     outline:none;
     list-style: none;
 }
 
 details summary::marker,
 details summary::--webkit-details-marker {
-    display:none;
+    display: none;
     content: "";
 }
 
-summary:after {
+details summary:after {
     content: "\f105";
     font-family: "Font Awesome 7 Free";
     font-weight: 900;

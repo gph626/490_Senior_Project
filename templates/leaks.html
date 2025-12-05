@@ -74,30 +74,33 @@
 
         <!-- Leaks section (no tabs, just content) -->
         <section id="leaksSection" style="margin-top: 20px;">
-          <div class="align-left-tight" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0 12px 0;">
-            <select id="srcFilter" title="Source" class="input-compact">
-              <option value="">any source</option>
-              <option value="pastebin">pastebin</option>
-              <option value="github">github</option>
-              <option value="tor">tor</option>
-              <option value="i2p">i2p</option>
-            </select>
-            <select id="sevFilter" title="Severity" class="input-compact">
-              <option value="">any severity</option>
-              <option value="critical">critical</option>
-              <option value="high">high</option>
-              <option value="medium">medium</option>
-              <option value="low">low</option>
-              <option value="zero severity">zero severity</option>
-              <option value="unknown">unknown</option>
-            </select>
-            <button id="applyFilters" class="btn-primary">Apply</button>
+          <div class="align-left-tight" style="display: flex; flex-direction: row; justify-content: space-between;">
+            <div class="filter-wrapper" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:10px 0 12px 0;">
+                <select id="srcFilter" title="Source" class="input-compact" style="width:115px">
+                <option value="">any source</option>
+                <option value="pastebin">pastebin</option>
+                <option value="github">github</option>
+                <option value="tor">tor</option>
+                <option value="i2p">i2p</option>
+              </select>
+              <select id="sevFilter" title="Severity" class="input-compact" style="width:115px">
+                <option value="">any severity</option>
+                <option value="critical">critical</option>
+                <option value="high">high</option>
+                <option value="medium">medium</option>
+                <option value="low">low</option>
+                <option value="zero severity">zero severity</option>
+                <option value="unknown">unknown</option>
+              </select>
+              <button id="applyFilters" class="btn-primary">Apply</button>
+            </div>
+            <div class="pager align-right-tight" id="leaksPagerTop" style="gap:10px; margin:6px 0;">
+              <button id="prevPage" class="btn-primary" title="Previous" style="padding:4px 10px;">‹</button>
+              <span id="pageInfo" class="muted">Showing 0 of 0</span>
+              <button id="nextPage" class="btn-primary" title="Next" style="padding:4px 10px;">›</button>
+            </div>
           </div>
-          <div class="pager align-right-tight" id="leaksPagerTop" style="display:flex; align-items:right; gap:10px; margin:6px 0;">
-            <button id="prevPage" class="btn-primary" title="Previous" style="padding:4px 10px;">‹</button>
-            <span id="pageInfo" class="muted">Showing 0 of 0</span>
-            <button id="nextPage" class="btn-primary" title="Next" style="padding:4px 10px;">›</button>
-          </div>
+          
           <div class="table-wrap align-left-tight" style="overflow-x: auto; max-width: 100%;">
             <table class="data" id="leaks-table" style="max-width: 100%; table-layout: fixed;">
               <thead>

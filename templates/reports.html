@@ -47,16 +47,16 @@
         }
         
         .btn-load {
-            background: var(--secondary-color, #50C878);
+            background: #2ecc71;
             color: white;
         }
         
         .btn-load:hover {
-            background: var(--secondary-hover, #45B068);
+            background: #238343;
         }
         
         .btn-download-saved {
-            background: var(--primary-color, #4A90E2);
+            background: #4a9eff;
             color: white;
         }
         
@@ -70,7 +70,7 @@
         }
         
         .btn-delete:hover {
-            background: #c0392b;
+            background: #dd082f;
         }
         
         .empty-saved-reports {
@@ -246,7 +246,7 @@
                     card.innerHTML = `
                         <div class="saved-report-info">
                             <h4>${escapeHtml(report.title)}</h4>
-                            <div class="saved-report-meta">
+                            <div class="saved-report-meta" style="margin-right: 25px;">
                                 <span><i class="fa-solid fa-file"></i> ${report.element_count} elements</span> •
                                 <span><i class="fa-regular fa-calendar"></i> Created: ${createdDate}</span> •
                                 <span><i class="fa-regular fa-clock"></i> Updated: ${updatedDate}</span>

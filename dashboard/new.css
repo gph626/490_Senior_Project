@@ -425,7 +425,7 @@ section.report-section {
     padding: 18px 18px 12px 18px;
     border-radius: 8px;
     margin-bottom: 16px;
-    width: auto;
+    width: 540px;
     max-width: 540px;
     min-width: 180px;
     margin-left: auto;
@@ -495,6 +495,7 @@ table.data {
     max-width: 100%;
     width: 97%;
     overflow: visible;
+    padding-top: 15px;
 }
 
 #leaksSection .table-wrap {
@@ -970,4 +971,8 @@ details[open] summary:after {
 
 .crawler_options {
     text-align: center;
+}
+
+.steps p {
+    margin-bottom: 50px;
 }

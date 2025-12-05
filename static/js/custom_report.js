@@ -852,16 +852,21 @@ function closeModal(modalId) {
 }
 
 // Generate preview
-async function generatePreview() {
+async function generatePreviewInModal() {
     const config = {
         title: document.getElementById('reportTitle').value,
         filename: document.getElementById('reportFilename').value,
         elements: elements
     };
     
-    const previewContainer = document.getElementById('previewContainer');
-    previewContainer.innerHTML = '<p>Generating preview...</p>';
+    const modal = document.getElementById('previewModal');
+    const modalContainer = document.getElementById('modalPreviewContainer');
+    modalContainer.innerHTML = '<p>Generating preview...</p>';
     
+    // Show the modal
+    modal.classList.add('active');
+
+
     try {
         const response = await fetch('/api/reports/preview', {
             method: 'POST',
@@ -874,16 +879,32 @@ async function generatePreview() {
         const data = await response.json();
         
         if (data.success) {
-            previewContainer.innerHTML = `
+            modalContainer.innerHTML = `
                 <iframe class="pdf-preview" src="data:application/pdf;base64,${data.pdf_data}"></iframe>
             `;
         } else {
-            previewContainer.innerHTML = `<p style="color: #ffffff;">Error: ${data.error}</p>`;
+            modalContainer.innerHTML = `<p style="color: #ffffff;">Error: ${data.error}</p>`;
         }
     } catch (error) {
-        previewContainer.innerHTML = `<p style="color: #ffffff;">Error generating preview: ${error.message}</p>`;
+        modalContainer.innerHTML = `<p style="color: #ffffff;">Error generating preview: ${error.message}</p>`;
     }
 }
+
+// Close modal logic
+document.getElementById('closeModal').onclick = () => {
+    document.getElementById('previewModal').classList.remove('active');
+};
+
+// Close modal if clicking outside content
+window.onclick = (event) => {
+    const modal = document.getElementById('previewModal');
+    if (event.target === modal) {
+        modal.style.display = 'none';
+    }
+};
+
+// Attach icon click
+document.getElementById('previewIcon').onclick = generatePreviewInModal;
 
 // Download PDF
 async function downloadPDF() {

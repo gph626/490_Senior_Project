@@ -6,9 +6,48 @@
     <title>Login</title>
     <link rel="stylesheet" href="/dashboard/base.css">
     <link rel="stylesheet" href="/dashboard/new.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <style>
+        h1 {
+            font-size: 48px;
+            font-weight: 800;
+            color: black;
+            text-shadow: 2px 1px 3px rgba(0, 0, 0, 0.5); /* 1px offset, 3px blur, semi-transparent black */
+        }
+
+        h2 {
+            font-size: 32px;
+            font-weight: 400;
+        }
+
+        h3 {
+            font-size: 28px;
+            font-weight: 400;
+        }
+
+        #login-auth {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .branding {
+            text-align: center;
+            margin-bottom: 25px;
+            color: #ECECEC;
+        }
+
+        #heading-highlight {
+            color: #a7001d;
+        }
+
+    </style>
 </head>
 <body>
-    <div class="modern-auth-bg">
+    <div class="modern-auth-bg" id="login-auth">
+        <div class="branding">
+            <h1>Dark<span id="heading-highlight">Widow</span></h1>
+            <h3><span id="tagline-1" class="animate__animated animate__fadeInLeft">Know what's out there. </span><span id="tagline-2" class="animate__animated animate__fadeInLeft animate__delay-1s">Protect what's yours.</span></h3>
+        </div>
         <div class="modern-auth-card">
                         <h2 class="modern-auth-title">Login</h2>
                         {% with messages = get_flashed_messages(with_categories=true) %}

@@ -170,7 +170,6 @@
         .actions {
             display: flex;
             gap: 10px;
-            margin-top: 20px;
             justify-content: flex-end;
         }
 
@@ -345,6 +344,21 @@
         label span {
             color: #ffffff;
         }
+
+        .close {
+            color: #fff;             /* White color for visibility */
+            font-size: 28px;         /* Large enough to click */
+            font-weight: bold;
+            position: absolute;      /* Position in top-right corner */
+            top: 10px;
+            right: 20px;
+            cursor: pointer;
+            z-index: 1001;           /* Above the PDF iframe */
+        }
+
+        .close:hover {
+            color: #ff0000;          /* Optional: red on hover */
+        }
     </style>
 </head>
 <body>
@@ -373,7 +387,7 @@
                 <!-- Canvas Area -->
                 <div class="canvas-area">
                     <div class="actions">
-                        <button class="action-btn" onclick="generatePreview()" data-tooltip="Preview"><i class="fa-solid fa-eye"></i></button>
+                        <button class="action-btn" onclick="generatePreviewInModal()" data-tooltip="Preview"><i class="fa-solid fa-eye"></i></button>
                         <button class="action-btn" onclick="saveReport()" data-tooltip="Save"><i class="fa-solid fa-save"></i></button>
                         <button class="action-btn" onclick="downloadPDF()" data-tooltip="Download"><i class="fa-solid fa-download"></i></button>
                     </div>
@@ -406,27 +420,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Preview Panel -->
-                <!-- <div class="preview-panel">
-                    <h3>Preview</h3>
-                    <div id="previewContainer" class="preview-placeholder">
-                        <i class="fa-regular fa-file-pdf"></i>
-                        <p>Click "Generate Preview" to see your PDF</p>
-                    </div>
-                    
-                    <div class="action-buttons">
-                        <button class="btn-preview" onclick="generatePreview()">
-                            <i class="fa-solid fa-eye"></i> Generate Preview
-                        </button>
-                        <button class="btn-preview" onclick="saveReport()" style="background: #50C878;">
-                            <i class="fa-solid fa-save"></i> Save Report
-                        </button>
-                        <button class="btn-download" onclick="downloadPDF()">
-                            <i class="fa-solid fa-download"></i> Download PDF
-                        </button>
-                    </div>
-                </div> -->
             </div>
         </main>
     </div>
@@ -482,6 +475,17 @@
                     <button class="load-data-btn" onclick="addSelectedCharts()" style="width: 100%; margin-top: 10px;">
                         Add Selected Charts
                     </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Preview Modal -->
+    <div>
+        <div id="previewModal" class="modal">
+            <div class="modal-content">
+                <button class="close-modal" id="closeModal" onclick="closeModal('closeModal')">&times;</button>
+                <div id="modalPreviewContainer">
+                    <p>Generating preview...</p>
                 </div>
             </div>
         </div>

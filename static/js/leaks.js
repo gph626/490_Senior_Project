@@ -146,7 +146,7 @@
 
   async function runPastebin(){
     const runStatus = document.getElementById('runStatus');
-    runStatus.textContent = 'Running…';
+    runStatus.textContent = 'Running Pastebin crawler…';
     try {
       const res = await fetch('/api/crawlers/pastebin/run', {
         method: 'POST',
@@ -161,25 +161,27 @@
       if (!res.ok) throw new Error(data.message || 'Error');
       runStatus.textContent = `Done. Inserted: ${data.inserted}`;
       await loadLeaks();
+      return data.inserted;
     } catch (e){
       runStatus.textContent = 'Error: ' + e.message;
+      throw e;
     }
   }
 
   async function runTor(){
-    const status = document.getElementById('torStatus');
-    status.textContent = 'Running…';
-    const port = (document.getElementById('torPort').value || '').trim();
+    const status = document.getElementById('runStatus');
+    status.textContent = 'Running Tor crawler…';
+    const port = (document.getElementById('torPort')?.value || '').trim();
     try {
       const h = await fetch(`/api/proxy/tor/health?port=${encodeURIComponent(port||'9150')}`);
       const hj = await h.json();
       if (!hj.ok){
-        status.textContent = `Tor proxy not reachable on 127.0.0.1:${hj.port}. Start Tor Browser (port 9150) or tor.exe (set port accordingly).`;
-        return;
+        status.textContent = `Tor proxy not reachable on 127.0.0.1:${hj.port}. Start Tor Browser (port 9150) or tor.exe.`;
+        throw new Error('Tor proxy not available');
       }
     } catch(e){
       status.textContent = 'Tor health check failed: ' + e.message;
-      return;
+      throw e;
     }
     try {
       const res = await fetch('/api/crawlers/tor/run', {
@@ -195,16 +197,18 @@
       if (!res.ok) throw new Error(data.message || 'Error');
       status.textContent = data.fetched ? `Done. (${data.url})` : 'No content fetched.';
       await loadLeaks();
+      return data.fetched ? 1 : 0;
     } catch (e){
       status.textContent = 'Error: ' + e.message;
+      throw e;
     }
   }
 
   async function runI2P(){
-    const status = document.getElementById('i2pStatus');
-    status.textContent = 'Running…';
-    const url = (document.getElementById('i2pUrl').value || '').trim();
-    const port = (document.getElementById('i2pPort').value || '').trim();
+    const status = document.getElementById('runStatus');
+    status.textContent = 'Running I2P crawler…';
+    const url = (document.getElementById('i2pUrl')?.value || '').trim();
+    const port = (document.getElementById('i2pPort')?.value || '').trim();
     try {
       const h = await fetch(`/api/proxy/i2p/health?port=${encodeURIComponent(port||'4444')}`);
       const hj = await h.json();
@@ -227,9 +231,12 @@
       }
     } catch(e){
       status.textContent = 'I2P health check failed: ' + e.message;
-      return;
+      throw e;
     }
-    if (!url){ status.textContent = 'URL required (proxy is available)'; return; }
+    if (!url){ 
+      status.textContent = 'URL required (proxy is available)'; 
+      throw new Error('URL required');
+    }
     try {
       const res = await fetch('/api/crawlers/i2p/run', {
         method: 'POST',
@@ -244,15 +251,17 @@
       if (!res.ok) throw new Error(data.message || 'Error');
       status.textContent = data.mocked ? 'Inserted mock leak' : (data.fetched ? 'Done.' : 'No content fetched.');
       await loadLeaks();
+      return data.fetched || data.mocked ? 1 : 0;
     } catch (e){
       status.textContent = 'Error: ' + e.message;
+      throw e;
     }
   }
 
 
   async function runGithub(){
-    const status = document.getElementById('githubStatus');
-    status.textContent = 'Running…';
+    const status = document.getElementById('runStatus');
+    status.textContent = 'Running GitHub crawler…';
     try {
       const res = await fetch('/api/crawlers/github/run', {
         method: 'POST',
@@ -267,8 +276,10 @@
       if (!res.ok) throw new Error(data.message || 'Error');
       status.textContent = `Done. Inserted: ${data.inserted}`;
       await loadLeaks();
+      return data.inserted;
     } catch (e){
       status.textContent = 'Error: ' + e.message;
+      throw e; // Re-throw so outer handler knows about the error
     }
   }
 
@@ -286,16 +297,15 @@
     runBtn.addEventListener('click', async () => {
       const selectedCrawler = document.querySelector('input[name="crawler"]:checked');
 
-
       if (!selectedCrawler) {
             statusSpan.textContent = 'Please select a crawler.';
             return;
       }
 
-      statusSpan.textContent = `Running ${selectedCrawler.id.replace('Btn','')}...`;
-
+      runBtn.disabled = true;
       const crawler = selectedCrawler.value;
-          try {
+      
+      try {
             switch (crawler) {
                 case 'pastebin':
                     await runPastebin();
@@ -313,11 +323,9 @@
                     statusSpan.textContent = 'Unknown crawler selected.';
                     return;
             }
-
-            statusSpan.textContent = `${crawler} completed successfully.`;
         } catch (err) {
             console.error(err);
-            statusSpan.textContent = `Error running ${crawler}.`;
+            // Status already set by individual crawler function
         } finally {
             runBtn.disabled = false;
         }

@@ -301,7 +301,7 @@ def redirect_html_to_clean():
 def home():
     if not session.get('logged_in'):
         return send_from_directory(os.path.join(PROJECT_ROOT, 'auth'), 'register.html')
-    return redirect('/dashboard/')
+    return redirect('/homepage/')
 
 
 # Small API status endpoint (keeps API root JSON-friendly)
@@ -2736,7 +2736,7 @@ def login():
     session['username'] = user.username
     session['user_id'] = user.id
     flash("Welcome back, {}!".format(user.username), "success")
-    return redirect('/dashboard/')
+    return redirect('/')
 
 # Logout route
 @app.route("/logout", methods=["GET", "POST"])

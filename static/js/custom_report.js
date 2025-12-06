@@ -880,7 +880,7 @@ async function generatePreviewInModal() {
         
         if (data.success) {
             modalContainer.innerHTML = `
-                <iframe class="pdf-preview" src="data:application/pdf;base64,${data.pdf_data}"></iframe>
+                <iframe class="pdf-preview" src="data:application/pdf;base64,${data.pdf_data}#toolbar=1&navpanes=1&scrollbar=1&view=FitH" style="width:100%;height:calc(100vh - 200px);"></iframe>
             `;
         } else {
             modalContainer.innerHTML = `<p style="color: #ffffff;">Error: ${data.error}</p>`;

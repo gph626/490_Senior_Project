@@ -207,6 +207,8 @@
             height: calc(100vh - 200px);
             border: none;
             border-radius: 6px;
+            zoom: 1;
+            transform-origin: center;
         }
 
         .preview-placeholder {
@@ -278,10 +280,11 @@
             background: var(--card-bg, #1e1e1e);
             padding: 30px;
             border-radius: 8px;
-            max-width: 90%;
-            width: 90%;
-            max-height: 90vh;
+            max-width: 60%;
+            width: 60%;
+            max-height: 85vh;
             overflow-y: auto;
+            position: relative;
         }
 
         .modal-header {
@@ -302,8 +305,8 @@
             color: #ffffff;
             cursor: pointer;
             position: absolute;
-            top: 70px;
-            right: 440px;
+            top: 5px;
+            right: 10px;
         }
 
         .load-data-section {

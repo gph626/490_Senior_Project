@@ -289,30 +289,30 @@
                                 <div style="font-size: 13px; line-height: 1.6; color: #b8bcc4;">
                                     <p style="margin: 6px 0;"><strong>Data Collection Method:</strong></p>
                                         <ul style="margin: 4px 0 8px 20px; padding: 0;">
-                                            <li>Fetches the public Pastebin archive page (pastebin.com/archive)</li>
-                                            <li>Extracts recent paste links from the archive table</li>
-                                            <li>Visits each paste URL to retrieve full content</li>
-                                            <li>Respects rate limits between requests (configurable delay)</li>
+                                            <li>Routes through SOCKS5 proxy (default port 9050 or 9150) to access .onion hidden services</li>
+                                            <li>Requires local Tor instance (Tor Browser on port 9150 or standalone tor.exe on port 9050)</li>
+                                            <li>Fetches full HTML content from provided .onion URLs</li>
+                                            <li>Supports configurable retry logic with exponential backoff for slow connections</li>
                                         </ul>
                                     
                                     <p style="margin: 6px 0;"><strong>Data Extracted:</strong></p>
                                         <ul style="margin: 4px 0 8px 20px; padding: 0;">
-                                            <li><strong>Paste Content:</strong> Full text from paste_code textarea or source div</li>
-                                            <li><strong>Metadata:</strong> Title, paste ID, poster username (if available), URL</li>
-                                            <li><strong>Entities:</strong> SSNs, emails, passwords, phone numbers, physical addresses, credit cards</li>
-                                            <li><strong>Language:</strong> Detected programming/natural language of content</li>
+                                            <li><strong>Page Content:</strong> Full HTML text content from .onion sites</li>
+                                            <li><strong>Metadata:</strong> Page title, source URL, timestamp, content length</li>
+                                            <li><strong>Entities:</strong> SSNs, emails, passwords, credit cards, phone numbers, physical addresses, IPs, domains, Bitcoin wallets, names</li>
+                                            <li><strong>Language:</strong> Auto-detected content language</li>
                                         </ul>
                                     
                                     <p style="margin: 6px 0;"><strong>Classification Process:</strong></p>
                                         <ul style="margin: 4px 0 8px 20px; padding: 0;">
-                                            <li><strong>Entity Extraction:</strong> Scans content using regex patterns for sensitive data (SSN, emails, passwords, etc.)</li>
-                                            <li><strong>Asset Matching:</strong> Compares extracted entities against your configured watchlist (names, SSNs, phones, addresses)</li>
-                                            <li><strong>Threat Typing:</strong> Classifies as "credential_dump" if keywords like "combo list", "password", "leak" are present; otherwise "generic_paste"</li>
-                                            <li><strong>Severity Scoring:</strong> Calculates severity based on entity types and asset matches (critical → high → medium → low → zero)</li>
-                                            <li><strong>Confidence Rating:</strong> High confidence (0.9) if asset matches found, lower (0.4) otherwise</li>
-                                            <li><strong>Deduplication:</strong> Uses SHA-256 hash of content to prevent storing duplicate pastes</li>
+                                            <li><strong>Entity Extraction:</strong> Scans page content using regex patterns for sensitive data types</li>
+                                            <li><strong>Asset Matching:</strong> Compares extracted entities against your configured watchlist</li>
+                                            <li><strong>Threat Typing:</strong> Auto-tags based on keywords: "dump", "breach", "login", "database", "leak"</li>
+                                            <li><strong>Severity Scoring:</strong> SSN/Password/Credit Card = 100 pts (Critical); Addresses = 35 pts; Phones = 20 pts; Emails = 5 pts</li>
+                                            <li><strong>Content Redaction:</strong> Sensitive fields hashed with SHA-256 before storage</li>
+                                            <li><strong>Deduplication:</strong> SHA-256 content fingerprint prevents storing identical pages</li>
                                         </ul>
-                                    <p style="margin: 6px 0;"><strong>Best Use Cases:</strong> Monitoring for leaked credentials, combo lists, database dumps, and publicly posted sensitive information</p>
+                                    <p style="margin: 6px 0;"><strong>Best Use Cases:</strong> Monitoring darknet marketplaces, breach forums, paste sites, and underground databases for leaked organizational data</p>
                                 </div>
                            </details>
                         </div>

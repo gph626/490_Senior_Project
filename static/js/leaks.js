@@ -326,15 +326,10 @@
     
 
 
-    // Removed tab switching - no longer using tabs on leaks page
-    // document.getElementById('runPastebinBtn')?.addEventListener('click', runPastebin);
-    // document.getElementById('runTorBtn')?.addEventListener('click', runTor);
-    // document.getElementById('runI2PBtn')?.addEventListener('click', runI2P);
-    // document.getElementById('applyFilters')?.addEventListener('click', () => applyAndRender(true));
-    // document.getElementById('prevPage')?.addEventListener('click', () => { CURRENT_PAGE -= 1; applyAndRender(false); });
-    // document.getElementById('nextPage')?.addEventListener('click', () => { CURRENT_PAGE += 1; applyAndRender(false); });
-    // // Removed watchlist/assets code - now managed in config page
-    // document.getElementById('runGithubBtn')?.addEventListener('click', runGithub);
+    // Filter and pagination controls
+    document.getElementById('applyFilters')?.addEventListener('click', () => applyAndRender(true));
+    document.getElementById('prevPage')?.addEventListener('click', () => { CURRENT_PAGE -= 1; applyAndRender(false); });
+    document.getElementById('nextPage')?.addEventListener('click', () => { CURRENT_PAGE += 1; applyAndRender(false); });
     document.getElementById('insertMockLeaksBtn')?.addEventListener('click', async () => {
       const status = document.getElementById('mockInsertStatus');
       status.textContent = 'Inserting…';

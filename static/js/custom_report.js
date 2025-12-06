@@ -899,7 +899,7 @@ document.getElementById('closeModal').onclick = () => {
 window.onclick = (event) => {
     const modal = document.getElementById('previewModal');
     if (event.target === modal) {
-        modal.style.display = 'none';
+        modal.classList.remove('active');
     }
 };
 
